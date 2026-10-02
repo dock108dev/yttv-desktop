@@ -1,0 +1,17 @@
+.DS_Store
+node_modules/
+dist/
+build/
+coverage/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.log
+.local/
+browser-profiles/
+raw-captures/
+docs/evidence/runs/**/scratch/

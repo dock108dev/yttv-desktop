@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared React Watch/Guide/Sports/QuadBox views, keyboard and accessible focus. Receives domain view models and callbacks."
+}

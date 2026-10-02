@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/storage",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Versioned local preferences and validated layouts behind browser storage bridges; no new account/sync service."
+}

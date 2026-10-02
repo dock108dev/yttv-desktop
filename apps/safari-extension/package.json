@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/safari-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Future Safari browser bridge/package sharing domain/UI modules, with independent playback/API validation."
+}

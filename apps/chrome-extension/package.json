@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/chrome-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Proposed MV3 reference shell, content-script/Side Panel bridges and tab/window lifecycle. No loadable extension manifest exists yet."
+}

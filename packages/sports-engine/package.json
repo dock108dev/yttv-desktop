@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/sports-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "League/provider normalization, polling, freshness, active-event tracking and search independent of YouTube TV DOM or QuadBox."
+}
