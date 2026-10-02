@@ -1,29 +1,35 @@
 # Local development workflow
 
-Current project is planning-only. No dependency install, runnable extension, Swift project, application server or playback harness exists. Python 3 and git were found on this Mac; browser versions are uninspected. TypeScript/React/MV3 are proposed choices, not installed libraries or verified runtime behavior.
+Updated 2026-10-02. TypeScript, React, esbuild and a pinned npm lockfile support the local Chrome client. Safari/native remain placeholders. Local build is distinct from live playback or release qualification.
 
-## Tree and entry points
-
-`apps/` contains chrome-extension, safari-extension and macos placeholders. `packages/` contains core, ui, sports-engine, yttv-adapter, event-resolver, quadbox and storage placeholders. Each has a private manifest/README describing its role. The root manifest declares workspace paths but no dependencies, entry points or build command. Native placeholder manifest is only workspace bookkeeping; it does not imply Swift is an npm app.
-
-`tests/fixtures/` is a planned case catalog; there are no implemented product tests. `docs/evidence/templates/` contains unexecuted record templates. `docs/evidence/runs/README.md` is empty-run guidance, not a session result. `scripts/check_docs.py` is the only implemented utility and performs offline scaffold/document checks.
+## Build and tests
 
 ```sh
 cd /Users/michaelfuscoletti/Desktop/yttv-desktop
-python3 scripts/check_docs.py
-git status --short
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm run docs:check
+npm run preview
 ```
 
-Do not run npm install merely to inspect the plan: there are no dependencies. The optional root `docs:check` script calls the same Python checker. A runtime toolchain, dependency versions, lockfile and build/test scripts should be chosen in C1-01 after relevant feasibility gates and only within the requested implementation scope.
+`dist/chrome-extension` contains the MV3 bundle. The build fails if host access expands beyond `https://tv.youtube.com/*` or the permission list differs from storage. The preview server binds only 127.0.0.1:4173 and serves the explicit fixture demo; it has no backend/auth/protected playback. Tests use synthetic fixtures and fake audio ports; they do not qualify real playback or provider correctness.
 
-## Sources of truth
+## Approved local Chrome installation
 
-README/START_HERE route readers. NEXT_TASK owns the active bounded task. ROADMAP owns phase sequence. BACKLOG owns task status. DECISIONS retains rationale and evidence references. The Desktop `yttv_next_steps.md` is a pointer with the same next task and readiness; update it when the active task changes. Avoid independently maintained duplicate detailed plans.
+The user approved loading this local extension with tv.youtube.com access, tab controls and local preferences. Open chrome://extensions, enable developer mode if needed, choose Load unpacked and select `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`. Use Reload after rebuilding. Refresh only test-created YouTube TV tabs so the content script runs. Open the native Live guide to observe channel candidates, then use the Desktop drawer. Normal YTTV account/player controls stay on the page.
 
-For planning edits, check local links/readiness and read the affected documents. For behavior changes, add/run focused relevant tests and record fixture versus browser/live evidence. For a future experiment, use a new immutable dated run folder, record source revision/environment, complete the session/matrix, then update the decision and next task. If repaired, retain failed evidence and qualify the new revision separately.
+No cookies, credentials, webRequest, capture, broad tabs permission or all-sites access is requested. Public ordinary watch-page hrefs are volatile in-memory navigation targets, not protected media URLs. Saved layouts retain channel/event IDs; fresh targets must be revalidated.
 
-## Repository and evidence hygiene
+All real player/tab audio is locked muted overnight. Selecting a pane changes window focus only. Audible audio focus remains NOT RUN and cannot be silently enabled from imported preferences.
 
-Private local git on main; no remote, push, GitHub repo, publication or scheduled automation. Initial commit records this planning baseline. Ignore node_modules/build outputs, local environment/secrets, browser profiles, raw captures and scratch evidence. Commit only sanitized reviewed measurements and metadata; ignore rules alone cannot make a secret safe. Do not embed credentials, protected content or signed playback URLs in a Markdown record.
+## Scope and fallbacks
 
-No sibling project is a dependency. Do not copy another project's acceptance counts, runtime state or release authority. Git status/link validation does not establish playback qualification or product acceptance.
+The local client provides a dense observed guide and shared state/fixture Sports contracts. Sports fixture actions cannot resolve against live guide evidence. The multi-view fallback controls separate ordinary muted browser windows; it does not render protected streams inside the controller. The total watch-session cap is conservative and does not establish the account allowance. Four sessions are disabled pending verified allowance and reliability.
+
+## Evidence and source of truth
+
+[NEXT_TASK](../NEXT_TASK.md) owns the active task; [ROADMAP](ROADMAP.md) phase sequencing; [BACKLOG](BACKLOG.md) task state. [Run records](evidence/runs/README.md) list checks actually performed, limitations and environment. Do not infer beta readiness from a successful build or fixture test. Preserve failed runs and qualify repaired revisions separately.
+
+Private local git only; no remote, push, publication, purchases or provider accounts. Ignore dependencies, dist, secrets, browser profiles and raw protected/private evidence. Do not log account identifiers, tokens or protected content. Do not modify siblings.

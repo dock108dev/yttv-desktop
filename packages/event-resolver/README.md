@@ -1,7 +1,5 @@
-# Event resolver
+# event-resolver
 
-Status: placeholder only; no implementation, dependencies, build or runtime tests.
+Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
 
-Event/network/channel/target mapping with confidence, provenance and explicit ambiguity/entitlement states.
-
-See [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md) and [next task](../../NEXT_TASK.md). Do not begin product work from this placeholder without the corresponding scoped task.
+[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.

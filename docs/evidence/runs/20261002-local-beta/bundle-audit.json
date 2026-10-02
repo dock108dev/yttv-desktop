@@ -1,0 +1,23 @@
+{
+  "version": "0.1.3",
+  "permissions": [
+    "storage"
+  ],
+  "hosts": [
+    "https://tv.youtube.com/*"
+  ],
+  "tests_passed": 46,
+  "typecheck": "PASS",
+  "build": "PASS",
+  "syntax_and_asset_refs": "PASS",
+  "bundle_sha256": {
+    "content.css": "efb59dd918e6938613890fe677444e50abb601798fa5ad82427507505577afb5",
+    "background.js": "da40e98edcc7f48220e0dcdc79aaf3309f17d211493702b5059b4d2fbb0fe77b",
+    "panel.js": "4d5b306116d357e42515ea78a76b1c3fb3361d9d20639862650f4ce4a300dd8c",
+    "panel.html": "d863a609f93f24379d38a4a1373b51bfc84ba46339089242b3e47b181129492e",
+    "manifest.json": "c883752d7d8304320dbdd24a1ddbfb94476cd147ec4136bd3975eb63d4574654",
+    "content.js": "8dfdf6ba0b33f8d1e263e4f3c34346fc044313f1f4095824a6c4632deae79669",
+    "demo.html": "3c9e7900572da3fde9e8f91d66ce5922e722a9874d842ed4cfef7fc43fdd7233",
+    "panel.css": "efb59dd918e6938613890fe677444e50abb601798fa5ad82427507505577afb5"
+  }
+}

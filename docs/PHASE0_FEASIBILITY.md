@@ -1,6 +1,6 @@
 # Phase 0 feasibility plan
 
-Status: **all experiments NOT RUN**. Next is [P0-A1](../NEXT_TASK.md). These are future bounded experiments; no account, extension, browser, credential or stream was accessed in setup. Public-source review is in [SOURCES](SOURCES.md).
+Status: full capability gates remain unqualified. [Limited authenticated muted Chrome observations](evidence/runs/20261002-local-beta/auth-baseline.md) now exist after a later explicit implementation/test request. [NEXT_TASK](../NEXT_TASK.md) owns current scope. The original setup did not access accounts/streams. Overnight audio must remain muted, overriding audible portions of planned procedures. Public-source review is in [SOURCES](SOURCES.md).
 
 ## Evidence and prerequisites
 

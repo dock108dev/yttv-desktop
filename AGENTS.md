@@ -2,7 +2,7 @@
 
 Read README.md, NEXT_TASK.md and the documents relevant to the requested change. NEXT_TASK.md owns the active task; docs/ROADMAP.md owns phase sequencing and docs/BACKLOG.md owns item status. The Desktop yttv_next_steps.md is a pointer, not an independent backlog.
 
-This is currently a documentation-first project. Keep new work bounded to the current user request. Installation, account access, sign-in, live playback, capture, provider provisioning, remote repository work and publication require a task that expressly includes those actions. Documentation setup alone does not include them.
+This project began documentation-first; a later explicit user request authorized local implementation, ordinary playback and the narrowly scoped unpacked Chrome extension. All real audio must stay muted overnight. Keep new work bounded to the current user request. Installation, account access, sign-in, live playback, capture, provider provisioning, remote repository work and publication require a task that expressly includes those actions. Documentation setup alone does not include them.
 
 Preserve authorized YouTube TV playback and account controls. No DRM decryption, protected-stream proxying, credential extraction, reverse engineering of DRM or account/platform restriction circumvention. Capability failure must produce an explicit unavailable result and a supported fallback.
 

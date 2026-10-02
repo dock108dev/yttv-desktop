@@ -1,6 +1,6 @@
 # User acceptance and test plan
 
-Status 2026-10-02: **product tests NOT RUN; user acceptance not yet demonstrated.** Completed section 28 supplies the following explicit user criteria. Proposed engineering budgets follow separately. [Setup checks](SETUP_VERIFICATION.md) validate documents only.
+Status 2026-10-02: **43 automated fixture/mock/UI tests PASS, local fixture UI checks and limited Chrome integration observed; full user acceptance not yet demonstrated.** Completed section 28 supplies the following explicit user criteria. Proposed engineering budgets follow separately. [Setup checks](SETUP_VERIFICATION.md) validate documents only.
 
 ## Explicit user criteria — complete Chrome core MVP
 
@@ -67,7 +67,7 @@ Phase 1 can pass AC01–AC05/AC13 for a single-playback foundation milestone. Ph
 
 ## Planned automated tests
 
-No application or automated behavior tests exist yet. [tests/README](../tests/README.md) owns future placement; [fixture catalog](../tests/fixtures/README.md) lists cases.
+Automated domain/adapter/mock Chrome tests exist and pass; local fixture UI checks and limited real guide/channel checks are recorded in the dated run. Broader tests below remain planned unless that run explicitly records them. [tests/README](../tests/README.md) owns future placement; [fixture catalog](../tests/fixtures/README.md) lists cases.
 
 - Core/sports: each league normalization, nullable score/clock, state transitions including corrections, guide-end override, delay/late start/overrun, stale/unknown and paused updates, timezone/midnight, tracked IDs after empty live feed, postponed/makeup identity.
 - Resolver: stable IDs/channel names, aliases/local affiliate differences, team/league/start match, conflicting evidence, confidence tie/margin, multiple broadcasts, unavailable entitlement, stale target and network moves.
@@ -76,11 +76,11 @@ No application or automated behavior tests exist yet. [tests/README](../tests/RE
 - Provider adapters/search: rate/error/backoff/429, cache/freshness/source timestamps, payload missing fields, coverage gaps, pagination, query matching and stable identifiers. Replay/fixtures label their evidence class.
 - Browser: navigation/current channel/program, guide updates, channel switching, original player controls, replacement/SPA survival, duplicate injection/observer cleanup, editable input shortcuts and enhancement failure isolation.
 
-## Manual device matrix — all NOT RUN
+## Manual device matrix — qualification incomplete
 
 | Environment | Required future evidence | Current status |
 | --- | --- | --- |
-| Chrome / macOS | Single playback → 2/3/4 as permitted, audio/targets, injection/SPA, 720p/1080p availability, resources and chosen route | NOT RUN; browser version uninspected |
+| Chrome / macOS | Single playback → 2/3/4 as permitted, audio/targets, injection/SPA, 720p/1080p availability, resources and chosen route | Limited 720p muted auth/guide/channel observations in Chrome154; full continuous/audio/performance/count matrix unqualified |
 | Chrome / Windows | Same relevant matrix on actual Windows hardware | NOT RUN; cannot qualify from this Mac |
 | Safari / macOS | Auth/protected playback, shared bridge, injection, storage/shortcuts, sessions/background/audio/performance/route | NOT RUN; independent qualification required |
 | Native / macOS | Auth/persistence/protected playback first, then multiple views/GPU/fullscreen/audio/reuse | DEFERRED; WKWebView compatibility unverified |

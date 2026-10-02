@@ -1,6 +1,6 @@
 # Setup verification
 
-Prepared 2026-10-02. This document describes the scope of the machine-readable [validation record](setup-validation.json), generated after the scaffold check. It is setup evidence, not application evidence.
+Historical initial setup record, prepared 2026-10-02 before the later implementation request. Statements below describe that initial commit only. Current implementation/live status is in the [run records](evidence/runs/README.md). This document describes the scope of the machine-readable [validation record](setup-validation.json), generated after the scaffold check. It is setup evidence, not application evidence.
 
 ## Checks actually performed for this setup
 

@@ -1,17 +1,14 @@
 # Start here
 
-Prepared 2026-10-02. **Planning is ready; product feasibility remains untested.**
+Updated 2026-10-02. The user expanded documentation setup into an overnight local Chrome implementation. The requested account was already signed in, and normal muted playback was observed. The [run record](docs/evidence/runs/20261002-local-beta/auth-baseline.md) states exactly what that establishes.
 
-1. Read [PRODUCT](docs/PRODUCT.md) for the intended experience and preserved requirements.
-2. Read [NEXT_TASK](NEXT_TASK.md) for exactly one bounded Phase 0 baseline.
-3. Use [PHASE0_FEASIBILITY](docs/PHASE0_FEASIBILITY.md) to understand later gates and fallback decisions.
-4. Copy the [session template](docs/evidence/templates/session.md) into a new dated run folder only when that run is actually started. The [evidence index](docs/evidence/README.md) explains evidence classes and sanitization.
-5. Update the [decision log](docs/DECISIONS.md), [backlog](docs/BACKLOG.md) and next task after reviewing the evidence.
+1. Read [Development](docs/DEVELOPMENT.md) for local build, load and fixture-preview instructions.
+2. Read [NEXT_TASK](NEXT_TASK.md) for the active bounded qualification and stop conditions.
+3. Read [PRODUCT](docs/PRODUCT.md) and [acceptance](docs/ACCEPTANCE_AND_TEST_PLAN.md) for the complete 18 criteria. A fixture Sports screen or managed-window fallback does not satisfy full live Sports/QuadBox acceptance.
+4. Consult [Phase 0](docs/PHASE0_FEASIBILITY.md), [backlog](docs/BACKLOG.md), [decision log](docs/DECISIONS.md) and [sources](docs/SOURCES.md).
 
-The setup performed here created documents and directories, checked their consistency, and initialized local git. There is no live session record and every playback/provider/browser test is **NOT RUN**. Browser versions, account stream allowance and channel entitlements have not been inspected.
+Every real test player stays muted overnight. Native YouTube TV controls remain accessible beneath the enhancement. If the extension fails, close its drawer or disable it and use normal playback.
 
-The narrow next task is P0-A1: a later authorized Chrome/macOS two-session baseline using ordinary supported playback surfaces. It is a feasibility check, not the start of the full product. If the prerequisites are absent, record BLOCKED and stop.
+Sports fixtures are illustrative; no production provider has been connected. Four-stream feasibility, audible audio handoff, Safari, Windows and native macOS remain separate unqualified gates. The Chrome core MVP spans guide/navigation, Sports/resolver and conditional QuadBox; Phase 1 single playback alone is an interim milestone.
 
-The completed section 28 defines the Chrome core MVP: guide/navigation, Sports with actual game state, resolver, conditional arbitrary 2–4-feed QuadBox and the complete audio/expand/replace/final-game workflow. The [acceptance plan](docs/ACCEPTANCE_AND_TEST_PLAN.md) preserves all 18 user criteria and the representative flow. Safari is the next release gate; native macOS is a separate feasibility phase. Measurement budgets are engineering proposals, distinct from the user's requirements.
-
-Find everything in the [documentation index](docs/README.md). The [Desktop tracker](../yttv_next_steps.md) always points back here.
+The [Desktop tracker](../yttv_next_steps.md) points back here; the [documentation index](docs/README.md) lists the planning documents.

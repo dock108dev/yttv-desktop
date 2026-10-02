@@ -1,7 +1,15 @@
 # Chrome extension
 
-Status: placeholder only; no implementation, dependencies, build or runtime tests.
+Local implementation is in `src/`; build with `npm run build` from the repository root. The unpacked package is `dist/chrome-extension`. Loading or reloading this package is a browser action performed separately from the build. This document does not establish that it is installed or that protected playback passed.
 
-Proposed MV3 reference shell, content-script/Side Panel bridges and tab/window lifecycle. No loadable extension manifest exists yet.
+The MV3 manifest requests **storage** and **https://tv.youtube.com/** access only. There is no cookies, capture, webRequest, broad tabs, remote code or all-sites permission. Chrome tab/window controls use the permitted host access. The floating Desktop button opens a narrow drawer in an isolated Shadow DOM; it leaves the normal YouTube TV player and account controls available. Its open/closed state is tab-scoped in extension session storage and survives ordinary full-page channel navigation; new managed windows start closed. The toolbar popup uses the same UI bridge.
 
-See [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md) and [next task](../../NEXT_TASK.md). Do not begin product work from this placeholder without the corresponding scoped task.
+Open YouTube TV’s native **Live** guide once to observe channel candidates. The adapter isolates the observed `ytu-epg-row` selectors, accepts normal supported watch links, and retains volatile targets across SPA navigation. It stores stable channel IDs in preferences and layouts; watch links are not written to local storage. Target metadata includes observation time and expires after 30 minutes. Unknown selectors, stale targets or an unconfirmed player produce explicit unavailable/pending states.
+
+Guide navigation uses the host’s ordinary link or an already observed watch page URL. Channel history advances only after the channel label and advancing player are both observed. Favorite, hidden, ordering and UI preferences are saved locally with validation. Sports fixture data is independent of host DOM parsing and must remain visibly labeled as fixtures.
+
+Managed panes are **separate browser windows**, not composed protected video inside the extension. Creation opens a blank window, mutes its tab, and only then navigates. Selection remains muted. Replacement changes only the chosen tab; expansion saves that window’s bounds, and restore returns those bounds. Closed or changed tabs are revalidated after service worker restart; no windows automatically reopen on startup. The conservative limit is three total YouTube TV watch tabs, including the original player. This software ceiling does not prove account entitlement or local simultaneous playback feasibility, and four streams remain unqualified.
+
+The user’s overnight mute instruction is enforced in the content adapter, tab controls and stored preferences. There is no unmute path. Audible handoff is untested; selecting a pane changes selection and window focus while preserving silence.
+
+Focused simulated checks are in [Chrome integration tests](../../tests/chrome-integration.test.ts) and [adapter tests](../../tests/yttv-adapter.test.ts). They cover permission boundaries, mute ordering, session bounds, replacement isolation, bounds restoration, stale guide observations, URL validation, outside sender rejection and worker recovery. Their success is not live authentication, entitlement, DRM, playback, Safari or performance evidence. See [acceptance plan](../../docs/ACCEPTANCE_AND_TEST_PLAN.md) and [evidence](../../docs/evidence/README.md) for those separate gates.

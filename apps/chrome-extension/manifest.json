@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube TV Desktop — Local Beta",
+  "description": "Compact guide and sports fixtures around the authorized YouTube TV player. All playback muted overnight.",
+  "version": "0.1.3",
+  "permissions": ["storage"],
+  "host_permissions": ["https://tv.youtube.com/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "YouTube TV Desktop", "default_popup": "panel.html" },
+  "content_scripts": [{ "matches": ["https://tv.youtube.com/*"], "js": ["content.js"], "run_at": "document_start" }],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" }
+}

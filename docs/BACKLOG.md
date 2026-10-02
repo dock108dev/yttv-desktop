@@ -1,23 +1,23 @@
 # Backlog
 
-Updated 2026-10-02. Status vocabulary: READY PLAN, NOT RUN, NOT STARTED, GATED, DEFERRED, COMPLETE (with evidence). No application work is complete.
+Updated 2026-10-02. Status vocabulary: READY PLAN, NOT RUN, NOT STARTED, GATED, DEFERRED, COMPLETE (with evidence). Local code and fixture checks exist; live integration is under qualification. Full product acceptance is open.
 
 | ID | Phase / priority | Bounded task | Depends on | Exit evidence / status |
 | --- | --- | --- | --- | --- |
 | SETUP-01 | Setup | Planning docs, Desktop tracker, private local monorepo/git scaffold | Supplied brief and Desktop conventions | [Setup verification](SETUP_VERIFICATION.md); COMPLETE after recorded checks |
-| P0-A1 | 0 / feasibility | [Single/two-session Chrome baseline](../NEXT_TASK.md), ≤45 minutes | Later explicit test request, existing auth, permitted streams | [Session template](evidence/templates/session.md); READY PLAN / NOT RUN |
+| P0-A1 | 0 / feasibility | [Single/two-session Chrome baseline](../NEXT_TASK.md), ≤45 minutes | Later explicit test request, existing auth, permitted streams | [Session template](evidence/templates/session.md); [Limited muted baseline](evidence/runs/20261002-local-beta/auth-baseline.md); INCONCLUSIVE for full gate |
 | P0-A2 | 0 / feasibility | Separate three/four-session Chrome matrix at available 720p/1080p | P0-A1 and actual higher-count entitlement | Render/background/audio/control/performance per count; GATED |
-| P0-B1 | 0 / feasibility | Assess multi-surface UI and managed tab/window routes; composition decision | Count evidence and permitted navigation method | Route-specific [matrix](evidence/templates/capability-matrix.md) and decision; NOT STARTED |
+| P0-B1 | 0 / feasibility | Assess multi-surface UI and managed tab/window routes; composition decision | Count evidence and permitted navigation method | Managed-window fallback implemented; mock safety tests pass, live qualification underway |
 | P0-B2 | 0 / optional | Assess capture only if allowance is established; stop on protected failure | Explicitly scoped capture request, policy allowance, B1 inadequacy | Permission/technical/performance evidence; GATED, never prerequisite for Sports |
-| P0-C1 | 0 / P0 | Disposable adapter capability probe: channel/program/state, direct target, guide/player replacement, SPA | Authorized ordinary playback and later scoped harness | [Capability matrix](evidence/templates/capability-matrix.md), explicit failures; NOT STARTED |
-| P0-D1 | 0 / P0 | Mapping/status fixture packet: normal, extra innings/OT, delay, overrun, late start, multi-broadcast, stale | No live account needed; fixture provenance policy | [Mapping template](evidence/templates/mapping-case.md) and fixture cases; NOT STARTED |
+| P0-C1 | 0 / P0 | Disposable adapter capability probe: channel/program/state, direct target, guide/player replacement, SPA | Authorized ordinary playback and later scoped harness | Guide extraction and CBS/NBC muted navigation observed; document replacement/drawer repair underway |
+| P0-D1 | 0 / P0 | Mapping/status fixture packet: normal, extra innings/OT, delay, overrun, late start, multi-broadcast, stale | No live account needed; fixture provenance policy | Implemented fixture/domain packet: 31 tests PASS; live mapping unqualified |
 | P0-G1 | 0 / gate | Decide full QuadBox / dual / managed windows / defer; preserve count/platform limits | Relevant A/B/C and mapping evidence | Recorded decision with exact scope and unknowns; GATED |
-| C1-01 | 1 / P0 | Choose tooling and minimal MV3 shell/bridge with isolated adapter contract | Single-playback feasibility; no assumptions from capture | Runnable authorized development harness + capability failures; NOT STARTED |
-| C1-02 | 1 / P0 | Watch/Guide navigation and current context; previous/favorites/recents | C1-01 confirmed navigation/state | Focused nav/SPA/persistence behavior tests; NOT STARTED |
-| C1-03 | 1 / P0 | Dense rows, order/hide, current/next, search, keyboard mappings/settings | C1-02 | [AC01–AC05](ACCEPTANCE_AND_TEST_PLAN.md), player survives failure; NOT STARTED |
+| C1-01 | 1 / P0 | Choose tooling and minimal MV3 shell/bridge with isolated adapter contract | Single-playback feasibility; no assumptions from capture | MV3 bundle, build/typecheck/permission audit PASS; user loaded locally |
+| C1-02 | 1 / P0 | Watch/Guide navigation and current context; previous/favorites/recents | C1-01 confirmed navigation/state | Code and domain tests PASS; real confirmed CBS/NBC history observed, reload matrix underway |
+| C1-03 | 1 / P0 | Dense rows, order/hide, current/next, search, keyboard mappings/settings | C1-02 | Dense guide/order/hide/search implemented; fixture UI persistence PASS; configurable shortcut UI/arrows incomplete |
 | S2-01 | 2 / P0 | Select permitted provider and credential architecture | [Provider evaluation](PROVIDER_EVALUATION.md); coverage/rights decision | Per-league coverage/latency/state/broadcast/cost evidence; NOT STARTED |
-| S2-02 | 2 / P0 | Normalize league states; track active IDs, poll/cache and freshness | S2-01 (fixtures allowed earlier) | Transition, stale, midnight, empty-response and end-override tests; NOT STARTED |
-| S2-03 | 2 / P0 + P1 | Resolver, team/league search, Sports screen and guide enrichment | S2-02 + adapter snapshots | [AC06–AC09](ACCEPTANCE_AND_TEST_PLAN.md), ambiguity/entitlement tests; NOT STARTED |
+| S2-02 | 2 / P0 | Normalize league states; track active IDs, poll/cache and freshness | S2-01 (fixtures allowed earlier) | Shared normalization/freshness/polling engine PASS in fixture tests; provider integration GATED |
+| S2-03 | 2 / P0 + P1 | Resolver, team/league search, Sports screen and guide enrichment | S2-02 + adapter snapshots | Resolver/search/fixture Sports implemented and tested; live provider/enrichment GATED |
 | Q3-01 | 3 / P1 | Qualified 2/3/4 event panes and audio focus | P0-G1 + adapter session capability + S2-03 | Count-specific independent sessions/audio/control/performance; GATED |
 | Q3-02 | 3 / P1 | Expand/restore/replace, Add, layout persistence, event moves | Q3-01 | [AC10–AC12](ACCEPTANCE_AND_TEST_PLAN.md); GATED |
 | Q3-03 | 3 / P2 basics | Retain final panes and suggest freshly live eligible games | Q3-02 + fresh provider/resolver data | No pane destruction or stale live suggestion; GATED |

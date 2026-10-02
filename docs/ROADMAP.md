@@ -1,12 +1,12 @@
 # Roadmap
 
-Updated 2026-10-02. Every implementation phase is **NOT STARTED**. Setup documentation has its own [verification](SETUP_VERIFICATION.md); it is not Phase 0 playback evidence.
+Updated 2026-10-02. Local Chrome/domain/UI code now exists; fixture/mock tests and limited real integration are recorded separately. Setup documentation has its own [verification](SETUP_VERIFICATION.md); it is not Phase 0 playback evidence.
 
 | Phase | Deliverable | Exit gate | Current state |
 | --- | --- | --- | --- |
-| 0 — Feasibility | Disposable playback/navigation/composition/mapping evidence, capability matrix and supported route decision | Record entitlements, measured results, independent audio/control, performance and explicit full/dual/fallback/defer verdict | P0-A1 is next, NOT RUN |
-| 1 — Chrome single playback foundation | MV3 shell, isolated adapter, Watch/Guide, favorites/recents/previous, order/hide, keyboard and settings | Single-playback integration/SPA failures verified; local workflow and persistence criteria met; authorized player survives augmentation failures | NOT STARTED |
-| 2 — Sports | Provider adapter, league states/search, polling/freshness, scheduled-end override, resolver and guide enrichment | Fresh active event one hour beyond guide end remains discoverable and eligible mapped Watch works; held/stale/final states truthful | NOT STARTED |
+| 0 — Feasibility | Disposable playback/navigation/composition/mapping evidence, capability matrix and supported route decision | Record entitlements, measured results, independent audio/control, performance and explicit full/dual/fallback/defer verdict | Limited muted 1/2-player observations; full gate INCONCLUSIVE |
+| 1 — Chrome single playback foundation | MV3 shell, isolated adapter, Watch/Guide, favorites/recents/previous, order/hide, keyboard and settings | Single-playback integration/SPA failures verified; local workflow and persistence criteria met; authorized player survives augmentation failures | Local code built; real integration qualification underway |
+| 2 — Sports | Provider adapter, league states/search, polling/freshness, scheduled-end override, resolver and guide enrichment | Fresh active event one hour beyond guide end remains discoverable and eligible mapped Watch works; held/stale/final states truthful | Shared/fixture implementation; live provider GATED |
 | 3 — Chrome core MVP completion | Conditional event-first arbitrary 2/3/4 panes, single audio owner, expand/restore, replace, overlays/Add/layout persistence and final-pane suggestions | All 18 user criteria and the complete representative flow work reliably in Chrome within permitted counts; independent control/performance proven | GATED |
 | 4 — Safari next release gate | Shared domain/UI logic behind Safari bridges and documented differences | Independent Safari auth/playback/DRM/injection/sessions/storage/keyboard/performance/composition evidence | DEFERRED |
 | 5 — macOS spike | Swift/WKWebView feasibility and browser-controller alternative | Auth/protected playback/persistence first; multiple views/GPU/fullscreen/audio/reuse; demonstrate benefit before product build | DEFERRED |
@@ -28,4 +28,4 @@ Dual-view-only or managed-window delivery can be useful feasibility-driven alter
 
 Phase 0 mapping can use labeled fixtures while playback is blocked. Fixture success does not pass live mapping/playback gates. Sports architecture is independent of QuadBox and YouTube TV DOM extraction.
 
-The [backlog](BACKLOG.md) translates phases into bounded work. The active next task is [P0-A1](../NEXT_TASK.md); this roadmap does not authorize executing all phases.
+The [backlog](BACKLOG.md) translates phases into bounded work. The active next task is [local Chrome qualification](../NEXT_TASK.md); this roadmap does not authorize executing all phases.

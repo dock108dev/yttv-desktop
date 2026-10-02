@@ -1,6 +1,6 @@
 # Official source notes
 
-Reviewed public official documentation on 2026-10-02 UTC. No authenticated service, provider API or live stream was used. Findings below are public-documentation evidence only; recheck time-sensitive policies/limits before execution. Descriptions of implications are planning inferences, explicitly separated from vendor statements.
+Reviewed public official documentation on 2026-10-02 UTC. This source review itself used public pages only; later authorized local playback observations are documented separately in the run records. Findings below are public-documentation evidence only; recheck time-sensitive policies/limits before execution. Descriptions of implications are planning inferences, explicitly separated from vendor statements.
 
 | Source | Documented finding | Boundary / planning inference |
 | --- | --- | --- |
@@ -25,3 +25,7 @@ Read-only inspection found Desktop siblings `beat-mario`, `dex`, `italian`, `pre
 Applicable ancestor paths were checked for AGENTS.md; none contained instructions. `/Users/michaelfuscoletti/.codex/AGENTS.md` was present and empty. A hidden-file scan found no AGENTS.md or `.agents` skill files in the inspected Desktop projects or setup workspace, and relevant home/Desktop `.agents` locations were absent. Therefore no project-specific skill was applied to this new folder. The runtime local Codex memory summary was read only as historical convention background and was corroborated against current Desktop files.
 
 The Library skill routed this explicitly local Desktop request to local tools. This setup does not create a Library copy or cloud Page. New project AGENTS.md records the ongoing boundaries in this repository.
+
+## Implementation source boundaries
+
+Chrome [tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs) supplies ordinary tab update/mute controls; [service-worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle) requires recovery after idle termination. The implemented worker uses session/local storage and revalidates managed tab/window IDs; mock recovery tests do not qualify browser reliability. [YouTube TV simultaneous-stream help](https://support.google.com/youtubetv/answer/7069119) documents plan restrictions; [4K Plus help](https://support.google.com/youtubetv/answer/10383365) documents its separate capability/caveats. The local beta cap of three total watch tabs is conservative, not proof of the user's allowance. No plan change was requested or made.

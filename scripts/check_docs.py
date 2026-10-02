@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline validation of this documentation-first scaffold, never live tests."""
+"""Offline validation of project docs and workspaces, never live tests."""
 from pathlib import Path
 import argparse
 import datetime as dt
@@ -57,7 +57,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--write-report', action='store_true',
                         help='Write setup-only SHA-256 inventory to docs/setup-validation.json')
+    parser.add_argument('--report-path', default='docs/setup-validation.json',
+                        help='Relative output path; use docs/local-verification.json after initial setup')
     args = parser.parse_args()
+    report_path = (ROOT / args.report_path).resolve()
+    if not report_path.is_relative_to(ROOT) or report_path.suffix != '.json':
+        parser.error('Report path must be a JSON file within this project')
     errors = []
     local_count = external_count = 0
     for name in REQUIRED:
@@ -66,7 +71,7 @@ def main():
     tracker = ROOT.parent / 'yttv_next_steps.md'
     if not tracker.is_file():
         errors.append(f'Missing Desktop sibling tracker: {tracker}')
-    markdown = sorted(ROOT.rglob('*.md')) + ([tracker] if tracker.is_file() else [])
+    markdown = sorted(p for p in ROOT.rglob('*.md') if not any(part in {'node_modules', '.git', 'dist'} for part in p.relative_to(ROOT).parts)) + ([tracker] if tracker.is_file() else [])
     for path in markdown:
         data = path.read_text(encoding='utf-8')
         if not data.strip():
@@ -86,7 +91,7 @@ def main():
                 continue
             local_count += 1
             dest = (path.parent / unquote(parts.path)).resolve() if parts.path else path
-            pending_report = args.write_report and dest == ROOT / 'docs/setup-validation.json'
+            pending_report = args.write_report and dest == report_path
             if not dest.exists() and not pending_report:
                 errors.append(f'Broken local link: {path}: {target}')
             elif parts.fragment and dest.suffix == '.md':
@@ -98,8 +103,6 @@ def main():
             errors.append('Root package must be private')
         if root_manifest.get('workspaces') != ['apps/*', 'packages/*']:
             errors.append('Root workspace paths differ from planned scaffold')
-        if root_manifest.get('dependencies') or root_manifest.get('devDependencies'):
-            errors.append('Planning-only root should not have runtime/tooling dependencies')
         names = set()
         for folder in WORKSPACES:
             manifest = json.loads((ROOT / folder / 'package.json').read_text())
@@ -122,33 +125,33 @@ def main():
         if f'| U{number:02d} |' not in acceptance:
             errors.append(f'Missing explicit user acceptance criterion U{number:02d}')
     report = {
-        'scope': 'Documentation/scaffold only; no product or live tests',
+        'scope': 'This command validates docs/workspaces only; product and live tests are recorded separately',
         'checked_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
         'result': 'FAIL' if errors else 'PASS',
         'markdown_files_checked': len(markdown),
         'local_links_checked': local_count,
         'external_links_seen_not_network_validated': external_count,
-        'private_workspace_placeholders_checked': len(WORKSPACES),
+        'private_workspaces_checked': len(WORKSPACES),
         'explicit_user_acceptance_criteria_checked': 18,
         'errors': errors,
-        'not_run': ['product unit/fixture/browser tests', 'live playback/auth/entitlement inspection',
-                    'provider APIs', 'protected capture', 'Safari/Windows/native qualification',
-                    'owner acceptance'],
+        'not_performed_by_this_command': ['product unit/fixture/browser tests', 'live playback/auth/entitlement inspection',
+                    'provider APIs', 'protected capture', 'Safari/Windows/native qualification', 'owner acceptance'],
     }
     if args.write_report and not errors:
         inventory = {}
         for path in sorted(ROOT.rglob('*')):
-            if not path.is_file() or '.git' in path.relative_to(ROOT).parts:
+            if not path.is_file() or any(part in {'.git', 'node_modules', 'dist', '__pycache__'} for part in path.relative_to(ROOT).parts):
                 continue
             relative = path.relative_to(ROOT).as_posix()
-            if relative in {'docs/setup-validation.json', 'docs/SETUP_VERIFICATION.md'}:
+            if relative in {'docs/setup-validation.json', 'docs/SETUP_VERIFICATION.md', args.report_path}:
                 continue
             if '__pycache__' in path.parts:
                 continue
             inventory[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
         inventory['../yttv_next_steps.md'] = hashlib.sha256(tracker.read_bytes()).hexdigest()
         report['file_sha256'] = inventory
-        (ROOT / 'docs/setup-validation.json').write_text(
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
             json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({k: v for k, v in report.items() if k != 'file_sha256'}, indent=2))
     return 1 if errors else 0
