@@ -3,7 +3,9 @@ import type { AdapterObservation } from '../../../packages/yttv-adapter/src/inde
 import type { Preferences } from '../../../packages/storage/src/index';
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
-  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' }
+  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'REFRESH_SPORTS' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
+  | { type: 'WATCH_EVENT' | 'ADD_EVENT'; eventId: string }
+  | { type: 'AUDIO' | 'PLAYER_AUDIO'; muted?: boolean; volume?: number }
   | { type: 'OBSERVE'; observation: AdapterObservation }
   | { type: 'NAVIGATE'; channelId: string }
   | { type: 'PREFERENCE'; patch: Partial<Preferences> }

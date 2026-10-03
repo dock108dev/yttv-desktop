@@ -1,0 +1,13 @@
+{
+  "allVideosMuted": true,
+  "at": "2026-10-02T23:05:52.554Z",
+  "hostCount": 1,
+  "player": {
+    "currentTime": 46834.532535,
+    "muted": true,
+    "paused": false,
+    "readyState": 4
+  },
+  "route": "watch",
+  "workspaceCount": 1
+}

@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: design only. No contracts below are implemented. Read [product](PRODUCT.md), [Phase 0 gates](PHASE0_FEASIBILITY.md) and [sources](SOURCES.md).
+Status: shared contracts and the Chrome foundation are implemented. The S2-L1 NBA adapter, metadata-only local relay, provider-state UI and guarded event intents are verified locally; real acquisition/mapping awaits the combined access/permission handoff. Detailed proposals below remain design context where not reflected by current code/evidence. Read [product](PRODUCT.md), [Phase 0 gates](PHASE0_FEASIBILITY.md) and [sources](SOURCES.md).
 
 ## Boundaries and package ownership
 

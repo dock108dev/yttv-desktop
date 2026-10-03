@@ -1,0 +1,190 @@
+{
+  "checked_at_utc": "2026-10-02T16:38:33.158615+00:00",
+  "result": "PASS",
+  "source_inputs": 25,
+  "bundle_files": 9,
+  "checks": [
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/demo.html",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/manifest.json",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/panel.html",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/adapter.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/background.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/bridge.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/content.tsx",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/panel.tsx",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "apps/chrome-extension/src/runtime.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "package-lock.json",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "package.json",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/core/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/event-resolver/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/quadbox/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/sports-engine/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/storage/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/build.d.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/demo.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/index.tsx",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/styles.css",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/styles.d.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/ui/src/types.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "packages/yttv-adapter/src/index.ts",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "scripts/build.mjs",
+      "matches": true
+    },
+    {
+      "kind": "source",
+      "path": "tsconfig.json",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "background.js",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "build-identity.json",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "content.css",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "content.js",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "demo.html",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "manifest.json",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "panel.css",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "panel.html",
+      "matches": true
+    },
+    {
+      "kind": "bundle",
+      "path": "panel.js",
+      "matches": true
+    },
+    {
+      "kind": "retained_patch",
+      "matches": true
+    },
+    {
+      "kind": "current_implementation_diff",
+      "matches": true
+    },
+    {
+      "kind": "head",
+      "matches": true
+    }
+  ]
+}

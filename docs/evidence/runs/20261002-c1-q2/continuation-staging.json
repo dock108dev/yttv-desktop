@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-02T23:49:52.546Z",
+  "method": "supported read-only page DOM",
+  "visibleVersion": "0.1.8",
+  "audioControlsPresent": true,
+  "fullBuildAndExtensionIdConfirmed": false,
+  "ownerReloadConfirmation": "PENDING",
+  "designatedTabRefreshedByAgent": false,
+  "audioOperationsDispatched": false,
+  "addedFeedCreated": false,
+  "sourceInputsMatched": 26,
+  "testFilesMatched": 8,
+  "bundleFilesMatched": 9,
+  "scopeDisposition": "C1-Q2 remains active; awaiting the explicitly required owner confirmation; canonical trackers reserved for actual viewing closeout"
+}

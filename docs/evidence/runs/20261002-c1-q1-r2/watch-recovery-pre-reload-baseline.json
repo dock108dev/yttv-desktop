@@ -1,0 +1,2597 @@
+{
+  "method": "Read-only sanitized DOM through supported cua browser bridge; extension UI presentation only, no storage export",
+  "watchInitial": {
+    "allVideosMuted": true,
+    "at": "2026-10-02T22:59:13.747Z",
+    "buttons": [
+      {
+        "ariaLabel": "Close YouTube TV desktop guide",
+        "disabled": false,
+        "text": "Desktop",
+        "title": null
+      },
+      {
+        "ariaLabel": "Desktop TV home",
+        "disabled": false,
+        "text": "dtv.DESKTOP TV",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "Watch",
+        "title": "Watch (w)"
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "Guide",
+        "title": "Guide (g)"
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "Sports",
+        "title": "Sports (s)"
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "QuadBox",
+        "title": "QuadBox (q)"
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "?Shortcuts",
+        "title": "Keyboard shortcuts (?)"
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": " Open compact guide g",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": " Previous p",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "View guide ",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "CBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "CBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "NBC 4NBC 46:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom Llamas",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "ABC 7ABC 76:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David Muir",
+        "title": null
+      },
+      {
+        "ariaLabel": null,
+        "disabled": false,
+        "text": "Go back p",
+        "title": null
+      }
+    ],
+    "hostCount": 1,
+    "largestPlayer": {
+      "currentTime": 47434.199468,
+      "muted": true,
+      "paused": false,
+      "readyState": 4
+    },
+    "pathClass": "Watch",
+    "refreshRequired": null,
+    "videoCount": 188,
+    "watchText": "YOUR DESKTOP EXPERIENCEWatchYour television, at a glance.PLAYBACK CONFIRMEDCBS Evening NewsCBS 2CBS 2Confirmed in the original supported browser tab MUTED Open compact guide g Previous pVideo stays in YouTube TVThis workspace controls navigation. Google handles your account and protected playback.Open original player Favorites 1View guide CBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening NewsRecently watchedCONFIRMED SWITCHESCBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening NewsNBC 4NBC 46:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom LlamasABC 7ABC 76:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David MuirPrevious channelNBC 4Last observed · 6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom LlamasGo back p",
+    "workspaceCount": 1
+  },
+  "identity": {
+    "at": "2026-10-02T22:59:37.050Z",
+    "bindings": [
+      {
+        "label": "Watch key",
+        "value": "w"
+      },
+      {
+        "label": "Guide key",
+        "value": "g"
+      },
+      {
+        "label": "Sports key",
+        "value": "s"
+      },
+      {
+        "label": "QuadBox key",
+        "value": "q"
+      },
+      {
+        "label": "Previous channel key",
+        "value": "p"
+      },
+      {
+        "label": "Mute all key",
+        "value": "m"
+      },
+      {
+        "label": "Focus window 1 key",
+        "value": "1"
+      },
+      {
+        "label": "Focus window 2 key",
+        "value": "2"
+      },
+      {
+        "label": "Focus window 3 key",
+        "value": "3"
+      },
+      {
+        "label": "Focus window 4 key",
+        "value": "4"
+      },
+      {
+        "label": "Activate row / expand window key",
+        "value": "Enter"
+      },
+      {
+        "label": "Cancel / restore layout key",
+        "value": "Escape"
+      },
+      {
+        "label": "Previous guide row key",
+        "value": "ArrowUp"
+      },
+      {
+        "label": "Next guide row key",
+        "value": "ArrowDown"
+      },
+      {
+        "label": "First row control key",
+        "value": "ArrowLeft"
+      },
+      {
+        "label": "Last row control key",
+        "value": "ArrowRight"
+      },
+      {
+        "label": "Search key",
+        "value": "/"
+      },
+      {
+        "label": "Show shortcuts key",
+        "value": "?"
+      }
+    ],
+    "runtimeIdentity": "Runtime v0.1.7 · build 9d07499eeceaf524 · extension idaaiiafgopfpaojpnhaoefbefllioab"
+  },
+  "guide": {
+    "at": "2026-10-02T22:59:38.925Z",
+    "guideFooters": [
+      {
+        "class": "guide-footer",
+        "text": "169 channels shown · guide last observed 2026-10-02T22:47:01.413ZFavorites and settings are saved on this Mac."
+      },
+      {
+        "class": "app-footer",
+        "text": "YouTube TV provides the streams. We provide the desktop experience.LOCAL · PRIVATE · NO VIDEO PROXY"
+      }
+    ],
+    "rows": [
+      {
+        "addEnabled": true,
+        "favorite": true,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 2 • Inside Edition Inside Edition",
+        "name": "CBS 2",
+        "program": "6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • News 4 NY at 7 News 4 NY at 7",
+        "name": "NBC 4",
+        "program": "6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom Llamas",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Tunnel To Towers 5K Run and Walk 2025",
+        "name": "FOX 5",
+        "program": "6:30 PM Oct 2 • Steel Across America Steel Across America",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S43 E15 • Jeopardy! Jeopardy!",
+        "name": "ABC 7",
+        "program": "6:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David Muir",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S8 E16 • The Pothole Seinfeld",
+        "name": "PIX 11",
+        "program": "6:30 PM Oct 2 • PIX on Politics PIX on Politics",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Community Conversation Community Conversation",
+        "name": "PBS39",
+        "program": "6:00 PM TV-G • S24 E18 • Vintage Honolulu Antiques Roadshow",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • PBS News Hour PBS News Hour",
+        "name": "THIRTEEN PBS",
+        "program": "6:30 PM Oct 2 • BBC World News America BBC World News America",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • One on One With Steve Adubato One on One With Steve Adubato",
+        "name": "NJ PBS",
+        "program": "6:30 PM Oct 2 • BBC World News America BBC World News America",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "FOX Sports 4K",
+        "program": "8:00 PM 4K Upcoming: Penn State at Northwestern",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 2 • Top Chef VIP Top Chef VIP",
+        "name": "Telemundo NY",
+        "program": "6:30 PM Oct 2 • Noticias Telemundo Noticias Telemundo",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S2022 E1739 • Un hermoso lugar para vivir La rosa de Guadalupe",
+        "name": "WXTV",
+        "program": "6:30 PM Oct 2 • Noticiero N+ Univision Noticiero Univisión",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • May 2 • El mejor humor Lo tomas o lo dejas",
+        "name": "WFUT",
+        "program": "6:00 PM TV-14 • S6 E92 • Cuando sabes lo que siembras no le tienes miedo a la cosecha Como dice el dicho",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Comet TV",
+        "program": "5:00 PM TV-14 Minority Report",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "NFL ST - FOX",
+        "program": "SUN, OCT 4, 1:00 PM Upcoming: New York Jets at Chicago Bears",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "NFL ST - CBS",
+        "program": "SUN, OCT 4, 1:00 PM Upcoming: Tennessee Titans at Baltimore Ravens",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2, 7:00 PM • Moments of Zen Moments of Zen",
+        "name": "YouTube TV Zen",
+        "program": "6:00 PM Oct 2, 6:00 PM • Moments of Zen Moments of Zen",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • JAI Jewelry JAI Jewelry",
+        "name": "QVC",
+        "program": "5:00 PM TV-G • Oct 2 • Fri-YAY! With Alberti and Amy: Style Edition Fri-YAY! With Alberti and Amy: Style Edition",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • DG2 Fashion Fridays With Sam & Friends DG2 Fashion Fridays With Sam & Friends",
+        "name": "HSN",
+        "program": "6:00 PM TV-G • Oct 2 • Kitchen Essentials featuring Dreo Water Filtration Kitchen Essentials featuring Dreo Water Filtration",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • America's Funniest Home Videos America's Funniest Home Videos",
+        "name": "WLNY TV",
+        "program": "6:30 PM TV-PG • Oct 2 • Think Positively! The Perfect Line",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S28 E9 • Family Feud Family Feud",
+        "name": "My 9",
+        "program": "6:30 PM TV-PG • S23 E71 • Family Feud Family Feud",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S5 E20 • The Transporter Malfunction The Big Bang Theory",
+        "name": "TBS",
+        "program": "6:30 PM TV-PG • S5 E19 • The Weekend Vortex The Big Bang Theory",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "TNT",
+        "program": "6:35 PM New York Rangers at Detroit Red Wings",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Pittsburgh at Virginia Tech",
+        "name": "ESPN",
+        "program": "6:00 PM Oct 2, 6:00 PM • SportsCenter SportsCenter",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "ESPN in 4K",
+        "program": "TOMORROW 7:30 PM 4K Upcoming: Miami at Clemson",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 1 • SEVENTEEN SEC Storied",
+        "name": "ESPN2",
+        "program": "6:30 PM Oct 2 • College Football Countdown College Football Countdown",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oklahoma at South Carolina",
+        "name": "SEC Network",
+        "program": "3:00 PM Oct 2 • The Paul Finebaum Show The Paul Finebaum Show",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "ACC Network",
+        "program": "6:00 PM Teams TBA",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM South Carolina at Mississippi State",
+        "name": "ESPNU",
+        "program": "6:30 PM Oct 2 • The Season: Ole Miss Football The Season: Ole Miss Football",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Fantasy Focus Fantasy Focus",
+        "name": "ESPNews",
+        "program": "6:30 PM Oct 2, 6:30 PM • Pardon the Interruption Pardon the Interruption",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "FS1",
+        "program": "6:30 PM Midwest Nationals, Qualifying",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "FOX Sports Plus 4K",
+        "program": "TOMORROW 8:00 PM 4K Oct 3 • MLB on FS1 Pregame Upcoming: MLB on FS1 Pregame",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "FS2",
+        "program": "5:50 PM Suriname vs. Guatemala",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "NBC Sports 4K",
+        "program": "TOMORROW 7:30 PM 4K Upcoming: Washington at USC",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM S2 E5 • Rushing the Field Rushing the Field",
+        "name": "NBC Sports Network",
+        "program": "6:00 PM Oct 2 • Chris Simms Unbuttoned Chris Simms Unbuttoned",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "USA 4K",
+        "program": "SUN, OCT 4, 5:00 PM 4K Oct 4 • South Point 400 Upcoming: USA Sports Prerace",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • The SZN With Nick Foles & Evan Moore The SZN With Nick Foles & Evan Moore",
+        "name": "NBC Sports Philadelphia",
+        "program": "6:30 PM Oct 2 • Eagle Eye Eagle Eye",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Winning Golf Winning Golf",
+        "name": "NBC Sports Philadelphia Plus",
+        "program": "6:30 PM Oct 2 • 18 Holes 18 Holes",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Border League: Calvary Christian Academy (Fla.) vs. CP Next Level Academy (Ga.)",
+        "name": "NBA TV",
+        "program": "6:00 PM S2 E1 • Basketcast Basketcast",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • The Insiders The Insiders",
+        "name": "NFL Network",
+        "program": "6:00 PM Oct 2 • NFL Live NFL Live",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "NFL RedZone",
+        "program": "SUN, OCT 4, 12:45 PM Oct 4 • NFL RedZone Countdown Upcoming: NFL RedZone Countdown",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Maryland at Indiana",
+        "name": "BTN",
+        "program": "6:30 PM TV-PG • Sep 28 • On the Pitch On the Pitch",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Liberty at Delaware",
+        "name": "CBS Sports Network",
+        "program": "6:30 PM Oct 2 • Inside College Football Inside College Football",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "T2",
+        "program": "4:30 PM TV-G • Oct 2 • Beijing-ATP/WTA & Tokyo-ATP 2nd Round Tennis Today",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S1 E19 • Machismo Criminal Minds",
+        "name": "CHARGE!",
+        "program": "6:00 PM TV-14 • S1 E11 • Blood Hungry Criminal Minds",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S25 E5 • Dim Bulbs, Dog Shame, and Trampolines America's Funniest Home Videos",
+        "name": "ROAR",
+        "program": "6:00 PM TV-PG • S25 E4 • Who's Who in the AFV Zoo, Kids Fighting Sleep Versus People Scared by Fake Mice in Kitchen Cabinets and Great Moments in Bad Ideas America's Funniest Home Videos",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Golf Channel",
+        "program": "5:00 PM Bank of Utah Championship, Second Round",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Pickleball TV",
+        "program": "5:00 PM Oct 2 • Quarterfinals PPA Tour: Las Vegas Open",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S3 E5 • Laura; Penny Hoarders: Family Secrets",
+        "name": "The Nest",
+        "program": "6:00 PM TV-PG • S3 E4 • Robin; Ken Hoarders: Family Secrets",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG Hocus Pocus",
+        "name": "Disney Channel",
+        "program": "6:30 PM TV-Y7 • Gloria Green / Daddy Ditty Big City Greens",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:05 PM TV-Y • S1 E2 • Abracadazzle; Show and Spell Sofia the First: Royal Magic",
+        "name": "Disney Junior",
+        "program": "6:40 PM TV-Y • S2 E6 • A Goofy Clubhouse Mickey Mouse Clubhouse+",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S3 E20 • I Honestly Love You (No, Not You) Hannah Montana Forever",
+        "name": "Disney XD",
+        "program": "6:30 PM TV-Y7 • S2 E49 • Star Devourer Beyblade X",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Cartoon Network",
+        "program": "TOMORROW 6:00 AM TV-Y7 • S4 E32 • The Misunderstandings Upcoming: Waiting for Gumball",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S1 E9 • Spaghetti Western and Meatballs Bob's Burgers",
+        "name": "Adult Swim",
+        "program": "6:30 PM TV-14 • S1 E8 • Art Crawl Bob's Burgers",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G Hotel Transylvania 2",
+        "name": "Nickelodeon",
+        "program": "6:30 PM TV-Y7 • S16 E3 • Curse of the WereDoodle; Gorilla Suit Day SpongeBob SquarePants",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-Y • S10 E25 • Rescue Wheels: Pups Save Adventure Bay PAW Patrol",
+        "name": "Nick Jr.",
+        "program": "6:30 PM TV-Y • S1 E19 • Santiago and Bonnie to the Rescue; The Compass Caper Santiago of the Seas",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:01 PM TV-Y7 • S12 E14 • Shell Games; Senior Discount SpongeBob SquarePants",
+        "name": "Nicktoons",
+        "program": "6:35 PM TV-Y7 • S14 E6 • Blood Is Thicker Than Grease; Don't Make Me Laugh SpongeBob SquarePants",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 6:48 PM TV-G • S1 E15 • Have an Ice Birthday The Thundermans",
+        "name": "TeenNick",
+        "program": "6:21 PM TV-G • S4 E17 • Save the Past Dance The Thundermans",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "AMC",
+        "program": "5:30 PM R The Conjuring",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:14 PM TV-PG • S4 E9 • King of the Road Tales From the Crypt",
+        "name": "Stories by AMC",
+        "program": "6:45 PM TV-PG • S4 E8 • Showdown Tales From the Crypt",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:26 PM Some Kind of Hate",
+        "name": "AMC Thrillers",
+        "program": "5:38 PM R ATM",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:08 PM TV-14 • S7 E8 • Ants Portlandia",
+        "name": "Portlandia",
+        "program": "6:44 PM TV-PG • S7 E7 • Portland Secedes Portlandia",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S2 E16 • Vengeance Law & Order",
+        "name": "BBC America",
+        "program": "6:00 PM TV-14 • S2 E15 • Trust Law & Order",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "BET",
+        "program": "6:30 PM TV-14 Fist Fight",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 6:50 PM TV-PG • S4 E51 • Meet the Football Coach Tyler Perry's Meet the Browns",
+        "name": "BET Her",
+        "program": "6:15 PM TV-PG • S4 E50 • Meet the Non-Frequent Flyer Tyler Perry's Meet the Browns",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "CMT",
+        "program": "5:00 PM TV-PG A League of Their Own",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S5 E1 • Weight Loss - Part 1 The Office",
+        "name": "Comedy Central",
+        "program": "6:30 PM TV-14 • S4 E19 • Goodbye Toby Part 2 The Office",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S5 E7 • Come Rain or Cyclone Weather Gone Viral",
+        "name": "Comedy.TV",
+        "program": "6:00 PM TV-G • S5 E6 • Wild Weather Unleashed Weather Gone Viral",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:15 PM TV-PG The Nightmare Before Christmas",
+        "name": "Freeform",
+        "program": "5:15 PM TV-PG The Haunted Mansion",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Feb 25 • Side Dish Side Dish",
+        "name": "FOX SOUL",
+        "program": "5:48 PM I Hate Love",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "FX",
+        "program": "4:30 PM TV-14 Spider-Man: No Way Home",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S20 E16 • Prescription Heroine Family Guy",
+        "name": "FXX",
+        "program": "6:30 PM TV-PG • S11 E5 • Fast Time Capsules at Wagstaff School Bob's Burgers",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:20 PM TV-MA Lucy in the Sky",
+        "name": "FXM",
+        "program": "5:05 PM TV-14 Freud's Last Session",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Hallmark Channel",
+        "program": "6:00 PM TV-G Holiday Touchdown: A Chiefs Love Story",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Hallmark Family",
+        "program": "6:00 PM TV-G Looks Like Christmas",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Hallmark Mystery",
+        "program": "6:00 PM TV-PG • S1 E12 • The Pandora's Box Murders Garage Sale Mysteries",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "GFAM",
+        "program": "6:00 PM TV-G A Dash of Christmas",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "GLIV",
+        "program": "6:00 PM PG Faith of Angels",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "IFC",
+        "program": "6:00 PM R Leprechaun 3",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG Pitch Perfect",
+        "name": "MTV",
+        "program": "6:30 PM TV-PG • S5 E6 • The Rhinitis Revelation The Big Bang Theory",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S9 E16 • Chanel and Sterling XLVI Ridiculousness",
+        "name": "MTV2",
+        "program": "6:30 PM TV-14 • S13 E12 • Tank Ridiculousness",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 2 • I Want My 80s I Want My 80s",
+        "name": "MTV Classic",
+        "program": "6:00 PM TV-PG • Oct 2 • I Want My 80s I Want My 80s",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S1 E6 • Everybody Hates Halloween Everybody Hates Chris",
+        "name": "VH1",
+        "program": "6:30 PM TV-PG • S1 E10 • Everybody Hates Greg Everybody Hates Chris",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Paramount",
+        "program": "4:30 PM TV-14 Jack Reacher",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S14 E19 • Nowhere Man Law & Order",
+        "name": "Pop",
+        "program": "6:00 PM TV-14 • S14 E18 • Evil Breeds Law & Order",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Turner Classic Movies",
+        "program": "6:15 PM TV-PG The Connection",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "truTV",
+        "program": "6:35 PM New York Rangers at Detroit Red Wings",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S1 E8 • The Death Grin Anna Pigeon",
+        "name": "USA",
+        "program": "6:00 PM TV-14 • S6 E18 • When They See Us Coming Chicago Fire",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Elizabeth Vargas Reports Elizabeth Vargas Reports",
+        "name": "NewsNation",
+        "program": "6:00 PM Oct 2 • The Hill with Blake Burman The Hill with Blake Burman",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:03 PM TV-PG • S1 E4 • Chapter Four: To Be King Lion",
+        "name": "Nat Geo",
+        "program": "6:09 PM TV-PG • S1 E3 • Chapter Three: The Greatest Sacrifice Lion",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S3 E5 • New Dog, Pol Tricks The Incredible Dr. Pol",
+        "name": "Nat Geo Wild",
+        "program": "6:00 PM TV-14 • S3 E6 • Cat in the H.A.T.S. The Incredible Dr. Pol",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S2 E6 • Levitating Lighthouse Treehouse Masters",
+        "name": "Animal Planet",
+        "program": "6:00 PM TV-PG • S2 E3 • Black Bear Bungalow Treehouse Masters",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Discovery Channel",
+        "program": "6:00 PM TV-14 • S16 E23 • Klondike Shoot-Out Gold Rush",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S23 E6 • Reckless Approaches Air Disasters",
+        "name": "Smithsonian Channel",
+        "program": "6:00 PM TV-14 • S8 E8 • Accident or Assassination Air Disasters",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "SYFY",
+        "program": "6:30 PM TV-14 Lisa Frankenstein",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S14 E2 • The Thing The Dead Files",
+        "name": "Travel Channel",
+        "program": "6:00 PM TV-14 • S14 E1 • Victimville The Dead Files",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S9 E5 • Ally's F Everybody Loves Raymond",
+        "name": "TV Land",
+        "program": "6:30 PM TV-G • S3 E10 • Opie's Rival The Andy Griffith Show",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S7 E1 • Man Down! Below Deck",
+        "name": "Bravo",
+        "program": "6:00 PM TV-14 • S6 E16 • Au Revoir! Below Deck",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S3 E4 • Swing Out Sister The Jamie Foxx Show",
+        "name": "Dabl",
+        "program": "6:30 PM TV-PG • S2 E4 • Two Men and a Baby The Wayans Bros.",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S12 E9 • Bouncy, Bouncy, Bouncy, Lyndsey Two and a Half Men",
+        "name": "E!",
+        "program": "6:30 PM TV-14 • S12 E8 • Family, Bublé, Deep-Fried Turkey Two and a Half Men",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S45 E9 • Chicken and Ribs Diners, Drive-Ins and Dives",
+        "name": "Food Network",
+        "program": "6:30 PM TV-G • S43 E5 • Cruisin' Coast to Coast Diners, Drive-Ins and Dives",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S9 E16 • A Friend in Need Maine Cabin Masters",
+        "name": "Magnolia Network",
+        "program": "6:00 PM TV-G • S9 E8 • Overhaul on the Upper Narrows Maine Cabin Masters",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S18 E5 • Sarasota Scratcher My Lottery Dream Home",
+        "name": "HGTV",
+        "program": "6:30 PM TV-G • S19 E2 • Santa Fe Family Home My Lottery Dream Home",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 2, 7:00 PM • Dad in the Ladies Room & Mommy Dealist Mathis Court With Judge Mathis",
+        "name": "JusticeCentral.TV",
+        "program": "6:30 PM TV-PG • Feb 20 • The Fault in Our Tires America's Court With Judge Ross",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S6 E12 • It Looks Like You See No Evil",
+        "name": "ID",
+        "program": "6:00 PM TV-14 • S6 E16 • The Girl on the Bus See No Evil",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S2 E2 • Atlanta Bound Kevin Hart's Muscle Car Crew",
+        "name": "Discovery Turbo",
+        "program": "6:00 PM TV-PG • S2 E1 • Car Build Blues Kevin Hart's Muscle Car Crew",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S1 E9 • The Final Decision Put a Ring on It: Cheathab",
+        "name": "OWN",
+        "program": "6:00 PM TV-14 • S1 E8 • For Love or Money? Put a Ring on It: Cheathab",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 5 • Queen of the County Dateline",
+        "name": "True CRMZ",
+        "program": "5:00 PM TV-PG • Dec 29 • The Woman Who Couldn't Scream Dateline",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S33 E8 • Lennie Paul Tracey Snapped",
+        "name": "Oxygen True Crime",
+        "program": "6:00 PM TV-PG • S33 E7 • Neal Zumberge Snapped",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM A Taste of Istanbul",
+        "name": "Recipe.TV",
+        "program": "6:30 PM Mushroom Caves Paris Bistro Cooking",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • Tell All 2, Part 2 90 Day Fiancé",
+        "name": "TLC",
+        "program": "6:00 PM TV-14 • Tell All 2, Part 1 90 Day Fiancé",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S1 E3 • I Heard You're a GOAT The Chase",
+        "name": "Game Show Network",
+        "program": "6:30 PM TV-PG • Jan 13 • Pool Sharks vs. Concert Coworkers America Says",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "WE tv",
+        "program": "6:45 PM PG-13 13 Going on 30",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 6:54 PM TV-14 • S3 E32 • Life After Lockup: Trick or Cheat? Love After Lockup",
+        "name": "All Reality We TV",
+        "program": "6:03 PM TV-14 • S3 E31 • Life After Lockup: Good News, Bad News Love After Lockup",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2, 7:00 PM • ABCNL Prime With Linsey Davis ABCNL Prime With Linsey Davis",
+        "name": "ABC News Live",
+        "program": "6:30 PM Oct 2, 6:30 PM • Searched Searched",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • BBC News BBC News",
+        "name": "BBC News",
+        "program": "6:45 PM Oct 2 • BBC News BBC News",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S2 E5 • Skyscrapers NYC Revealed",
+        "name": "Cheddar",
+        "program": "6:30 PM S3 E13 • The CEO Series The CEO Series",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S5 E3 • Shark Tank Shark Tank",
+        "name": "CNBC",
+        "program": "6:00 PM TV-PG • Oct 2 • Mad Money Mad Money",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • Bloomberg Tech: Decoding the Future Bloomberg Tech: Decoding the Future",
+        "name": "Bloomberg TV+",
+        "program": "6:00 PM TV-G • Oct 2, 6:00 PM • Bloomberg Wall Street Week Bloomberg Wall Street Week",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Jul 1 • Karlie Kloss on Reviving Magazines The Circuit With Emily Chang",
+        "name": "Bloomberg Originals",
+        "program": "6:30 PM Jun 24 • Jennifer Doudna on CRISPR Gene Editing The Circuit With Emily Chang",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Oct 2 • Bloomberg Tech: Decoding the Future Bloomberg Tech: Decoding the Future",
+        "name": "Bloomberg TV+ 4K",
+        "program": "6:00 PM TV-G • Oct 2, 6:00 PM • Bloomberg Wall Street Week Bloomberg Wall Street Week",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • Oct 2 • Erin Burnett OutFront Erin Burnett OutFront",
+        "name": "CNN",
+        "program": "6:00 PM TV-PG • Oct 2 • The Lead With Jake Tapper The Lead With Jake Tapper",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM S1 E44 • Bob Bauer & Ben Ginsberg Ceasefire",
+        "name": "C-SPAN",
+        "program": "6:00 PM Oct 2 • Public Affairs Events Public Affairs Events",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "C-SPAN2",
+        "program": "6:30 PM Oct 2 • Public Affairs Events Public Affairs Events",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "C-SPAN3",
+        "program": "6:21 PM Oct 2 • Public Affairs Events Public Affairs Events",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • FBN's Wall Street FBN's Wall Street",
+        "name": "FOX Business",
+        "program": "6:00 PM TV-PG • Oct 2 • The Bottom Line The Bottom Line",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • The Ingraham Angle The Ingraham Angle",
+        "name": "FOX News",
+        "program": "6:00 PM Oct 2 • Special Report With Bret Baier Special Report With Bret Baier",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "FOX Weather",
+        "program": "6:00 PM Oct 2, 6:00 PM • FOX Weather Live FOX Weather Live",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S13 E46 • Waste Mis-Management Forensic Files",
+        "name": "HLN",
+        "program": "6:30 PM TV-14 • S13 E45 • Watchful Eye Forensic Files",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "LiveNOW from FOX",
+        "program": "6:00 PM Oct 2, 6:00 PM • LiveNOW from FOX LiveNOW from FOX",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • Best of Localish Best of Localish",
+        "name": "Localish",
+        "program": "6:30 PM TV-G • S4 E15 • Stroke of Genius Stroke of Genius",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Today's Top Stories Today's Top Stories",
+        "name": "Local Now",
+        "program": "6:00 PM Oct 2 • Local Now News Local Now News",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • The Weeknight The Weeknight",
+        "name": "MS NOW",
+        "program": "6:00 PM Oct 2 • The Beat With Ari Melber The Beat With Ari Melber",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Rob Schmitt Tonight Rob Schmitt Tonight",
+        "name": "NEWSMAX",
+        "program": "6:00 PM Oct 2 • Carl Higbie Frontline Carl Higbie Frontline",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Fine Point With Chanel Rion Fine Point With Chanel Rion",
+        "name": "One America News",
+        "program": "6:00 PM Feb 23 • OAN News 2 pm with Stephanie Myers OAN News",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-G • S1 E12 • Seaside Estates Behind the Gates",
+        "name": "AWE",
+        "program": "6:30 PM TV-G • S1 E11 • Belize Private Islands",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S5 E1 • Vagabundo S.W.A.T.",
+        "name": "ION",
+        "program": "6:00 PM TV-14 • S4 E18 • Veritas Vincint S.W.A.T.",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Bounce",
+        "program": "6:00 PM TV-PG Tyler Perry's Why Did I Get Married?",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S1 E111 • Catch Me Up With Jon Leiberman Catch Me Up With Jon Leiberman",
+        "name": "Scripps News",
+        "program": "6:00 PM Today as It Happened Today as It Happened",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Top Story With Tom Llamas Top Story With Tom Llamas",
+        "name": "NBC News NOW",
+        "program": "5:00 PM Oct 2 • Hallie Jackson NOW Hallie Jackson NOW",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Weather Unfiltered Weather Unfiltered",
+        "name": "The Weather Channel",
+        "program": "6:00 PM Oct 2 • Weather Unfiltered Weather Unfiltered",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S1 E1 • Future Soldier Modern Warfare 2.0",
+        "name": "World at War",
+        "program": "6:00 PM TV-PG • S1 E4 • Battle Stations WWII in HD",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S3 E6 • La familia P. Luche La familia P. Luche",
+        "name": "Galavision",
+        "program": "6:00 PM TV-PG • Aug 6 • Piensa rápido Piensa rápido",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • Oct 2 • Tricolor al día Tricolor al día",
+        "name": "TUDN",
+        "program": "6:00 PM TV-G Olympiacos vs. Jagiellonia Bialystok",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-14 • S1 E7 • You Are Here The Closer",
+        "name": "Start TV",
+        "program": "6:00 PM TV-14 • S1 E6 • Fantasy Date The Closer",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S2 E20 • Wild Cards The King of Queens",
+        "name": "Cozi",
+        "program": "6:30 PM TV-PG • S5 E17 • Oldies but Young 'Uns Married ... With Children",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S6 E10 • Mr. Monk and the Man Who Shot Santa Monk",
+        "name": "GREAT",
+        "program": "6:00 PM TV-PG • S6 E9 • Mr. Monk Is up All Night Monk",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "The Walking Dead Universe",
+        "program": "6:20 PM TV-MA • S11 E24 • Rest in Peace The Walking Dead",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "HBO East",
+        "program": "6:07 PM R The Royal Tenenbaums",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "HBO Hits East",
+        "program": "6:23 PM R Cocktail",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 6:55 PM TV-MA • S1 E2 • Life, Larry and the Pursuit of Unhappiness Life, Larry and the Pursuit of Unhappiness",
+        "name": "HBO Comedy East",
+        "program": "6:22 PM TV-MA • S1 E1 • Livingston Life, Larry and the Pursuit of Unhappiness",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "HBO Latino East",
+        "program": "6:07 PM R The Royal Tenenbaums",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:27 PM TV-MA • S2 E1 • You Don't Even Like Opera The Gilded Age",
+        "name": "HBO Drama East",
+        "program": "6:25 PM TV-MA • S1 E9 • Let the Tournament Begin The Gilded Age",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:15 PM R Materialists",
+        "name": "HBO Movies East",
+        "program": "4:37 PM PG-13 Les Misérables",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 1",
+        "program": "TOMORROW 12:25 PM Upcoming: Chicago White Sox at Cleveland Guardians",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 2",
+        "program": "TOMORROW 6:25 PM Upcoming: New York Yankees at Tampa Bay Rays",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "Sports on HBO Max 3",
+        "program": "6:00 PM New York Rangers at Detroit Red Wings",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 4",
+        "program": "8:45 PM Upcoming: St. Louis Blues at Dallas Stars",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 5",
+        "program": "THU, OCT 8, 8:50 AM Upcoming: Gran Piemonte",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 6",
+        "program": "TOMORROW 8:30 AM Upcoming: Cholet Agglo Tour, Men's",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 7",
+        "program": "TOMORROW 3:30 PM Upcoming: Lake Placid, NY - Men's Cross Country",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 8",
+        "program": "TOMORROW 1:00 AM Upcoming: Mentougou, Day 2",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 9",
+        "program": "TOMORROW 1:30 PM Upcoming: Lake Placid, NY - Women's Cross Country",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "Sports on HBO Max 10",
+        "program": "TOMORROW 7:10 AM Upcoming: Münsterland Giro",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": false,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Availability not confirmed",
+        "name": "HBO Max 2",
+        "program": "TOMORROW 7:55 PM TV-14 • S4 E43 • All Elite Wrestling: Collision Upcoming: All Elite Wrestling: Collision",
+        "watchEnabled": false
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Observed navigation target",
+        "name": "SundanceTV",
+        "program": "5:00 PM R The Amityville Horror",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • May 8 • Grand National Roadster Show Cars.TV",
+        "name": "Cars.TV",
+        "program": "6:30 PM Sep 25 • Family owned 1940 Ford Custom Coupe Hollywood Hot Rods",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM TV-PG • S4 E21 • Have I Got a Girl for You Diff'rent Strokes",
+        "name": "theGRIO",
+        "program": "6:30 PM TV-PG • S4 E20 • Green Hair Diff'rent Strokes",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • HBCU Go Sports Presents Callin' Plays HBCU Go Sports Presents Callin' Plays",
+        "name": "HBCU GO",
+        "program": "4:00 PM TV-G Howard Classic 2007",
+        "watchEnabled": true
+      },
+      {
+        "addEnabled": true,
+        "favorite": false,
+        "hidden": false,
+        "metadata": "Next · 7:00 PM Oct 2 • Land of the Dragons Land of the Dragons",
+        "name": "Pets.TV",
+        "program": "6:30 PM TV-G • Dec 17 • Urban Dog Mushing Pets.TV",
+        "watchEnabled": true
+      }
+    ]
+  },
+  "hiddenPresentation": {
+    "at": "2026-10-02T23:00:21.608Z",
+    "includeHidden": true,
+    "rows": [
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "CBS 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PIX 11"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PBS39"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "THIRTEEN PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NJ PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Telemundo NY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WXTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WFUT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comet TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - CBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "YouTube TV Zen"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "QVC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HSN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WLNY TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "My 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TNT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN in 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SEC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ACC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNU"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNews"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports Plus 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia Plus"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBA TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL RedZone"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BTN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CBS Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "T2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CHARGE!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ROAR"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Golf Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pickleball TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Nest"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Junior"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney XD"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cartoon Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Adult Swim"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nickelodeon"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nick Jr."
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nicktoons"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TeenNick"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Stories by AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC Thrillers"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Portlandia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC America"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET Her"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CMT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy Central"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Freeform"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX SOUL"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Family"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Mystery"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GFAM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GLIV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "IFC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV Classic"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "VH1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Paramount"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pop"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Turner Classic Movies"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "truTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NewsNation"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo Wild"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Animal Planet"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Smithsonian Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SYFY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Travel Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TV Land"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bravo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Dabl"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "E!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Food Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Magnolia Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HGTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "JusticeCentral.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ID"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Turbo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "OWN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "True CRMZ"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Oxygen True Crime"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Recipe.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TLC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Game Show Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WE tv"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "All Reality We TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC News Live"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cheddar"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNBC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg Originals"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+ 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Business"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Weather"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HLN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "LiveNOW from FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Localish"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Local Now"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MS NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NEWSMAX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "One America News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AWE"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ION"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bounce"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Scripps News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC News NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Weather Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "World at War"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Galavision"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TUDN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Start TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cozi"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GREAT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Walking Dead Universe"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Hits East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Comedy East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Latino East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Drama East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Movies East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 6"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 8"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 10"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SundanceTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cars.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "theGRIO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBCU GO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pets.TV"
+      }
+    ]
+  },
+  "finalWatch": {
+    "allVideosMuted": true,
+    "at": "2026-10-02T23:00:43.522Z",
+    "context": "PLAYBACK CONFIRMEDInside EditionCBS 2CBS 2Confirmed in the original supported browser tab MUTED Open compact guide g Previous p",
+    "hostCount": 1,
+    "player": {
+      "currentTime": 47524.102869,
+      "muted": true,
+      "paused": false,
+      "readyState": 4
+    },
+    "route": "watch",
+    "watchText": "YOUR DESKTOP EXPERIENCEWatchYour television, at a glance.Local preferences saved.PLAYBACK CONFIRMEDInside EditionCBS 2CBS 2Confirmed in the original supported browser tab MUTED Open compact guide g Previous pVideo stays in YouTube TVThis workspace controls navigation. Google handles your account and protected playback.Open original player Favorites 1View guide CBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening NewsRecently watchedCONFIRMED SWITCHESCBS 2CBS 26:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening NewsNBC 4NBC 46:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom LlamasABC 7ABC 76:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David MuirPrevious channelNBC 4Last observed · 6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom LlamasGo back p",
+    "workspaceCount": 1
+  },
+  "scope": "Fresh pre-reload baseline; not restart recovery evidence",
+  "inspectionNotes": [
+    "Initial Watch UI briefly showed saved/unconfirmed history; later baseline PLAYBACK CONFIRMED CBS2.",
+    "No preference value changed. Customize/include-hidden UI returned to prior state; final surface Watch.",
+    "One ambiguous Watch locator failed before action; retargeted existing navigation rail."
+  ]
+}

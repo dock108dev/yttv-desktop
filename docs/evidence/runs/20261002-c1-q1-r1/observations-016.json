@@ -1,0 +1,4481 @@
+[
+  {
+    "check": "final-installed-identity",
+    "at": "2026-10-02T16:19:16.493Z",
+    "bindings": [
+      {
+        "label": "Watch key",
+        "value": "w"
+      },
+      {
+        "label": "Guide key",
+        "value": "g"
+      },
+      {
+        "label": "Sports key",
+        "value": "s"
+      },
+      {
+        "label": "QuadBox key",
+        "value": "q"
+      },
+      {
+        "label": "Previous channel key",
+        "value": "p"
+      },
+      {
+        "label": "Mute all key",
+        "value": "m"
+      },
+      {
+        "label": "Focus window 1 key",
+        "value": "1"
+      },
+      {
+        "label": "Focus window 2 key",
+        "value": "2"
+      },
+      {
+        "label": "Focus window 3 key",
+        "value": "3"
+      },
+      {
+        "label": "Focus window 4 key",
+        "value": "4"
+      },
+      {
+        "label": "Activate row / expand window key",
+        "value": "Enter"
+      },
+      {
+        "label": "Cancel / restore layout key",
+        "value": "Escape"
+      },
+      {
+        "label": "Previous guide row key",
+        "value": "ArrowUp"
+      },
+      {
+        "label": "Next guide row key",
+        "value": "ArrowDown"
+      },
+      {
+        "label": "First row control key",
+        "value": "ArrowLeft"
+      },
+      {
+        "label": "Last row control key",
+        "value": "ArrowRight"
+      },
+      {
+        "label": "Search key",
+        "value": "/"
+      },
+      {
+        "label": "Show shortcuts key",
+        "value": "?"
+      }
+    ],
+    "runtime": "Runtime v0.1.6 · build a4fb694fb9dd7388 · extension idaaiiafgopfpaojpnhaoefbefllioab"
+  },
+  {
+    "check": "final-guide-baseline",
+    "at": "2026-10-02T16:19:37.133Z",
+    "clip": {
+      "height": 588,
+      "width": 440,
+      "x": 37,
+      "y": 72
+    },
+    "hostCount": 1,
+    "rows": [
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "CBS 2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC 4",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX 5",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC 7",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PIX 11",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PBS39",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "THIRTEEN PBS",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NJ PBS",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports 4K",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Telemundo NY",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WXTV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WFUT",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comet TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - FOX",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - CBS",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "YouTube TV Zen",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "QVC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HSN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WLNY TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "My 9",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TBS",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TNT",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN in 4K",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SEC Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ACC Network",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNU",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNews",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS1",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports Plus 4K",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports 4K",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA 4K",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia Plus",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBA TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL RedZone",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BTN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CBS Sports Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "T2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CHARGE!",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ROAR",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Golf Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pickleball TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Nest",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Junior",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney XD",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cartoon Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Adult Swim",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nickelodeon",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nick Jr.",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nicktoons",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TeenNick",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Stories by AMC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC Thrillers",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Portlandia",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC America",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET Her",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CMT",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy Central",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy.TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Freeform",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX SOUL",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FX",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXX",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXM",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Family",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Mystery",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GFAM",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GLIV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "IFC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV Classic",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "VH1",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Paramount",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pop",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Turner Classic Movies",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "truTV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NewsNation",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo Wild",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Animal Planet",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Smithsonian Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SYFY",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Travel Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TV Land",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bravo",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Dabl",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "E!",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Food Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Magnolia Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HGTV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "JusticeCentral.TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ID",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Turbo",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "OWN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "True CRMZ",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Oxygen True Crime",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Recipe.TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TLC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Game Show Network",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WE tv",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "All Reality We TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC News Live",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC News",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cheddar",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNBC",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg Originals",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+ 4K",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN2",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN3",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Business",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX News",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Weather",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HLN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "LiveNOW from FOX",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Localish",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Local Now",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MS NOW",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NEWSMAX",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "One America News",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AWE",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ION",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bounce",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Scripps News",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC News NOW",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Weather Channel",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "World at War",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Galavision",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TUDN",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Start TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cozi",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GREAT",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Walking Dead Universe",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Hits East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Comedy East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Latino East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Drama East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Movies East",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 1",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 2",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 3",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 4",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 5",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 6",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 7",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 8",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 9",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 10",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Max 2",
+        "playable": false
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SundanceTV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cars.TV",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "theGRIO",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBCU GO",
+        "playable": true
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pets.TV",
+        "playable": true
+      }
+    ],
+    "scrollWidth": 438,
+    "width": 440
+  },
+  {
+    "check": "v016-guide-NBC-timing",
+    "observedAfterMs": 28462,
+    "method": "coarse confirmation upper bound, includes agent gap"
+  },
+  {
+    "check": "v016-cache-after-full-document-navigation",
+    "at": "2026-10-02T16:20:57.632Z",
+    "hostCount": 1,
+    "rows": [
+      {
+        "name": "CBS 2",
+        "playable": true
+      },
+      {
+        "name": "NBC 4",
+        "playable": true
+      },
+      {
+        "name": "FOX 5",
+        "playable": true
+      },
+      {
+        "name": "ABC 7",
+        "playable": true
+      },
+      {
+        "name": "PIX 11",
+        "playable": true
+      },
+      {
+        "name": "PBS39",
+        "playable": true
+      },
+      {
+        "name": "THIRTEEN PBS",
+        "playable": true
+      },
+      {
+        "name": "NJ PBS",
+        "playable": true
+      },
+      {
+        "name": "FOX Sports 4K",
+        "playable": false
+      },
+      {
+        "name": "Telemundo NY",
+        "playable": true
+      },
+      {
+        "name": "WXTV",
+        "playable": true
+      },
+      {
+        "name": "WFUT",
+        "playable": true
+      },
+      {
+        "name": "Comet TV",
+        "playable": true
+      },
+      {
+        "name": "NFL ST - FOX",
+        "playable": false
+      },
+      {
+        "name": "NFL ST - CBS",
+        "playable": false
+      },
+      {
+        "name": "YouTube TV Zen",
+        "playable": true
+      },
+      {
+        "name": "QVC",
+        "playable": true
+      },
+      {
+        "name": "HSN",
+        "playable": true
+      },
+      {
+        "name": "WLNY TV",
+        "playable": true
+      },
+      {
+        "name": "My 9",
+        "playable": true
+      },
+      {
+        "name": "TBS",
+        "playable": true
+      },
+      {
+        "name": "TNT",
+        "playable": true
+      },
+      {
+        "name": "ESPN",
+        "playable": true
+      },
+      {
+        "name": "ESPN in 4K",
+        "playable": false
+      },
+      {
+        "name": "ESPN2",
+        "playable": true
+      },
+      {
+        "name": "SEC Network",
+        "playable": true
+      },
+      {
+        "name": "ACC Network",
+        "playable": false
+      },
+      {
+        "name": "ESPNU",
+        "playable": true
+      },
+      {
+        "name": "ESPNews",
+        "playable": true
+      },
+      {
+        "name": "FS1",
+        "playable": true
+      },
+      {
+        "name": "FOX Sports Plus 4K",
+        "playable": false
+      },
+      {
+        "name": "FS2",
+        "playable": true
+      },
+      {
+        "name": "NBC Sports 4K",
+        "playable": false
+      },
+      {
+        "name": "NBC Sports Network",
+        "playable": true
+      },
+      {
+        "name": "USA 4K",
+        "playable": false
+      },
+      {
+        "name": "NBC Sports Philadelphia",
+        "playable": true
+      },
+      {
+        "name": "NBC Sports Philadelphia Plus",
+        "playable": true
+      },
+      {
+        "name": "NBA TV",
+        "playable": true
+      },
+      {
+        "name": "NFL Network",
+        "playable": true
+      },
+      {
+        "name": "NFL RedZone",
+        "playable": false
+      },
+      {
+        "name": "BTN",
+        "playable": true
+      },
+      {
+        "name": "CBS Sports Network",
+        "playable": true
+      },
+      {
+        "name": "T2",
+        "playable": true
+      },
+      {
+        "name": "CHARGE!",
+        "playable": true
+      },
+      {
+        "name": "ROAR",
+        "playable": true
+      },
+      {
+        "name": "Golf Channel",
+        "playable": true
+      },
+      {
+        "name": "Pickleball TV",
+        "playable": true
+      },
+      {
+        "name": "The Nest",
+        "playable": true
+      },
+      {
+        "name": "Disney Channel",
+        "playable": true
+      },
+      {
+        "name": "Disney Junior",
+        "playable": true
+      },
+      {
+        "name": "Disney XD",
+        "playable": true
+      },
+      {
+        "name": "Cartoon Network",
+        "playable": true
+      },
+      {
+        "name": "Adult Swim",
+        "playable": false
+      },
+      {
+        "name": "Nickelodeon",
+        "playable": true
+      },
+      {
+        "name": "Nick Jr.",
+        "playable": true
+      },
+      {
+        "name": "Nicktoons",
+        "playable": true
+      },
+      {
+        "name": "TeenNick",
+        "playable": true
+      },
+      {
+        "name": "AMC",
+        "playable": true
+      },
+      {
+        "name": "Stories by AMC",
+        "playable": true
+      },
+      {
+        "name": "AMC Thrillers",
+        "playable": true
+      },
+      {
+        "name": "Portlandia",
+        "playable": true
+      },
+      {
+        "name": "BBC America",
+        "playable": true
+      },
+      {
+        "name": "BET",
+        "playable": true
+      },
+      {
+        "name": "BET Her",
+        "playable": true
+      },
+      {
+        "name": "CMT",
+        "playable": true
+      },
+      {
+        "name": "Comedy Central",
+        "playable": true
+      },
+      {
+        "name": "Comedy.TV",
+        "playable": true
+      },
+      {
+        "name": "Freeform",
+        "playable": true
+      },
+      {
+        "name": "FOX SOUL",
+        "playable": true
+      },
+      {
+        "name": "FX",
+        "playable": true
+      },
+      {
+        "name": "FXX",
+        "playable": true
+      },
+      {
+        "name": "FXM",
+        "playable": true
+      },
+      {
+        "name": "Hallmark Channel",
+        "playable": true
+      },
+      {
+        "name": "Hallmark Family",
+        "playable": true
+      },
+      {
+        "name": "Hallmark Mystery",
+        "playable": true
+      },
+      {
+        "name": "GFAM",
+        "playable": true
+      },
+      {
+        "name": "GLIV",
+        "playable": true
+      },
+      {
+        "name": "IFC",
+        "playable": true
+      },
+      {
+        "name": "MTV",
+        "playable": true
+      },
+      {
+        "name": "MTV2",
+        "playable": true
+      },
+      {
+        "name": "MTV Classic",
+        "playable": true
+      },
+      {
+        "name": "VH1",
+        "playable": true
+      },
+      {
+        "name": "Paramount",
+        "playable": true
+      },
+      {
+        "name": "Pop",
+        "playable": true
+      },
+      {
+        "name": "Turner Classic Movies",
+        "playable": true
+      },
+      {
+        "name": "truTV",
+        "playable": true
+      },
+      {
+        "name": "USA",
+        "playable": true
+      },
+      {
+        "name": "NewsNation",
+        "playable": true
+      },
+      {
+        "name": "Nat Geo",
+        "playable": true
+      },
+      {
+        "name": "Nat Geo Wild",
+        "playable": true
+      },
+      {
+        "name": "Animal Planet",
+        "playable": true
+      },
+      {
+        "name": "Discovery Channel",
+        "playable": true
+      },
+      {
+        "name": "Smithsonian Channel",
+        "playable": true
+      },
+      {
+        "name": "SYFY",
+        "playable": true
+      },
+      {
+        "name": "Travel Channel",
+        "playable": true
+      },
+      {
+        "name": "TV Land",
+        "playable": true
+      },
+      {
+        "name": "Bravo",
+        "playable": true
+      },
+      {
+        "name": "Dabl",
+        "playable": true
+      },
+      {
+        "name": "E!",
+        "playable": true
+      },
+      {
+        "name": "Food Network",
+        "playable": true
+      },
+      {
+        "name": "Magnolia Network",
+        "playable": true
+      },
+      {
+        "name": "HGTV",
+        "playable": true
+      },
+      {
+        "name": "JusticeCentral.TV",
+        "playable": true
+      },
+      {
+        "name": "ID",
+        "playable": true
+      },
+      {
+        "name": "Discovery Turbo",
+        "playable": true
+      },
+      {
+        "name": "OWN",
+        "playable": true
+      },
+      {
+        "name": "True CRMZ",
+        "playable": true
+      },
+      {
+        "name": "Oxygen True Crime",
+        "playable": true
+      },
+      {
+        "name": "Recipe.TV",
+        "playable": true
+      },
+      {
+        "name": "TLC",
+        "playable": true
+      },
+      {
+        "name": "Game Show Network",
+        "playable": true
+      },
+      {
+        "name": "WE tv",
+        "playable": true
+      },
+      {
+        "name": "All Reality We TV",
+        "playable": true
+      },
+      {
+        "name": "ABC News Live",
+        "playable": true
+      },
+      {
+        "name": "BBC News",
+        "playable": true
+      },
+      {
+        "name": "Cheddar",
+        "playable": true
+      },
+      {
+        "name": "CNBC",
+        "playable": true
+      },
+      {
+        "name": "Bloomberg TV+",
+        "playable": true
+      },
+      {
+        "name": "Bloomberg Originals",
+        "playable": true
+      },
+      {
+        "name": "Bloomberg TV+ 4K",
+        "playable": true
+      },
+      {
+        "name": "CNN",
+        "playable": true
+      },
+      {
+        "name": "C-SPAN",
+        "playable": true
+      },
+      {
+        "name": "C-SPAN2",
+        "playable": true
+      },
+      {
+        "name": "C-SPAN3",
+        "playable": true
+      },
+      {
+        "name": "FOX Business",
+        "playable": true
+      },
+      {
+        "name": "FOX News",
+        "playable": true
+      },
+      {
+        "name": "FOX Weather",
+        "playable": true
+      },
+      {
+        "name": "HLN",
+        "playable": true
+      },
+      {
+        "name": "LiveNOW from FOX",
+        "playable": true
+      },
+      {
+        "name": "Localish",
+        "playable": true
+      },
+      {
+        "name": "Local Now",
+        "playable": true
+      },
+      {
+        "name": "MS NOW",
+        "playable": true
+      },
+      {
+        "name": "NEWSMAX",
+        "playable": true
+      },
+      {
+        "name": "One America News",
+        "playable": true
+      },
+      {
+        "name": "AWE",
+        "playable": true
+      },
+      {
+        "name": "ION",
+        "playable": true
+      },
+      {
+        "name": "Bounce",
+        "playable": true
+      },
+      {
+        "name": "Scripps News",
+        "playable": true
+      },
+      {
+        "name": "NBC News NOW",
+        "playable": true
+      },
+      {
+        "name": "The Weather Channel",
+        "playable": true
+      },
+      {
+        "name": "World at War",
+        "playable": true
+      },
+      {
+        "name": "Galavision",
+        "playable": true
+      },
+      {
+        "name": "TUDN",
+        "playable": true
+      },
+      {
+        "name": "Start TV",
+        "playable": true
+      },
+      {
+        "name": "Cozi",
+        "playable": true
+      },
+      {
+        "name": "GREAT",
+        "playable": true
+      },
+      {
+        "name": "The Walking Dead Universe",
+        "playable": true
+      },
+      {
+        "name": "HBO East",
+        "playable": true
+      },
+      {
+        "name": "HBO Hits East",
+        "playable": true
+      },
+      {
+        "name": "HBO Comedy East",
+        "playable": true
+      },
+      {
+        "name": "HBO Latino East",
+        "playable": true
+      },
+      {
+        "name": "HBO Drama East",
+        "playable": true
+      },
+      {
+        "name": "HBO Movies East",
+        "playable": true
+      },
+      {
+        "name": "Sports on HBO Max 1",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 2",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 3",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 4",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 5",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 6",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 7",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 8",
+        "playable": false
+      },
+      {
+        "name": "Sports on HBO Max 9",
+        "playable": true
+      },
+      {
+        "name": "Sports on HBO Max 10",
+        "playable": false
+      },
+      {
+        "name": "HBO Max 2",
+        "playable": false
+      },
+      {
+        "name": "SundanceTV",
+        "playable": true
+      },
+      {
+        "name": "Cars.TV",
+        "playable": true
+      },
+      {
+        "name": "theGRIO",
+        "playable": true
+      },
+      {
+        "name": "HBCU GO",
+        "playable": true
+      },
+      {
+        "name": "Pets.TV",
+        "playable": true
+      }
+    ]
+  },
+  {
+    "check": "v016-favorite-CBS-timing",
+    "observedAfterMs": 36604,
+    "method": "coarse confirmed sample upper bound; not p95"
+  },
+  {
+    "check": "v016-recents-NBC-timing",
+    "observedAfterMs": 30201,
+    "method": "coarse confirmed sample upper bound; not p95"
+  },
+  {
+    "check": "v016-temporary-settings-before-navigation",
+    "at": "2026-10-02T16:22:27.719Z",
+    "rows": [
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "CBS 2"
+      },
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "NBC 4"
+      },
+      {
+        "favorite": false,
+        "hidden": true,
+        "name": "FOX 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PIX 11"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PBS39"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "THIRTEEN PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NJ PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Telemundo NY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WXTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WFUT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comet TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - CBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "YouTube TV Zen"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "QVC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HSN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WLNY TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "My 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TNT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN in 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SEC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ACC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNU"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNews"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports Plus 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia Plus"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBA TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL RedZone"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BTN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CBS Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "T2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CHARGE!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ROAR"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Golf Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pickleball TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Nest"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Junior"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney XD"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cartoon Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Adult Swim"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nickelodeon"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nick Jr."
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nicktoons"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TeenNick"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Stories by AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC Thrillers"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Portlandia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC America"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET Her"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CMT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy Central"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Freeform"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX SOUL"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Family"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Mystery"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GFAM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GLIV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "IFC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV Classic"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "VH1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Paramount"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pop"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Turner Classic Movies"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "truTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NewsNation"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo Wild"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Animal Planet"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Smithsonian Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SYFY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Travel Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TV Land"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bravo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Dabl"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "E!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Food Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Magnolia Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HGTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "JusticeCentral.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ID"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Turbo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "OWN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "True CRMZ"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Oxygen True Crime"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Recipe.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TLC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Game Show Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WE tv"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "All Reality We TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC News Live"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cheddar"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNBC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg Originals"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+ 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Business"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Weather"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HLN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "LiveNOW from FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Localish"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Local Now"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MS NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NEWSMAX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "One America News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AWE"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ION"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bounce"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Scripps News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC News NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Weather Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "World at War"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Galavision"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TUDN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Start TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cozi"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GREAT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Walking Dead Universe"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Hits East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Comedy East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Latino East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Drama East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Movies East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 6"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 8"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 10"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SundanceTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cars.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "theGRIO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBCU GO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pets.TV"
+      }
+    ],
+    "sportsHelp": "Sports (x)"
+  },
+  {
+    "check": "v016-search-ABC-timing",
+    "observedAfterMs": 34502,
+    "method": "coarse confirmation upper bound; not p95"
+  },
+  {
+    "check": "v016-settings-after-channel-navigation",
+    "at": "2026-10-02T16:23:20.926Z",
+    "firstSix": [
+      {
+        "favorite": true,
+        "name": "CBS 2"
+      },
+      {
+        "favorite": true,
+        "name": "NBC 4"
+      },
+      {
+        "favorite": false,
+        "name": "PIX 11"
+      },
+      {
+        "favorite": false,
+        "name": "ABC 7"
+      },
+      {
+        "favorite": false,
+        "name": "PBS39"
+      },
+      {
+        "favorite": false,
+        "name": "THIRTEEN PBS"
+      }
+    ],
+    "foxHidden": true,
+    "sportsHelp": "Sports (x)"
+  },
+  {
+    "check": "v016-settings-after-full-page-refresh",
+    "at": "2026-10-02T16:23:22.140Z",
+    "drawerOpen": true,
+    "favorites": [
+      "CBS 2",
+      "NBC 4"
+    ],
+    "firstSix": [
+      "CBS 2",
+      "NBC 4",
+      "PIX 11",
+      "ABC 7",
+      "PBS39",
+      "THIRTEEN PBS"
+    ],
+    "foxHidden": true,
+    "rows": 168,
+    "sportsHelp": "Sports (x)"
+  },
+  {
+    "check": "v016-Previous-timing",
+    "observedAfterMs": 101308,
+    "method": "coarse confirmation upper bound; not p95"
+  },
+  {
+    "check": "v016-lifecycle-console-boundary",
+    "at": "2026-10-02T16:25:23.542Z"
+  },
+  {
+    "check": "v016-invalidation-diagnostic-before-owner-reload",
+    "at": "2026-10-02T16:26:42.492Z",
+    "boundary": "2026-10-02T16:25:23.542Z",
+    "afterBoundary": [],
+    "scope": "exact invalidation diagnostic only"
+  },
+  {
+    "check": "v016-lifecycle-first-notice",
+    "at": "2026-10-02T16:28:08.651Z",
+    "clip": {
+      "height": 160,
+      "width": 0,
+      "x": 0,
+      "y": 0
+    },
+    "noticeCount": 1,
+    "state": "refresh-required",
+    "workspaceCount": 0
+  },
+  {
+    "check": "v016-visible-single-notice",
+    "at": "2026-10-02T16:28:41.496Z",
+    "clip": {
+      "height": 160,
+      "width": 440,
+      "x": 37,
+      "y": 72
+    },
+    "noticeCount": 1
+  },
+  {
+    "check": "v016-invalidation-diagnostic-after-reload",
+    "at": "2026-10-02T16:28:41.551Z",
+    "boundary": "2026-10-02T16:25:23.542Z",
+    "afterBoundary": [],
+    "scope": "exact invalidation diagnostic only; not all extension errors"
+  },
+  {
+    "check": "v016-same-id-after-owner-reload",
+    "at": "2026-10-02T16:29:43.481Z",
+    "runtime": "Runtime v0.1.6 · build a4fb694fb9dd7388 · extension idaaiiafgopfpaojpnhaoefbefllioab",
+    "sports": "x"
+  },
+  {
+    "check": "v016-settings-after-reload-and-guide-reacquisition",
+    "at": "2026-10-02T16:30:25.520Z",
+    "rows": [
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "CBS 2"
+      },
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "NBC 4"
+      },
+      {
+        "favorite": false,
+        "hidden": true,
+        "name": "FOX 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PIX 11"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PBS39"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "THIRTEEN PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NJ PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Telemundo NY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WXTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WFUT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comet TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - CBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "YouTube TV Zen"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "QVC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HSN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WLNY TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "My 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TNT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN in 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SEC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ACC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNU"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNews"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports Plus 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia Plus"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBA TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL RedZone"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BTN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CBS Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "T2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CHARGE!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ROAR"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Golf Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pickleball TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Nest"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Junior"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney XD"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cartoon Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Adult Swim"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nickelodeon"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nick Jr."
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nicktoons"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TeenNick"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Stories by AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC Thrillers"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Portlandia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC America"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET Her"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CMT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy Central"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Freeform"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX SOUL"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Family"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Mystery"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GFAM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GLIV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "IFC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV Classic"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "VH1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Paramount"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pop"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Turner Classic Movies"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "truTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NewsNation"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo Wild"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Animal Planet"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Smithsonian Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SYFY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Travel Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TV Land"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bravo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Dabl"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "E!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Food Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Magnolia Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HGTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "JusticeCentral.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ID"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Turbo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "OWN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "True CRMZ"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Oxygen True Crime"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Recipe.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TLC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Game Show Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WE tv"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "All Reality We TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC News Live"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cheddar"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNBC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg Originals"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+ 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Business"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Weather"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HLN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "LiveNOW from FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Localish"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Local Now"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MS NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NEWSMAX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "One America News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AWE"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ION"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bounce"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Scripps News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC News NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Weather Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "World at War"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Galavision"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TUDN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Start TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cozi"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GREAT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Walking Dead Universe"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Hits East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Comedy East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Latino East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Drama East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Movies East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 6"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 8"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 10"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SundanceTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cars.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "theGRIO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBCU GO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pets.TV"
+      }
+    ]
+  },
+  {
+    "check": "v016-final-settings-restored",
+    "at": "2026-10-02T16:30:57.396Z",
+    "clip": {
+      "height": 460,
+      "width": 440,
+      "x": 37,
+      "y": 72
+    },
+    "hostCount": 1,
+    "rows": [
+      {
+        "favorite": true,
+        "hidden": false,
+        "name": "CBS 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PIX 11"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "PBS39"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "THIRTEEN PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NJ PBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Telemundo NY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WXTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WFUT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comet TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL ST - CBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "YouTube TV Zen"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "QVC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HSN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WLNY TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "My 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TBS"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TNT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN in 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SEC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ACC Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNU"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ESPNews"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Sports Plus 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FS2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC Sports Philadelphia Plus"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBA TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NFL RedZone"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BTN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CBS Sports Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "T2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CHARGE!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ROAR"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Golf Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pickleball TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Nest"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney Junior"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Disney XD"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cartoon Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Adult Swim"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nickelodeon"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nick Jr."
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nicktoons"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TeenNick"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Stories by AMC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AMC Thrillers"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Portlandia"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC America"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BET Her"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CMT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy Central"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Comedy.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Freeform"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX SOUL"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FXM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Family"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Hallmark Mystery"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GFAM"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GLIV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "IFC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MTV Classic"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "VH1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Paramount"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pop"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Turner Classic Movies"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "truTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "USA"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NewsNation"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Nat Geo Wild"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Animal Planet"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Smithsonian Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SYFY"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Travel Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TV Land"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bravo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Dabl"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "E!"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Food Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Magnolia Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HGTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "JusticeCentral.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ID"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Discovery Turbo"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "OWN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "True CRMZ"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Oxygen True Crime"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Recipe.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TLC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Game Show Network"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "WE tv"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "All Reality We TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ABC News Live"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "BBC News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cheddar"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNBC"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg Originals"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bloomberg TV+ 4K"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "CNN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "C-SPAN3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Business"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "FOX Weather"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HLN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "LiveNOW from FOX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Localish"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Local Now"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "MS NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NEWSMAX"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "One America News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "AWE"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "ION"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Bounce"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Scripps News"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "NBC News NOW"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Weather Channel"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "World at War"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Galavision"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "TUDN"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Start TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cozi"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "GREAT"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "The Walking Dead Universe"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Hits East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Comedy East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Latino East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Drama East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Movies East"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 1"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 3"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 4"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 5"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 6"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 7"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 8"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 9"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Sports on HBO Max 10"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBO Max 2"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "SundanceTV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Cars.TV"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "theGRIO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "HBCU GO"
+      },
+      {
+        "favorite": false,
+        "hidden": false,
+        "name": "Pets.TV"
+      }
+    ],
+    "sportsHelp": "Sports (s)",
+    "displayedOrderMatchesOriginal": true
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "recorded_at_utc": "2026-10-02T19:57:12.915459+00:00",
+  "class": "LIVE_BROWSER-narrow-DOM",
+  "method": "Owner reports same-ID reload without page refresh; supported browser bridge samples designated existing tab, refreshes only that tab, reads Shortcuts identity",
+  "prepared_candidate": "0.1.7/9d07499eeceaf524",
+  "actual_installed": "Runtime v0.1.6 \u00b7 build a4fb694fb9dd7388 \u00b7 extension idaaiiafgopfpaojpnhaoefbefllioab",
+  "identity_verdict": "FAIL-expected-prepared-candidate-not-installed",
+  "owner_reload_confirmation": true,
+  "invalidation_notice": "NOT OBSERVED-0-in-two-samples",
+  "notice_verdict": "INCONCLUSIVE-reload-not-established-on-designated-runtime",
+  "pre_refresh_samples": [
+    {
+      "allVideosMuted": true,
+      "at": "2026-10-02T19:54:08.306Z",
+      "drawerHidden": false,
+      "extensionState": null,
+      "hostCount": 1,
+      "noticeCount": 0,
+      "player": {
+        "currentTime": 50053.322787,
+        "muted": true,
+        "paused": false,
+        "readyState": 4
+      },
+      "route": "guide",
+      "workspaceCount": 1
+    },
+    {
+      "at": "2026-10-02T19:54:40.712Z",
+      "extensionState": null,
+      "noticeCount": 0,
+      "player": {
+        "currentTime": 50085.767037,
+        "muted": true,
+        "paused": false,
+        "readyState": 4
+      },
+      "workspaceCount": 1
+    }
+  ],
+  "player_time_delta_seconds": 32.44425,
+  "ordinary_muted_playback": "Observed advancing in bounded pre-refresh interval; all videos muted after refresh; no new feed",
+  "new_candidate_recovery": "BLOCKED-at-installed-identity",
+  "actual_worker_restart": "NOT RUN-identity-gate-first",
+  "browser_restart": "NOT RUN-identity-gate-first",
+  "disable_enable": "NOT RUN-identity-gate-first",
+  "preferences": "No preference changes; semantic settings matrix not performed on candidate017",
+  "source_repairs": "NONE",
+  "correction": "Owner checks the existing extension in the Chrome profile containing the designated tab: expected ID idaaiiafgopfpaojpnhaoefbefllioab, Version0.1.7, Loaded from /Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension. Reload only that entry; leave designated Live tab unrefreshed. If version/path differs, report shown version and folder; no Remove/Load unpacked/storage reset."
+}

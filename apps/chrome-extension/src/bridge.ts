@@ -6,13 +6,13 @@ import { createExtensionLifecycle, type ExtensionLifecycle } from './runtime';
 export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensionLifecycle()): ClientBridge & { dispose: () => void } {
   let snapshot: DesktopSnapshot = {
     mode: 'extension', connection: 'waiting', statusMessage: 'Waiting for an observed YouTube TV page. Open its Live guide to load channel candidates.',
-    playback: { playing: null, muted: true }, guide: [], preferences: defaultPreferences(), panes: [],
+    playback: { playing: null, muted: null }, guide: [], preferences: defaultPreferences(), panes: [],
     capabilities: { navigation: false, guide: false, managedWindows: true, audio: false },
   };
   const listeners = new Set<() => void>();
   let refreshing = false;
   lifecycle.onInvalidated(() => {
-    snapshot = { ...snapshot, connection: 'unavailable', statusMessage: 'Desktop extension updated. Refresh this YouTube TV page to reconnect; playback remains muted.',
+    snapshot = { ...snapshot, connection: 'unavailable', statusMessage: 'Desktop extension updated. Refresh this YouTube TV page to reconnect; playback remains available.',
       capabilities: { navigation: false, guide: false, managedWindows: false, audio: false } };
     for (const listener of listeners) listener();
   });
@@ -43,7 +43,11 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
     dispose: () => lifecycle.dispose(),
     getSnapshot: () => snapshot,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    recoverGuide: () => request({ type: 'OPEN_NATIVE_GUIDE' }),
     navigateChannel: channelId => request({ type: 'NAVIGATE', channelId }),
+    watchEvent: eventId => request({ type: 'WATCH_EVENT', eventId }),
+    addEvent: eventId => request({ type: 'ADD_EVENT', eventId }),
+    refreshSports: async () => { const result = await request({ type: 'REFRESH_SPORTS' }); await refresh(); return result; },
     previousChannel: () => request({ type: 'PREVIOUS' }),
     setPreference: patch => request({ type: 'PREFERENCE', patch }),
     createPane: (channelId, eventId) => request({ type: 'CREATE_PANE', channelId, eventId }),
@@ -52,6 +56,8 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
     expandPane: paneId => request({ type: 'EXPAND_PANE', paneId }),
     restoreLayout: () => request({ type: 'RESTORE_LAYOUT' }),
     removePane: paneId => request({ type: 'REMOVE_PANE', paneId }),
+    focusOriginal: () => request({ type: 'FOCUS_MAIN' }),
+    setAudio: change => request({ type: 'AUDIO', ...change }),
     mute: () => request({ type: 'MUTE' }),
     refresh: async () => { const result = await request({ type: 'REFRESH' }); await refresh(); return result; },
   };

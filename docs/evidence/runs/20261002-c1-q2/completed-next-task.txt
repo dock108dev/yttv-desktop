@@ -1,0 +1,23 @@
+# Viewing milestone complete — C1-Q2; release work grouped
+
+Updated 2026-10-02 after the installed continuation. **C1-Q2 COMPLETE: single-feed audio PASS and two-feed managed-window trial PASS.** Installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**, loaded through the owner-confirmed existing-entry handoff from `dist/chrome-extension`. [Run record](docs/evidence/runs/20261002-c1-q2/run.md) contains exact identity, periodic playback/routing observations, owner listening feedback and practical resource measurements.
+
+## Delivered viewing result
+
+Enable/mute, existing-volume adjustment/restoration, scoped Mute all and Original player worked. Owner confirmed CBS audible and successful CBS→NBC→CBS audio transfer; an accidental negative answer was explicitly corrected. Player and tab mute remain separate; native players can later report unmuted while the nonselected tab stays muted. Site mute remains UNKNOWN; no site or system-volume changes were needed.
+
+Exactly one additional managed feed ran alongside original CBS. NBC was replaced by ABC in the same added window while CBS continued. Independent advancement, selection/audio in both directions, expand/restore, background return and closing back to single playback passed. The trial ran23:58:11.000Z–00:13:34.059Z (15m23s, UTC; Oct2 local evening) at observed1280×720. No stall was seen in periodic samples; owner reported no freezing, overlap or system warning. Short between-sample stalls remain unknown. All-Chrome summed RSS2.47–2.76GiB and CPU102.1–118.8% have no per-feed attribution and are not formal budgets.
+
+Only the added test feed was closed. Original CBS remains advancing with audio enabled at the original visible100% volume, with its native player available. Source/tests/bundle hashes still match26 inputs/eight test files/nine bundle files; recorded68-test verification remains valid. No code changed in the installed continuation. Preserve preferences, uncommitted work, prior bundles and all failure/historical evidence. Unchanged guide/preferences/Previous/cache qualification was reused, with explicit native Live reacquisition when cached actions were disabled.
+
+## Grouped remaining release work
+
+Actual worker/full-browser restart and disable/enable; complete native/keyboard/assistive and failure matrix; formal navigation/audio p95 and attributed CPU/RAM/GPU/network/stalls/restart budgets; live Sports/provider rights/coverage/freshness/mapping; full higher-count/composition/three-game/U01–U18 and owner acceptance. Full foundation/beta acceptance remains PARTIAL. Managed windows are the demonstrated reduced route; full in-page QuadBox is not qualified.
+
+There is no pending reload or routine viewing handoff. No actual usability defect was established during this continuation. The next engineering scope should address a concrete usability/feature blocker; remaining release checks stay grouped rather than becoming individual handoffs.
+
+## Use and boundaries
+
+Open the existing YouTube TV tab, click Desktop, then Guide. Use Watch for main playback; Add opens one eligible additional feed. QuadBox discloses managed windows: Select audio transfers sound, Replace changes only that feed, Expand/Restore adjusts layout, and Close removes only the added feed. Mute all affects controlled sources; Original player returns to the designated native player. Cached rows intentionally disable navigation until Open native Live reacquires targets.
+
+Capacity basis remains the owner's report that nobody else was streaming plus the ordinary allowance; recheck only if circumstances change or playback reports a restriction. Stop affected experiments on entitlement/protected/session-limit errors, repeated freeze, resource warning, unintended overlap or interference; close only test-created extras and preserve original playback. Extension-management automation remains owner-only, with no reinstall/reset/duplicate/workaround. No third/fourth feed, protected capture, provider provisioning, purchases, restriction bypass, platform expansion, remote operations or publication.

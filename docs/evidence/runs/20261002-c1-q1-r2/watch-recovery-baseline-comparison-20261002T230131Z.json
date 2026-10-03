@@ -1,0 +1,24 @@
+{
+  "at": "2026-10-02T23:01:31.823767+00:00",
+  "method": "Compare sanitized retained UI observations; no storage export",
+  "row_count": 169,
+  "original_row_count": 169,
+  "row_order_matches_priming": true,
+  "metadata_presentation_matches_priming": true,
+  "favorites_match_priming": true,
+  "unavailable_count": 20,
+  "original_timestamp_present": true,
+  "bindings_match_retained": true,
+  "hidden_rows_shown_with_include_hidden": 0,
+  "history_presentation": {
+    "current": "CBS 2",
+    "previous": "NBC 4",
+    "recents": [
+      "CBS 2",
+      "NBC 4",
+      "ABC 7"
+    ]
+  },
+  "history_matches_retained": true,
+  "limits": "Visible presentation comparison only; no byte-for-byte storage equivalence or observation of a new restart"
+}

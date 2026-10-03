@@ -1,6 +1,8 @@
 # User acceptance and test plan
 
-Status 2026-10-02: **43 automated fixture/mock/UI tests PASS, local fixture UI checks and limited Chrome integration observed; full user acceptance not yet demonstrated.** Completed section 28 supplies the following explicit user criteria. Proposed engineering budgets follow separately. [Setup checks](SETUP_VERIFICATION.md) validate documents only.
+Updated 2026-10-02 after the installed continuation. [C1-Q2](evidence/runs/20261002-c1-q2/run.md) **COMPLETE: practical single-feed audio PASS; supervised two-feed managed-window trial PASS** on installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**. Owner confirmed the existing-entry reload; only the designated main tab was refreshed. Both feeds advanced at 720p over **15 minutes 23 seconds**, with audio transfer in both directions, isolated replacement, expand/restore, background return and close back to usable CBS playback. Owner confirmed hearing CBS and successful handoff, and reported no viewing issues. Full foundation/beta acceptance remains PARTIAL.
+
+[R2 individual verdicts](evidence/runs/20261002-c1-q1-r2/run.md): U01/AC04 Watch metadata restart subset PASS; U03/AC03 restoration/target-guard subset PASS; U04 visible Watch-reload preference subset PASS; U18/AC13 pre-refresh isolation subset PASS, refresh-time mute INCONCLUSIVE. Overall foundation and full criteria remain PARTIAL. R1 scoped U04 PASS and other partial/inconclusive results remain attached to original0.1.6. No actual worker/browser/disable-enable or full owner/U01–U18/three-game acceptance inferred.
 
 ## Explicit user criteria — complete Chrome core MVP
 
@@ -86,3 +88,6 @@ Automated domain/adapter/mock Chrome tests exist and pass; local fixture UI chec
 | Native / macOS | Auth/persistence/protected playback first, then multiple views/GPU/fullscreen/audio/reuse | DEFERRED; WKWebView compatibility unverified |
 
 Use [evidence templates](evidence/README.md). Record exact revision and environment; fixtures passing do not establish provider freshness, channel availability, stream counts, DRM, protected capture, browser behavior, owner acceptance or publication readiness. Repeat applicable checks only after meaningful changes or unresolved failures.
+
+
+Current product gate: [S2-L1 NBA activation](../NEXT_TASK.md), one combined private-key and exact loopback permission/reload handoff. Local implementation v0.1.9/57058bd9d522e2bd: 79-test verify PASS, including provider/polling/UI/resolver/bridge failures. Actual schedules/scores/team search and independently mapped Watch/Add remain NOT RUN. Source time/delivery delay/network fields unknown; unsupported leagues unavailable. C1-Q2 single-feed and 15m23s dual managed-window qualification remain attached to installed018. The obsolete overnight M1 task is superseded; broader lifecycle/control/performance/full U01–U18/beta/owner acceptance remain grouped and open. [S2-L1 evidence](evidence/runs/20261002-s2-l1/run.md).

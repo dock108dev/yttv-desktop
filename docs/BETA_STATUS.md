@@ -1,21 +1,20 @@
 # Local beta candidate status
 
-Updated 2026-10-02. This is a local beta candidate, not completion of the full Chrome MVP. The user's original 18 criteria stay in [acceptance](ACCEPTANCE_AND_TEST_PLAN.md). [Run records](evidence/runs/README.md) separate synthetic results from real observations.
+Updated 2026-10-02 after the installed continuation. [C1-Q2](evidence/runs/20261002-c1-q2/run.md) **COMPLETE: practical single-feed audio PASS; supervised two-feed managed-window trial PASS** on installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**. Owner confirmed the existing-entry reload; only the designated main tab was refreshed. Both feeds advanced at 720p over **15 minutes 23 seconds**, with audio transfer in both directions, isolated replacement, expand/restore, background return and close back to usable CBS playback. Owner confirmed hearing CBS and successful handoff, and reported no viewing issues. Full foundation/beta acceptance remains PARTIAL.
 
-## Implemented and checked
+## Delivered and retained behavior
 
-- Private local TypeScript/React workspaces, locked dependencies, build, type checking, 43 automated tests and exact permission audit.
-- MV3 extension with tv.youtube.com-only access and local storage; content drawer isolates the original player.
-- Real compact guide candidates and ordinary CBS/NBC channel navigation; current/recents/Previous state uses confirmed advancing playback.
-- Favorites/order/hide/search and local preferences; fixture UI confirms favorite/hidden persistence. Additional real reload checks remain recorded individually.
-- Sports normalization/search/freshness/overrun/delay, resolver provenance/ambiguity and event-pane transitions tested using explicit fixtures. Fixture Sports has no playable live targets.
-- Managed separate browser windows with mute-before-navigation, independent replacement, saved expand/restore bounds and ID revalidation on worker recovery. Mock tests prove command sequencing, not actual playback feasibility.
-- Per-tab drawer open state repair for full document replacement. All real player and tab audio locked muted overnight; no real unmute path.
+- Installed018 normal audio controls, scoped Mute all and serialized main-plus-one routing passed practical use. Player/tab mute and heard sound remain distinct; site mute UNKNOWN. No automatic saved audio authority.
+- CBS plus one managed feed passed15m23s at720p. NBC→ABC replacement reused the added tab; expand/restore, background return and close preserved CBS. Owner corrected an accidental negative listening answer and confirmed handoff worked; no viewing issues reported.
+- [R1](evidence/runs/20261002-c1-q1-r1/run.md) guide/favorites/search/Previous/configurable controls and scoped U04 remain attached to016. [R2](evidence/runs/20261002-c1-q1-r2/run.md) installed017 source-folder, cached Watch guards/preferences/history and native Live recovery subsets remain retained. Historical refresh mute is INCONCLUSIVE; its overnight hold is superseded.018 reused unchanged qualifications and explicitly recovered fresh targets.
+- Source/tests/bundle unchanged during continuation:26/eight/nine hashes match; recorded68-test verify remains valid. Browser-control transport timeouts were resolved with supported native controls, with limitations retained. No source defect established. Preferences, prior bundles and uncommitted work preserved.
 
-## Remaining beta release gates
+## Current disposition
 
-Live Sports/provider licensing/coverage/freshness/broadcast mapping is not connected. In-page composed video QuadBox is not implemented; managed windows are a disclosed fallback. Four-stream support is disabled and account allowance is unverified. Continuous stalls/render/resource qualification and audible handoff remain unrun. Safari/Windows/native remain untested. Full U01–U18/three-game acceptance is not met.
+Viewing milestone complete in the same task. Added feed closed; original CBS remains usable with audio enabled at its original volume. No pending owner reload or new routine handoff. Periodic observations cannot rule out short stalls; all-Chrome resource samples have no per-feed attribution.
 
-Keyboard mappings are persisted in the shared state but the current UI uses its default scoped bindings; configurable mapping UI and guide arrow navigation remain incomplete. Playback play/pause/volume/program-navigation contract methods remain planned beyond implemented guide/navigation/mute/observation. Layout IDs persist but recreating last QuadBox requires an explicit future revalidation/reopen workflow. Failure isolation and extension disable/teardown still need real browser tests.
+[S2-L1](../NEXT_TASK.md) implementation is verified locally: **79-test npm run verify PASS**, NBA Free adapter/metadata relay/provider UI/team search/guarded Watch/Add prepared on v0.1.9/57058bd9d522e2bd. **Live activation BLOCKED** on the owner-supplied Free key and exact http://127.0.0.1:4318/* permission. [One combined handoff](evidence/runs/20261002-s2-l1/permission-review.md). Zero provider requests; real events/search/mapped Watch/Add NOT RUN. Broadcast metadata/source-update time are unknown; NBA-only coverage and native corroboration limits remain explicit. Installed018 remains unchanged and freshly identified; the completed viewing trial was not repeated. [Run evidence](evidence/runs/20261002-s2-l1/run.md).
 
-No purchases, provider keys/accounts, credentials extraction, protected stream proxy/capture, DRM bypass, remote repo or publication. Local installation/reload required user handoff because browser automation explicitly blocks extension-management pages.
+## Grouped open release criteria
+
+Actual worker/full-browser restart and disable/enable; complete keyboard/native/assistive controls and failure isolation; formal navigation/audio p95 and attributed CPU/RAM/GPU/network/stalls/restart budgets; live Sports/provider rights/coverage/freshness/mapping; full higher-count/composition/three-game/U01–U18 and owner acceptance. Managed windows remain the disclosed route. Safari/Windows/native/publication remain deferred. No full beta acceptance, provisioning, purchases, capture/bypass or remote operations.

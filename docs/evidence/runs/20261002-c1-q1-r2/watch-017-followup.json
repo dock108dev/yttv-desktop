@@ -1,0 +1,12 @@
+{
+  "allVideosMuted": true,
+  "at": "2026-10-02T22:51:34.920Z",
+  "context": "PLAYBACK CONFIRMEDCBS Evening NewsCBS 2CBS 2Confirmed in the original supported browser tab MUTED Open compact guide g Previous p",
+  "hostCount": 1,
+  "player": {
+    "currentTime": 46974.612389,
+    "muted": true,
+    "paused": false,
+    "readyState": 4
+  }
+}

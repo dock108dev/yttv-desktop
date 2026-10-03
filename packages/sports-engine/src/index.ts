@@ -49,13 +49,13 @@ function team(value: Team): Team {
 function scoreValue(value: unknown): number | null { return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null; }
 export type EventInput = Partial<SportsEvent> & Pick<SportsEvent, 'id' | 'league' | 'homeTeam' | 'awayTeam' | 'scheduledStart'>;
 export function normalizeEvent(input: EventInput, options: { now?: number; source?: string; evidenceClass?: EvidenceClass } = {}): SportsEvent {
-  if (!input.id || !input.league || timestamp(input.scheduledStart) === null) throw new Error('Event requires a stable ID, league and valid scheduled start.');
+  if (!input.id || !input.league || (input.scheduledStart !== null && timestamp(input.scheduledStart) === null)) throw new Error('Event requires a stable ID, league and valid or unknown scheduled start.');
   const status = EVENT_STATUSES.includes(input.status as EventStatus) ? input.status as EventStatus : 'UNKNOWN';
   const now = options.now ?? Date.now();
   const evidenceClass = ['FIXTURE', 'REPLAY', 'LIVE'].includes(String(input.evidenceClass)) ? input.evidenceClass! : options.evidenceClass ?? 'REPLAY';
   return {
     id: input.id, league: input.league, homeTeam: team(input.homeTeam), awayTeam: team(input.awayTeam),
-    scheduledStart: new Date(input.scheduledStart).toISOString(), scheduledEnd: timestamp(input.scheduledEnd) !== null ? new Date(input.scheduledEnd!).toISOString() : null,
+    scheduledStart: input.scheduledStart === null ? null : new Date(input.scheduledStart).toISOString(), scheduledEnd: timestamp(input.scheduledEnd) !== null ? new Date(input.scheduledEnd!).toISOString() : null,
     status, statusDetail: nullableText(input.statusDetail),
     score: input.score ? { home: scoreValue(input.score.home), away: scoreValue(input.score.away) } : null,
     period: nullableText(input.period), clock: nullableText(input.clock),
@@ -140,7 +140,7 @@ export function createFixtureProvider(now: number | Date = Date.now()): SportsPr
     async getEvents(date: string) {
       const parsed = timestamp(`${date}T00:00:00Z`);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || parsed === null || isoNow(parsed).slice(0, 10) !== date) throw new SportsProviderError('UNAVAILABLE', 'Expected a valid UTC date in YYYY-MM-DD format.');
-      return fixtures.filter(event => event.scheduledStart.slice(0, 10) === date).map(clone);
+      return fixtures.filter(event => event.scheduledStart?.slice(0, 10) === date).map(clone);
     },
     async getEvent(id: string) {
       const event = fixtures.find(candidate => candidate.id === id || candidate.providerEventId === id);
@@ -153,17 +153,27 @@ export function createFixtureProvider(now: number | Date = Date.now()): SportsPr
 export class SportsEngine {
   private events: SportsEvent[] = [];
   private lastError: 'UNAVAILABLE' | 'RATE_LIMITED' | null = null;
+  private trackedCursor = 0;
   constructor(public readonly provider: SportsProvider, private readonly clock: () => number = Date.now) {}
   snapshot(): { events: SportsEvent[]; error: 'UNAVAILABLE' | 'RATE_LIMITED' | null; evidenceClass: EvidenceClass; disclosure: string } {
     return { events: structuredClone(this.events), error: this.lastError, evidenceClass: this.provider.evidenceClass, disclosure: this.provider.disclosure };
   }
   async refresh(date = isoNow(this.clock()).slice(0, 10)): Promise<ReturnType<SportsEngine['snapshot']>> {
     try {
-      const [scheduled, live] = await Promise.all([this.provider.getEvents(date), this.provider.getLiveEvents()]);
+      const scheduled = await this.provider.getEvents(date);
+      const live = await this.provider.getLiveEvents();
       // Namespace and evidence-class disagreement is a provider failure, never silently promoted.
       const incoming = [...scheduled, ...live];
       if (incoming.some(event => event.source !== this.provider.id || event.evidenceClass !== this.provider.evidenceClass)) throw new SportsProviderError('UNAVAILABLE', 'Provider evidence identity mismatch.');
       this.events = mergeEventSnapshots(this.events, incoming); this.lastError = null;
+      // One round-robin detail per refresh keeps missing held/active IDs alive across dates.
+      const missing = this.events.filter(event => !incoming.some(next => next.id === event.id) && !TERMINAL_STATUSES.has(event.status));
+      if (missing.length) {
+        const requested = missing[this.trackedCursor++ % missing.length].id;
+        const tracked = await this.provider.getEvent(requested);
+        if (tracked.id !== requested || tracked.source !== this.provider.id || tracked.evidenceClass !== this.provider.evidenceClass) throw new SportsProviderError('UNAVAILABLE', 'Tracked event identity mismatch.');
+        this.events = mergeEventSnapshots(this.events, [tracked]);
+      }
     } catch (error) {
       this.lastError = error instanceof SportsProviderError && error.code === 'RATE_LIMITED' ? 'RATE_LIMITED' : 'UNAVAILABLE';
     }

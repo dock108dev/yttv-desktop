@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-02T22:46:59.304Z",
+  "clip": {
+    "height": 588,
+    "width": 440,
+    "x": 37,
+    "y": 72
+  },
+  "noticeCount": 1,
+  "player": {
+    "currentTime": 2020.639677,
+    "muted": true,
+    "paused": false,
+    "readyState": 4
+  },
+  "workspaceCount": 0
+}

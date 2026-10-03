@@ -1,0 +1,39 @@
+# Next task — C1-Q1-R1: identify and qualify the installed single-playback runtime
+
+Updated 2026-10-02 after [C1-Q1 implementation/identity-gate closeout](docs/evidence/runs/20261002-c1-q1/run.md). LOCAL IMPLEMENTATION PASS; INSTALLED FOUNDATION BLOCKED at identity/reload. This file owns the active task. One bounded next task remains within C1-Q1.
+
+## Candidate ready for owner reload
+
+HEAD `081b65bf6a541290e2b4c09c23351a1d489cd9e7`, main, plus retained uncommitted implementation/tests/docs. Manifest/build **0.1.4**; root package **0.1.0-beta.1**. Runtime build ID **697b23c29965129c**. [Exact inventory](docs/evidence/runs/20261002-c1-q1/candidate.json) and [implementation patch](docs/evidence/runs/20261002-c1-q1/implementation.patch) identify this candidate. Final `npm run verify` passed typecheck, **51 tests**, build/permission audit and docs check. Fixture full/narrow keyboard/settings observations pass separately. Installed ID/version/build remain UNKNOWN; the currently observed Chrome drawer still uses the older interface.
+
+Configurable bindings now dispatch and display saved help; guide arrows/activation have visible scoped focus. Current presentation uses confirmed history; stale/fixture/malformed/disposed navigation fails explicitly. Do not redo these implementation gaps without a concrete failure. Historical [handoff](docs/evidence/runs/20261002-handoff-review/review.md) and [integration](docs/evidence/runs/20261002-local-beta/live-integration.md) remain unchanged; their evidence does not qualify this runtime.
+
+## First gate — exact owner action
+
+User personally reloads the existing extension and refreshes the designated test tab when needed. Prior automation blocked extension-management pages and prohibited alternate-surface workarounds; preserve that handoff.
+
+1. Open `chrome://extensions` and reload the existing **YouTube TV Desktop — Local Beta** entry pointing to `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`.
+2. Preserve its ID and stored preferences. Do not Remove, Load unpacked again, or clear storage.
+3. Refresh only the open **Live - YouTube TV** designated test tab. Open Desktop → Shortcuts; confirm **Runtime v0.1.4 · build 697b23c29965129c** and record the extension ID. Do not attribute disk/preview evidence to installed Chrome before this matches.
+
+Owner handoff was requested; completion unconfirmed. Continue independent checks while waiting, but do not collect replacement live evidence on an unidentified runtime.
+
+## One bounded single-playback qualification task
+
+After identity matches, record timestamps/environment/method and baseline favorite/order/hidden/key settings on the same ID. Keep original YTTV controls and playback accessible; preserve unrelated tabs and the closed previous beta group. Keep all real playback muted.
+
+- U01: one injected DOM host; readable narrow drawer, open/close; native guide extraction and immediate cached guide access. Full fixture preview and installed Shadow DOM are separate checks.
+- U02/U03: guide/favorites/recents/search/Previous navigation with advancing confirmed channel; Current/Previous/recents update only after confirmed playback. Failed/stale/unavailable/pending navigation must not create false history. Record timing and limits.
+- U04: favorites/order/hidden/settings persist through channel navigation, page refresh and extension reload on the same ID. No reset/reinstall. Drawer state survives ordinary hard/SPA navigation; duplicate injection creates no extra host. New managed tabs start closed, but do not create them before the separate stream gate.
+- U17/U18 single paths: original player/account/DVR/ads controls; full document/SPA replacement; owner-triggered extension reload while the page stays open; bounded refresh notice, no continuing extension-origin error/retry loop, observer/listener/timer cleanup; supported muted playback survives and refresh reconnects. Do not refresh before observing the invalidation notice. Owner performs blocked reload/disable steps. Separate old console events, new events and upstream warnings. Minimal mute safety listeners are intentionally retained until pagehide in invalidated content.
+- Assess AC01–AC05/AC13 individually and retain subcriteria still open, including p95 transition/navigation measurements. Unsupported adapter methods stay unavailable; Sports fixtures stay labeled and cannot produce real targets.
+
+Repair concrete failures within scope, retain failed evidence, add focused regression tests, run `npm run verify`, rebuild and rebind source/bundle/installed identity before replacement evidence. Stop at the first external/auth/entitlement/safety gate and report the exact owner action. Update the run record and canonical trackers with actual verdicts.
+
+## Conditional follow-on and boundaries
+
+Two-feed managed windows remain NOT RUN / GATED until the identified foundation passes and account allowance/available streams are established including main and household use. Then main plus one new muted managed feed only: mute before navigation; independent advancement; focus-only selection; isolated replacement; expand/restore bounds; close/worker recovery; 15 minutes at available 720p with background return and existing Phase 0 CPU/RAM/stall/nav/GPU/network methods. Missing trustworthy measurements = INCONCLUSIVE. Bound that experiment to 45 minutes; no third/fourth feed. Fallback labels remain explicit; no composed QuadBox/audio handoff claim.
+
+All real sound remains muted until explicitly lifted. Stop affected experiments on missing auth/entitlement, stream/protected errors, repeated unexplained freezes, thermal/memory warnings, unexpected audio, interference or unsafe evidence. Close only test-created extra surfaces; preserve supported playback/preferences/credentials. No provider provisioning/purchases, capture/recomposition/bypass, Safari/Windows/native, remote operations or publication. Existing GitHub origin preserved.
+
+Full beta/U01–U18 three-game acceptance, live Sports/provider/mapping, higher counts and audible handoff remain open. [Run verdicts](docs/evidence/runs/20261002-c1-q1/run.md) are authoritative for checks actually performed. ROADMAP owns sequencing; BACKLOG owns item status; Desktop tracker is a pointer.

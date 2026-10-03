@@ -1,0 +1,53 @@
+{
+  "allVideosMuted": false,
+  "at": "2026-10-02T23:02:44.662Z",
+  "buttons": [
+    {
+      "disabled": false,
+      "text": "Open native Live"
+    },
+    {
+      "disabled": false,
+      "text": " Open compact guide g"
+    },
+    {
+      "disabled": true,
+      "text": " Previous p"
+    },
+    {
+      "disabled": false,
+      "text": "View guide "
+    },
+    {
+      "disabled": true,
+      "text": "CBS 2CBS 2Saved · 6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News · navigation unavailable"
+    },
+    {
+      "disabled": true,
+      "text": "CBS 2CBS 2Saved · 6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News · navigation unavailable"
+    },
+    {
+      "disabled": true,
+      "text": "NBC 4NBC 4Saved · 6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom Llamas · navigation unavailable"
+    },
+    {
+      "disabled": true,
+      "text": "ABC 7ABC 7Saved · 6:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David Muir · navigation unavailable"
+    },
+    {
+      "disabled": true,
+      "text": "Go back p"
+    }
+  ],
+  "hostCount": 1,
+  "player": {
+    "currentTime": 0,
+    "muted": true,
+    "paused": true,
+    "readyState": 0
+  },
+  "recoveryText": "Guide navigation needs a fresh native Live observation.Saved channels and programs are last observed metadata. Watch/Add remain unavailable; current playback and preferences are preserved.Open native Live",
+  "route": "watch",
+  "watchText": "YOUR DESKTOP EXPERIENCEWatchYour television, at a glance.Guide navigation needs a fresh native Live observation.Saved channels and programs are last observed metadata. Watch/Add remain unavailable; current playback and preferences are preserved.Open native LiveLAST CONFIRMED CHANNEL · SAVEDLast observed · 6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening NewsCBS 2CBS 2Saved history · current channel not yet confirmed MUTED Open compact guide g Previous pVideo stays in YouTube TVThis workspace controls navigation. Google handles your account and protected playback.Open original player Favorites 1View guide CBS 2CBS 2Saved · 6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News · navigation unavailableRecently watchedCONFIRMED SWITCHESCBS 2CBS 2Saved · 6:30 PM Oct 2, 6:30 PM • CBS Evening News CBS Evening News · navigation unavailableNBC 4NBC 4Saved · 6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom Llamas · navigation unavailableABC 7ABC 7Saved · 6:30 PM Oct 2, 6:30 PM • ABC World News Tonight With David Muir ABC World News Tonight With David Muir · navigation unavailablePrevious channelNBC 4Last observed · 6:30 PM Oct 2, 6:30 PM • NBC Nightly News With Tom Llamas NBC Nightly News With Tom LlamasGo back p",
+  "workspaceCount": 1
+}

@@ -29,3 +29,7 @@ The Library skill routed this explicitly local Desktop request to local tools. T
 ## Implementation source boundaries
 
 Chrome [tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs) supplies ordinary tab update/mute controls; [service-worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle) requires recovery after idle termination. The implemented worker uses session/local storage and revalidates managed tab/window IDs; mock recovery tests do not qualify browser reliability. [YouTube TV simultaneous-stream help](https://support.google.com/youtubetv/answer/7069119) documents plan restrictions; [4K Plus help](https://support.google.com/youtubetv/answer/10383365) documents its separate capability/caveats. The local beta cap of three total watch tabs is conservative, not proof of the user's allowance. No plan change was requested or made.
+
+## S2-L1 official source review — 2026-10-02
+
+[NBA API documentation](https://nba.balldontlie.io/), [BALLDONTLIE terms](https://www.balldontlie.io/terms.html), [Chrome match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns), [Chrome cross-origin requests](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests). Exact findings, intended use, tier/limits, lifecycle/schema gaps and evidence boundaries are in [source decision](evidence/runs/20261002-s2-l1/source-decision.md). This documentation review does not establish successful provider access or real events/mapping.

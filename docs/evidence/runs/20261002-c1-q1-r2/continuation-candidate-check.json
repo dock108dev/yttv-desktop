@@ -1,0 +1,59 @@
+{
+  "checked_at_utc": "2026-10-02T19:53:16.444747+00:00",
+  "candidate": "0.1.7/9d07499eeceaf524",
+  "source_head": "081b65bf6a541290e2b4c09c23351a1d489cd9e7",
+  "checks": {
+    "source_inputs": {
+      "apps/chrome-extension/demo.html": true,
+      "apps/chrome-extension/manifest.json": true,
+      "apps/chrome-extension/panel.html": true,
+      "apps/chrome-extension/src/adapter.ts": true,
+      "apps/chrome-extension/src/background.ts": true,
+      "apps/chrome-extension/src/bridge.ts": true,
+      "apps/chrome-extension/src/content.tsx": true,
+      "apps/chrome-extension/src/panel.tsx": true,
+      "apps/chrome-extension/src/runtime.ts": true,
+      "package-lock.json": true,
+      "package.json": true,
+      "packages/core/src/index.ts": true,
+      "packages/event-resolver/src/index.ts": true,
+      "packages/quadbox/src/index.ts": true,
+      "packages/sports-engine/src/index.ts": true,
+      "packages/storage/src/guide-cache.ts": true,
+      "packages/storage/src/index.ts": true,
+      "packages/ui/src/build.d.ts": true,
+      "packages/ui/src/demo.ts": true,
+      "packages/ui/src/index.tsx": true,
+      "packages/ui/src/styles.css": true,
+      "packages/ui/src/styles.d.ts": true,
+      "packages/ui/src/types.ts": true,
+      "packages/yttv-adapter/src/index.ts": true,
+      "scripts/build.mjs": true,
+      "tsconfig.json": true
+    },
+    "test_inputs": {
+      "packages/ui/src/behavior.test.ts": true,
+      "tests/adapter.test.ts": true,
+      "tests/chrome-integration.test.ts": true,
+      "tests/chrome-runtime.test.ts": true,
+      "tests/domain.test.ts": true,
+      "tests/guide-cache.test.ts": true,
+      "tests/guide-recovery.test.ts": true,
+      "tests/yttv-adapter.test.ts": true
+    },
+    "bundle_files": {
+      "background.js": true,
+      "build-identity.json": true,
+      "content.css": true,
+      "content.js": true,
+      "demo.html": true,
+      "manifest.json": true,
+      "panel.css": true,
+      "panel.html": true,
+      "panel.js": true
+    }
+  },
+  "patch_matches": true,
+  "owner_first_reload": "PENDING-confirmation-required",
+  "new_browser_checks": "NOT RUN"
+}

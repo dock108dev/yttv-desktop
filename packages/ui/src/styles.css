@@ -87,6 +87,8 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
 .guide-row { min-height: 65px; border-bottom: 1px solid #242b35; transition: background .15s; }
 .guide-row:last-child { border-bottom: 0; }
 .guide-row:hover { background: #19202a; }
+.guide-row:focus-visible { outline: 2px solid #b9e7a7; outline-offset: -3px; background: #222f39; }
+.desktop-app:focus-visible { outline: 2px solid #b9e7a7; outline-offset: -2px; }
 .guide-row.current { background: #bfe5ac07; box-shadow: inset 2px 0 #b8d59d; }
 .guide-row.hidden-channel { opacity: .53; }
 .guide-channel-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -233,6 +235,12 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
 .shortcut-grid>div { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #b4c0d1; }
 .shortcut-night { display: flex; gap: 9px; color: #9cb889; background: #8caf6d10; border: 1px solid #8caf6d27; border-radius: 5px; padding: 11px; font-size: 10px; line-height: 1.7; margin: 0 0 22px; }
 .shortcuts-modal>.button { width: 100%; }
+.shortcuts-modal { max-height: calc(100dvh - 48px); overflow: auto; }
+.shortcut-grid>label { display: flex; flex-direction: column; gap: 7px; font-size: 11px; color: #b4c0d1; min-width: 0; }
+.shortcut-grid input { width: 100%; color: #ecf3ff; background: #0b1220; border: 1px solid #455140; border-radius: 4px; padding: 8px; }
+.shortcut-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.runtime-identity { overflow-wrap: anywhere; }
+@container (max-width: 480px) { .shortcut-grid { grid-template-columns: 1fr; } .modal-backdrop { padding: 12px; } }
 @keyframes gentle-pulse { 50% { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation: none!important; transition: none!important; } }
 
@@ -336,3 +344,9 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
   .app-footer { padding: 16px; font-size: 7px; }
   .shortcuts-modal { padding: 21px; }.shortcuts-modal .section-title h2 { font-size: 18px; }.shortcut-grid { gap: 12px; }.shortcut-grid>div { font-size: 9px; }.shortcut-night { font-size: 9px; }
 }
+
+.audio-controls { border: 1px solid #334256; border-radius: 8px; padding: 12px; margin: 0 0 18px; display: flex; flex-direction: column; gap: 8px; font-size: 11px; }
+.audio-controls>div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.audio-controls label { display: flex; align-items: center; gap: 8px; }
+.audio-controls input { width: 110px; }
+.audio-controls small { color: #899bab; }

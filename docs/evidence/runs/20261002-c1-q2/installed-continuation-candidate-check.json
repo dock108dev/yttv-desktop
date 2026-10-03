@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-03T00:11:37.868539+00:00",
+  "result": "PASS",
+  "version": "0.1.8",
+  "build": "a87877ca8e207785",
+  "extensionId": "idaaiiafgopfpaojpnhaoefbefllioab",
+  "counts": {
+    "sourceInputs": 26,
+    "tests": 8,
+    "bundle": 9
+  },
+  "mismatches": [],
+  "sourceCodeChangedInInstalledContinuation": false,
+  "verification": "Retained 68-test npm run verify remains valid for unchanged source/tests/bundle"
+}

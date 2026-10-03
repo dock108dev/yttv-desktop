@@ -1,0 +1,23 @@
+[
+  {
+    "observedAt": "2026-10-02T23:58:26.206168+00:00",
+    "chromeProcessCount": 18,
+    "cpuPercentSum": 118.8,
+    "rssMiBSum": 2829.2,
+    "attribution": "all Chrome processes, including unrelated tabs; process CPU averages; RSS may double count shared pages"
+  },
+  {
+    "observedAt": "2026-10-03T00:03:38.782725+00:00",
+    "chromeProcessCount": 15,
+    "cpuPercentSum": 106.4,
+    "rssMiBSum": 2525.9,
+    "attribution": "all Chrome processes, including unrelated tabs; process CPU averages; RSS may double count shared pages"
+  },
+  {
+    "observedAt": "2026-10-03T00:08:23.749332+00:00",
+    "chromeProcessCount": 15,
+    "cpuPercentSum": 102.1,
+    "rssMiBSum": 2717.0,
+    "attribution": "all Chrome processes, including unrelated tabs; process CPU averages; RSS may double count shared pages"
+  }
+]

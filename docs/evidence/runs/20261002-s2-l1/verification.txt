@@ -1,0 +1,127 @@
+
+> yttv-desktop@0.1.0-beta.1 verify
+> npm run typecheck && npm test && npm run build && npm run docs:check
+
+
+> yttv-desktop@0.1.0-beta.1 typecheck
+> tsc --noEmit
+
+
+> yttv-desktop@0.1.0-beta.1 test
+> node --import tsx --test tests/*.test.ts packages/ui/src/*.test.ts
+
+✔ a closed mounted drawer grants no Sports polling demand; reopening restores bounded demand (139.741375ms)
+✔ installed Sports starts honestly unavailable; Fixture Lab is explicit and unsupported leagues stay empty (198.951834ms)
+✔ provider event remains team-searchable without channel knowledge and mapping failure disables actions (136.758042ms)
+✔ preview is disclosed, fixtures cannot Watch/Add, favorite settings update through bridge (101.376917ms)
+✔ workspace shortcuts preserve typing and host-player controls; sports remains fixture only (164.6875ms)
+✔ managed window screen makes separate original players and audio selection explicit (90.947625ms)
+✔ saved bindings drive dispatch and help; conflicts are rejected without losing saved keys (354.653834ms)
+✔ guide rows navigate with visible focus; controls, editable ancestors and browser chords own their keys (207.442334ms)
+✔ configured activation dispatches the focused synthetic eligible row and teardown removes keyboard handling (170.782ms)
+✔ native order restoration keeps favorites, hidden channels, bindings and history (133.089084ms)
+✔ cached guide and saved Watch history stay understandable with disabled navigation and native recovery (129.459417ms)
+✔ visible audio controls dispatch selected mute volume and scoped mute-all without claiming heard sound (202.86575ms)
+✔ ordinary observed watch navigation allows vp/vpp but rejects foreign and credential/media handles (0.578042ms)
+✔ guide identity is channel-specific even when networks share a browse endpoint; unsupported rows stay explicit (13.326083ms)
+✔ extension permission boundary is narrow and content runs only on the supported TV origin (0.902375ms)
+✔ extension scope remains storage and YouTube TV only (12.172375ms)
+✔ managed sessions route audio safely, bounded creation, isolated replacement, sender validation and worker recovery (86.811709ms)
+✔ invalidated synchronous and asynchronous APIs clean up once and never retry (0.6395ms)
+✔ bridge unregisters runtime/storage listeners and stops sending after invalidation (2.458375ms)
+✔ content invalidation disposes observers/timers, preserves native audio choice and one notice; reinjection/SPA never duplicate UI (90.107708ms)
+✔ scheduled-end override follows fresh actual sports states, including one-hour overrun (7.68225ms)
+✔ delay, suspension and past start remain truthful without active-play assumptions (0.335083ms)
+✔ stale/unknown states are bounded uncertainty, never inferred FINAL or perpetual live (0.165917ms)
+✔ request freshness does not refresh old source data and future timestamps are unknown (0.124833ms)
+✔ normalization preserves missing values and rejects fabricated scores/playback entitlement (0.592375ms)
+✔ team and league search works independently of guide and respects normalized aliases (1.010958ms)
+✔ empty feeds retain tracked games; newer corrected terminal state may return to play (0.182917ms)
+✔ fixture provider discloses evidence, clones snapshots and validates date including calendar invalidity (1.104542ms)
+✔ engine retains prior observations on empty live feeds, outages and 429 without finalizing (0.434917ms)
+✔ engine rejects a provider silently changing evidence class (1.750208ms)
+✔ supported navigation targets accept observed vp/vpp but exclude media, secrets and hostile origins (0.449875ms)
+✔ resolver confirms eligible current corroborated target despite expired guide end (0.435333ms)
+✔ network alone is never enough and unavailable channels never gain Watch targets (0.227417ms)
+✔ multiple available broadcasts require a margin and preserve candidate provenance (6.740583ms)
+✔ resolver does not confuse ESPN and ESPN2 or silently match a contradictory matchup (0.361ms)
+✔ resolver blocks stale guides, stale targets, wrong-channel handles and stale sports (0.206375ms)
+✔ fixture games cannot establish a real live target even against an eligible real guide (0.129792ms)
+✔ local affiliates need explicit network identity or aliases; duplicates do not fabricate ambiguity (0.145583ms)
+✔ preferences validate corrupt/future data, drop secrets and cap deduplicated recents (0.614791ms)
+✔ Previous and recents change only on confirmed switch and repeated observations are ignored (0.086584ms)
+✔ guide respects hidden channels before favorites, stable custom ordering and token search (0.299208ms)
+✔ persistence serializes concurrent saves and recovers from corrupt JSON/rejected writes (0.269916ms)
+✔ saved layouts exclude sessions and all volatile navigation handles, and restore requires revalidation (0.376958ms)
+✔ keyboard custom bindings cannot trigger multiple actions from one key (0.09425ms)
+✔ QuadBox selection/expand/restore retain pane identities and sessions (0.571792ms)
+✔ independent Replace disposes only replaced session and preserves other pane state (0.649042ms)
+✔ pane limits and unique independent session identity are enforced without claiming stream feasibility (0.518ms)
+✔ overnight focus transfer requests only mute and never unmutes any session (0.259042ms)
+✔ explicitly unlocked fake handoff mutes all before one unmute; mute failure blocks unmute (0.364125ms)
+✔ failed fake unmute retries mute and serialized rapid handoffs never overlap (0.401542ms)
+✔ fresh FINAL retains pane/session and suggestions require fresh eligible resolved live events (0.433208ms)
+✔ keyboard import disables invalid/duplicate mappings deterministically and preserves old schema defaults (0.059917ms)
+✔ metadata whitelist drops URLs, targets, credentials and session authority without renewing age (2.456541ms)
+✔ stale program metadata expires while unavailable identity and observed order remain (0.944041ms)
+✔ missing malformed future unsupported duplicate and oversized cache states fail closed (2.2005ms)
+✔ failed storage read or write keeps metadata recovery optional and permits later fresh retention (0.39975ms)
+✔ serialized asynchronous writes cannot overwrite a newer guide and older observations are ignored (0.199041ms)
+✔ cache reads cached Watch observations and fixture observations never write or renew metadata (0.101083ms)
+✔ fresh worker plus runtime reload and Watch initialization restores rows/preferences with disabled authority and unchanged history (46.015417ms)
+✔ native Live reacquisition enables only fresh validated targets and preserves missing/unavailable rows (7.765042ms)
+✔ missing or failed cache preserves preferences Watch playback and explicit same-tab Live recovery (15.382292ms)
+✔ failed preference read cannot overwrite retained preferences or block optional cached guide (0.891042ms)
+✔ NBA lifecycle is explicit; no missing schedule/score/network/update time is fabricated (7.493292ms)
+✔ NBA schedule includes explicit preseason, follows cursors, preserves detail identity and caps all attempts (17.206208ms)
+✔ 429 Retry-After and denied authorization stop acquisition; raw error bodies never escape (0.6605ms)
+✔ poller coalesces demands, retains missing IDs, crosses dates, backs off and never infers final (0.519792ms)
+✔ network-free mapping needs active provider matchup, native league, both teams, fresh eligible unique target (8.34175ms)
+✔ extension makes zero requests without permission; relay failure preserves games and ages their authority (1.56675ms)
+✔ sports relay accepts only its fixed metadata route and extension origin, never proxy bodies or cookies (26.928667ms)
+✔ event-first runtime revalidates guide evidence and preserves identity/main playback through provider failure (49.382958ms)
+✔ only normal observed YouTube TV navigation is accepted (1.037333ms)
+✔ guide candidate comes from watch link, not shared browse identity (10.581708ms)
+✔ guide polling and hidden SPA rows do not renew volatile targets; normal audio choices are preserved (18.28525ms)
+✔ fresh guide uses only its first current-program link when thumbnails have no target (3.549583ms)
+✔ unknown channel dispatch fails explicitly without navigation (2.368375ms)
+✔ adapter rejects disposed, fixture, malformed and stale targets; no-player mute is unavailable (3.594583ms)
+✔ document replacement retains unavailable guide rows and order without enabling invalid navigation (3.933708ms)
+✔ restart metadata seed keeps observation age and cannot navigate; native Live alone reacquires targets (2.142167ms)
+✔ audio controls read back mute and volume, polling preserves choices and disposal blocks changes (4.214292ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 79
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2765.849166
+
+> yttv-desktop@0.1.0-beta.1 build
+> node scripts/build.mjs
+
+Built /Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension; exact permission audit passed (storage + tv.youtube.com only).
+
+> yttv-desktop@0.1.0-beta.1 docs:check
+> python3 scripts/check_docs.py
+
+{
+  "scope": "This command validates docs/workspaces only; product and live tests are recorded separately",
+  "checked_at_utc": "2026-10-03T00:53:23.893380+00:00",
+  "result": "PASS",
+  "markdown_files_checked": 48,
+  "local_links_checked": 334,
+  "external_links_seen_not_network_validated": 28,
+  "private_workspaces_checked": 10,
+  "explicit_user_acceptance_criteria_checked": 18,
+  "errors": [],
+  "not_performed_by_this_command": [
+    "product unit/fixture/browser tests",
+    "live playback/auth/entitlement inspection",
+    "provider APIs",
+    "protected capture",
+    "Safari/Windows/native qualification",
+    "owner acceptance"
+  ]
+}

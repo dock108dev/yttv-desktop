@@ -1,0 +1,569 @@
+--- a/apps/chrome-extension/manifest.json
++++ b/apps/chrome-extension/manifest.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "YouTube TV Desktop — Local Beta",
+   "description": "Compact guide and sports fixtures around the authorized YouTube TV player. All playback muted overnight.",
+-  "version": "0.1.6",
++  "version": "0.1.7",
+   "permissions": ["storage"],
+   "host_permissions": ["https://tv.youtube.com/*"],
+   "background": { "service_worker": "background.js" },
+--- a/apps/chrome-extension/src/adapter.ts
++++ b/apps/chrome-extension/src/adapter.ts
+@@ -3,7 +3,7 @@
+ import type { Preferences } from '../../../packages/storage/src/index';
+ export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
+ export type Command =
+-  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' }
++  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' }
+   | { type: 'OBSERVE'; observation: AdapterObservation }
+   | { type: 'NAVIGATE'; channelId: string }
+   | { type: 'PREFERENCE'; patch: Partial<Preferences> }
+--- a/apps/chrome-extension/src/background.ts
++++ b/apps/chrome-extension/src/background.ts
+@@ -1,5 +1,6 @@
+ import { isPlaybackTarget, type GuideEntry } from '../../../packages/core/src/index';
+ import { defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
++import { createGuideMetadataStore } from '../../../packages/storage/src/guide-cache';
+ import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
+ import type { ActionResult, DesktopSnapshot, UIManagedPane } from '../../../packages/ui/src/types';
+ import { envelope, isMessage, type Command } from './adapter';
+@@ -9,7 +10,13 @@
+ const MAX_TOTAL_WATCH_SESSIONS = 3;
+ type Bounds = { left?: number; top?: number; width?: number; height?: number; state?: string };
+ type Pane = UIManagedPane & { windowId: number; tabId: number; savedBounds?: Bounds };
++const guideMetadata = createGuideMetadataStore({
++  get: async key => (await chrome.storage.local.get(key))[key],
++  set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
++});
+ let preferences = defaultPreferences();
++let preferencesReadable = true;
++const confirmedTabs = new Set<number>();
+ let panes: Pane[] = []; let activePaneId: string | undefined; let expandedPaneId: string | undefined;
+ let mainTabId: number | undefined;
+ const observations = new Map<number, AdapterObservation>();
+@@ -26,15 +33,18 @@
+ const isYTTV = (url?: string) => { try { return new URL(url ?? '').origin === 'https://tv.youtube.com'; } catch { return false; } };
+ const isWatch = (url?: string) => { try { return isYTTV(url) && new URL(url!).pathname.startsWith('/watch'); } catch { return false; } };
+ const init = (async () => {
+-  const stored = await chrome.storage.local.get(PREFERENCES_KEY);
+-  preferences = sanitizePreferences(stored[PREFERENCES_KEY]);
++  try {
++    const stored = await chrome.storage.local.get(PREFERENCES_KEY);
++    preferences = sanitizePreferences(stored[PREFERENCES_KEY]);
++  } catch { preferencesReadable = false; }
++  await guideMetadata.load();
+   // No user interface or imported preferences can disable the explicit overnight mute policy.
+   preferences.nightMuteLock = true;
+-  const storedDrawers = (await chrome.storage.session.get(DRAWER_KEY))[DRAWER_KEY];
++  const storedDrawers = (await chrome.storage.session.get(DRAWER_KEY).catch(() => ({} as Record<string, unknown>)))[DRAWER_KEY];
+   if (Array.isArray(storedDrawers)) {
+     for (const tabId of storedDrawers.slice(0, 1000)) if (Number.isInteger(tabId) && tabId > 0) openDrawers.add(tabId);
+   }
+-  const session = (await chrome.storage.session.get(SESSION_KEY))[SESSION_KEY] as Record<string, unknown> | undefined;
++  const session = (await chrome.storage.session.get(SESSION_KEY).catch(() => ({} as Record<string, unknown>)))[SESSION_KEY] as Record<string, unknown> | undefined;
+   if (session && Array.isArray(session.panes)) {
+     for (const raw of session.panes.slice(0, 3)) {
+       if (!raw || typeof raw !== 'object') continue;
+@@ -59,6 +69,7 @@
+ }
+ 
+ async function savePreferences() {
++  if (!preferencesReadable) throw new Error('Preferences storage could not be read; existing values preserved.');
+   const clean = sanitizePreferences({ ...preferences, nightMuteLock: true });
+   const next = preferenceWriteQueue.catch(() => undefined).then(() => chrome.storage.local.set({ [PREFERENCES_KEY]: clean }));
+   preferenceWriteQueue = next; await next;
+@@ -80,8 +91,9 @@
+     channel: { id: entry.channel.id, name: entry.channel.name },
+     programTitle: typeof entry.programTitle === 'string' ? entry.programTitle.slice(0, 300) : undefined,
+     nextProgramTitle: typeof entry.nextProgramTitle === 'string' ? entry.nextProgramTitle.slice(0, 300) : undefined,
+-    available: Boolean(isPlaybackTarget(entry.target) && freshLiveTarget(entry)),
+-    target: isPlaybackTarget(entry.target) && freshLiveTarget(entry) ? entry.target : null,
++    metadataSource: entry.metadataSource === 'CACHED' ? 'CACHED' : 'OBSERVED',
++    available: Boolean(entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry)),
++    target: entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry) ? entry.target : null,
+     observedAt: entry.observedAt, evidenceClass: 'LIVE',
+   }));
+   return { guide, guideObservedAt: raw.guideObservedAt,
+@@ -105,6 +117,8 @@
+     observation.route === 'watch' && prior?.route === 'watch' && observation.playback.playing && prior.playback.playing && typeof observation.playback.currentTime === 'number' &&
+     typeof prior.playback.currentTime === 'number' && observation.playback.currentTime > prior.playback.currentTime + .05;
+   observations.set(tabId, observation);
++  if (advancing) confirmedTabs.add(tabId); else confirmedTabs.delete(tabId);
++  if (clean.route === 'guide') await guideMetadata.retain(clean.guide);
+   await chrome.tabs.update(tabId, { muted: true }).catch(() => undefined);
+   if (mainTabId === undefined && !panes.some(pane => pane.tabId === tabId)) mainTabId = tabId;
+   if (tabId === mainTabId && observation.currentChannelId && advancing) {
+@@ -130,13 +144,19 @@
+   await Promise.all(tabs.map(async tab => {
+     if (!tab.id) return;
+     await chrome.tabs.update(tab.id, { muted: true });
+-    try { const raw = await chrome.tabs.sendMessage(tab.id, envelope({ type: 'GET_OBSERVATION' })); const clean = cleanObservation(raw); if (clean) observations.set(tab.id, clean); } catch { /* Page may still be loading. */ }
++    try { const raw = await chrome.tabs.sendMessage(tab.id, envelope({ type: 'GET_OBSERVATION' })); if (cleanObservation(raw)) await observe(tab.id, raw); } catch { /* Page may still be loading. */ }
+   }));
+ }
+ function guideFor(tabId?: number): GuideEntry[] {
+   const candidate = tabId ? observations.get(tabId) : undefined;
+   const source = candidate?.guide.length ? candidate : [...observations.values()].filter(item => item.guide.length).sort((a, b) => Date.parse(b.guideObservedAt ?? b.observedAt) - Date.parse(a.guideObservedAt ?? a.observedAt))[0];
+-  return (source?.guide ?? []).map(entry => {
++  const rows = guideMetadata.rows;
++  for (const entry of source?.guide ?? []) {
++    const index = rows.findIndex(row => row.channel.id === entry.channel.id);
++    if (index < 0) rows.push(entry);
++    else if (Date.parse(entry.observedAt) >= Date.parse(rows[index].observedAt)) rows[index] = entry;
++  }
++  return rows.map(entry => {
+     const fresh = freshLiveTarget(entry);
+     return { ...entry, available: Boolean(entry.available && fresh), target: fresh ? entry.target : null };
+   });
+@@ -146,7 +166,9 @@
+   if (tabId && !observations.has(tabId)) await refreshObservations();
+   const observation = tabId ? observations.get(tabId) : undefined; const guide = guideFor(tabId);
+   return { mode: 'extension', connection: observation ? 'connected' : 'waiting',
+-    statusMessage: guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Managed windows remain muted overnight.' : 'Open the native YouTube TV Live guide to observe channel navigation targets. Normal playback remains available.',
++    guideObservedAt: guide.length ? new Date(Math.max(...guide.map(row => Date.parse(row.observedAt)))).toISOString() : undefined,
++    currentConfirmed: Boolean(tabId && confirmedTabs.has(tabId) && observation?.currentChannelId === preferences.currentChannel),
++    statusMessage: guide.length && !guide.some(entry => entry.target) ? 'Saved guide metadata · last observed, not current. Open native Live to validate navigation; playback stays unchanged.' : guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Managed windows remain muted overnight.' : 'Open the native YouTube TV Live guide to observe channel navigation targets. Normal playback remains available.',
+     currentChannelId: preferences.currentChannel ?? undefined, currentProgram: observation?.currentChannelId === preferences.currentChannel ? observation.currentProgram : undefined,
+     playback: { playing: observation?.playback.playing ?? null, muted: true }, guide, preferences,
+     panes: panes.map(({ savedBounds: _bounds, ...pane }) => pane), activePaneId, expandedPaneId,
+@@ -245,6 +267,12 @@
+     }
+     case 'OBSERVE': if (contentSender) await observe(sender.tab!.id!, command.observation); return ok();
+     case 'GET_SNAPSHOT': return snapshot(contentSender ? sender.tab!.id : undefined);
++    case 'OPEN_NATIVE_GUIDE': {
++      const tabId = await chooseTab(contentSender ? sender.tab!.id : undefined);
++      if (!tabId) return fail('TARGET_UNAVAILABLE', 'Open YouTube TV in Chrome first.');
++      await chrome.tabs.update(tabId, { url: 'https://tv.youtube.com/live', muted: true });
++      return ok('Opened native Live in this tab. Fresh guide observations are required before Watch/Add.');
++    }
+     case 'NAVIGATE': return navigate(command.channelId, contentSender ? sender.tab!.id : undefined);
+     case 'PREVIOUS': return preferences.previousChannel ? navigate(preferences.previousChannel, contentSender ? sender.tab!.id : undefined) : fail('NO_PREVIOUS', 'No confirmed previous channel yet.');
+     case 'PREFERENCE': {
+@@ -270,7 +298,7 @@
+   return true;
+ });
+ chrome.tabs.onRemoved.addListener(tabId => {
+-  observations.delete(tabId); if (mainTabId === tabId) mainTabId = undefined;
++  observations.delete(tabId); confirmedTabs.delete(tabId); if (mainTabId === tabId) mainTabId = undefined;
+   void init.then(async () => { if (openDrawers.delete(tabId)) await saveDrawers(); });
+   const removed = panes.some(pane => pane.tabId === tabId); panes = panes.filter(pane => pane.tabId !== tabId);
+   if (removed) void init.then(saveSessions).then(notify);
+--- a/apps/chrome-extension/src/bridge.ts
++++ b/apps/chrome-extension/src/bridge.ts
+@@ -43,6 +43,7 @@
+     dispose: () => lifecycle.dispose(),
+     getSnapshot: () => snapshot,
+     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
++    recoverGuide: () => request({ type: 'OPEN_NATIVE_GUIDE' }),
+     navigateChannel: channelId => request({ type: 'NAVIGATE', channelId }),
+     previousChannel: () => request({ type: 'PREVIOUS' }),
+     setPreference: patch => request({ type: 'PREFERENCE', patch }),
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -15,6 +15,7 @@
+   kind: 'navigation'; channelId: string; url: string; verifiedAt: string; evidenceClass: EvidenceClass;
+ }
+ export interface GuideEntry {
++  metadataSource?: 'OBSERVED' | 'CACHED';
+   channel: ChannelRef; programTitle?: string; nextProgramTitle?: string;
+   programStart?: string; programEnd?: string; league?: string; teamIds?: string[];
+   available: boolean; target: PlaybackTarget | null; observedAt: string; evidenceClass: EvidenceClass;
+--- /dev/null
++++ b/packages/storage/src/guide-cache.ts
+@@ -0,0 +1,64 @@
++import type { GuideEntry } from '../../core/src/index';
++import type { StorageBridge } from './index';
++
++export const GUIDE_CACHE_KEY = 'yttv-desktop.guide-metadata.v1';
++export const GUIDE_CACHE_MAX_ROWS = 500;
++export const GUIDE_CACHE_MAX_BYTES = 512_000;
++export const PROGRAM_METADATA_MAX_AGE_MS = 24 * 60 * 60_000;
++export interface GuideMetadataCache { schemaVersion: 1; observedAt: string; rows: GuideEntry[] }
++const safeText = (value: unknown, limit: number): value is string => typeof value === 'string' &&
++  Boolean(value.trim()) && value.length <= limit && !/[\x00-\x1f]|https?:\/\/|(?:token|credential|password|signature)=/i.test(value);
++const pastTimestamp = (value: unknown, now: number): value is string => typeof value === 'string' &&
++  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(value) <= now;
++/** Whitelist presentation only. Never deserialize targets or session authority. Old rows keep
++ * their identity/order; program text expires after one day without renewing observation age. */
++export function readGuideCache(raw: unknown, now = Date.now()): GuideMetadataCache | null {
++  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
++  const cache = raw as Record<string, unknown>;
++  if (cache.schemaVersion !== 1 || !pastTimestamp(cache.observedAt, now) || !Array.isArray(cache.rows) ||
++      !cache.rows.length || cache.rows.length > GUIDE_CACHE_MAX_ROWS) return null;
++  try { if (JSON.stringify(raw).length > GUIDE_CACHE_MAX_BYTES / 4) return null; } catch { return null; }
++  const ids = new Set<string>(); const rows: GuideEntry[] = [];
++  for (const value of cache.rows) {
++    if (!value || typeof value !== 'object') return null;
++    const row = value as GuideEntry;
++    if (!safeText(row.channel?.id, 200) || !safeText(row.channel?.name, 150) || ids.has(row.channel.id) ||
++        row.evidenceClass !== 'LIVE' || !pastTimestamp(row.observedAt, now) || Date.parse(row.observedAt) > Date.parse(cache.observedAt)) return null;
++    ids.add(row.channel.id);
++    const programFresh = now - Date.parse(row.observedAt) <= PROGRAM_METADATA_MAX_AGE_MS;
++    rows.push({ channel: { id: row.channel.id, name: row.channel.name },
++      programTitle: programFresh && safeText(row.programTitle, 300) ? row.programTitle : undefined,
++      nextProgramTitle: programFresh && safeText(row.nextProgramTitle, 300) ? row.nextProgramTitle : undefined,
++      observedAt: row.observedAt, evidenceClass: 'LIVE', metadataSource: 'CACHED', available: false, target: null });
++  }
++  return { schemaVersion: 1, observedAt: cache.observedAt, rows };
++}
++export function createGuideMetadataStore(bridge: StorageBridge, now = () => Date.now()) {
++  let cache: GuideMetadataCache | null = null;
++  let queue: Promise<void> = Promise.resolve();
++  return {
++    async load() { try { cache = readGuideCache(await bridge.get(GUIDE_CACHE_KEY), now()); } catch { cache = null; } return cache; },
++    get rows(): GuideEntry[] { return readGuideCache(cache, now())?.rows ?? []; },
++    async retain(entries: GuideEntry[]): Promise<void> {
++      // Seeded/cached Watch observations cannot renew metadata or acquire authority.
++      const applicable = entries.filter(row => row.metadataSource !== 'CACHED' && row.evidenceClass === 'LIVE');
++      if (!applicable.length) return;
++      const observedAt = applicable.reduce((at, row) => Date.parse(row.observedAt) > Date.parse(at) ? row.observedAt : at, applicable[0].observedAt);
++      const incoming = readGuideCache({ schemaVersion: 1, observedAt, rows: applicable }, now());
++      if (!incoming) return;
++      const merged = [...(cache?.rows ?? [])]; let changed = false;
++      for (const row of incoming.rows) {
++        const index = merged.findIndex(old => old.channel.id === row.channel.id);
++        if (index < 0) { if (merged.length < GUIDE_CACHE_MAX_ROWS) { merged.push(row); changed = true; } }
++        else if (Date.parse(row.observedAt) > Date.parse(merged[index].observedAt)) { merged[index] = row; changed = true; }
++      }
++      if (!changed) return;
++      cache = { schemaVersion: 1, observedAt: cache && Date.parse(cache.observedAt) > Date.parse(observedAt) ? cache.observedAt : observedAt, rows: merged };
++      const retained = cache;
++      // Capture each sanitized revision and serialize writes; a delayed old write cannot win.
++      const next = queue.catch(() => undefined).then(() => bridge.set(GUIDE_CACHE_KEY, retained));
++      queue = next;
++      try { await next; } catch { /* Cache is optional; playback/preferences and Live fallback survive. */ }
++    },
++  };
++}
+--- a/packages/ui/src/index.tsx
++++ b/packages/ui/src/index.tsx
+@@ -119,8 +119,9 @@
+   const initializedSurface = useRef(false);
+   const demo = options.demo || snapshot.mode === 'demo';
+   const [fixtures, setFixtures] = useState(() => createIllustrativeFixtures(Date.now()));
+-  const currentEntry = snapshot.guide.find(entry => entry.channel.id === snapshot.currentChannelId);
+-  const previousEntry = snapshot.guide.find(entry => entry.channel.id === snapshot.preferences.previousChannel);
++  const savedEntry = (id: string): GuideEntry => snapshot.guide.find(entry => entry.channel.id === id) ?? { channel: { id, name: `Saved channel (${id.replace(/^yttv:/, '')})` }, available: false, target: null, observedAt: '', evidenceClass: 'LIVE', metadataSource: 'CACHED' };
++  const currentEntry = snapshot.currentChannelId ? savedEntry(snapshot.currentChannelId) : undefined;
++  const previousEntry = snapshot.preferences.previousChannel ? savedEntry(snapshot.preferences.previousChannel) : undefined;
+ 
+   useEffect(() => {
+     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+@@ -265,7 +266,7 @@
+       if (action === 'help') { handled(); openShortcuts(); return; }
+       const requested = surfaceItems.find(item => item.action === action);
+       if (requested) { handled(); goSurface(requested.id); return; }
+-      if (action === 'previous' && snapshot.preferences.previousChannel && snapshot.capabilities.navigation) { handled(); void run('Previous channel', () => bridge.previousChannel()); }
++      if (action === 'previous' && previousEntry && entryPlayable(previousEntry, snapshot)) { handled(); void run('Previous channel', () => bridge.previousChannel()); }
+       if (action === 'mute' && bridge.mute) { handled(); void run('Mute all playback', () => bridge.mute!()); }
+       if (surface === 'QUADBOX' && /^pane[1-4]$/.test(action)) {
+         const pane = snapshot.panes[Number(action.slice(-1)) - 1];
+@@ -304,8 +305,9 @@
+ 
+   const visibleSports = searchEvents(fixtures, query, { now: clock }).filter(event => sportsLeague === 'ALL' || event.league === sportsLeague);
+   const leagues = ['ALL', 'MLB', 'NFL', 'NCAA_FOOTBALL', 'NBA', 'NHL'];
+-  const favorites = orderGuide(snapshot.guide, snapshot.preferences).filter(entry => snapshot.preferences.favorites.includes(entry.channel.id));
+-  const recents = snapshot.preferences.recentChannels.map(id => snapshot.guide.find(entry => entry.channel.id === id)).filter((entry): entry is GuideEntry => Boolean(entry));
++  const presentationEntry = savedEntry;
++  const favorites = orderGuide([...snapshot.guide, ...snapshot.preferences.favorites.filter(id => !snapshot.guide.some(entry => entry.channel.id === id)).map(presentationEntry)], snapshot.preferences).filter(entry => snapshot.preferences.favorites.includes(entry.channel.id));
++  const recents = snapshot.preferences.recentChannels.map(presentationEntry);
+ 
+   const headerTitles: Record<Surface, string> = { WATCH: 'Your television, at a glance.', GUIDE: 'Less scrolling. More watching.', SPORTS: 'Follow the game. Not the schedule.', QUADBOX: 'More games. One control surface.' };
+ 
+@@ -324,31 +326,32 @@
+ 
+         {notice && <div className={`notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}><Icon name={notice.kind === 'error' ? 'window' : 'check'}/><span>{notice.text}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss message"><Icon name="close" size={15}/></button></div>}
+         {pending && <div className="operation-status" role="status"><span className="loading-dot"/>{pending}…</div>}
++        {!demo && !snapshot.capabilities.navigation && <div className="connection-help" role="status"><div><strong>Guide navigation needs a fresh native Live observation.</strong><p>Saved channels and programs are last observed metadata. Watch/Add remain unavailable; current playback and preferences are preserved.</p></div>{bridge.recoverGuide && <button className="button subtle" onClick={() => void run('Open native Live', () => bridge.recoverGuide!())}>Open native Live</button>}</div>}
+         {!demo && snapshot.connection !== 'connected' && <div className="connection-help"><Icon name="window" size={20}/><div><strong>{snapshot.statusMessage || 'Open YouTube TV in Chrome to connect the guide.'}</strong><p>Keep its original player open. Channel observations and controls appear when the supported adapter is available.</p></div><button className="button subtle" onClick={() => void run('Refresh connection', bridge.refresh ? () => bridge.refresh!() : async () => { await refresh(); return { ok: true }; })}><Icon name="refresh"/> Refresh</button></div>}
+ 
+         {surface === 'WATCH' && <>
+-          <section className="watch-context"><div className="watch-gradient"/><div className="watch-context-copy"><span className="section-kicker"><span className="status-dot"/>{snapshot.playback.playing === true ? 'PLAYBACK OBSERVED' : 'CURRENT PLAYER'}</span><h2>{snapshot.currentProgram || currentEntry?.programTitle || 'Your original player stays in YouTube TV.'}</h2><div className="watch-channel"><span className="channel-logo large">{currentEntry ? channelMark(currentEntry.channel.name) : 'TV'}</span><div><strong>{currentEntry?.channel.name || 'Authorized YouTube TV playback'}</strong><span>{demo ? 'Local preview · no video playback' : snapshot.playback.playing === true ? 'Playing in the original supported browser tab' : 'Playback state is not yet confirmed'}</span></div><span className="muted-tag"><Icon name="mute" size={15}/> {snapshot.playback.muted === true ? 'MUTED' : snapshot.playback.muted === false ? 'MUTE REQUIRED' : 'MUTE LOCK'}</span></div><div className="watch-actions"><button className="button primary" onClick={() => goSurface('GUIDE')}><Icon name="guide"/> Open compact guide <kbd>{keyLabel('guide')}</kbd></button><button className="button" disabled={!snapshot.preferences.previousChannel || !snapshot.capabilities.navigation || Boolean(pending)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}><Icon name="back"/> Previous <kbd>{keyLabel('previous')}</kbd></button></div></div><div className="player-preserved"><Icon name="window" size={32}/><strong>Video stays in YouTube TV</strong><p>This workspace controls navigation. Google handles your account and protected playback.</p><a href="https://tv.youtube.com/" target="_blank" rel="noreferrer">Open original player <Icon name="external" size={14}/></a></div></section>
++          <section className="watch-context"><div className="watch-gradient"/><div className="watch-context-copy"><span className="section-kicker"><span className="status-dot"/>{snapshot.currentConfirmed ? 'PLAYBACK CONFIRMED' : snapshot.currentChannelId ? 'LAST CONFIRMED CHANNEL · SAVED' : 'CURRENT PLAYER'}</span><h2>{(snapshot.currentConfirmed ? snapshot.currentProgram : undefined) || (currentEntry?.programTitle ? `Last observed · ${currentEntry.programTitle}` : undefined) || 'Your original player stays in YouTube TV.'}</h2><div className="watch-channel"><span className="channel-logo large">{currentEntry ? channelMark(currentEntry.channel.name) : 'TV'}</span><div><strong>{currentEntry?.channel.name || 'Authorized YouTube TV playback'}</strong><span>{demo ? 'Local preview · no video playback' : snapshot.currentConfirmed ? 'Confirmed in the original supported browser tab' : 'Saved history · current channel not yet confirmed'}</span></div><span className="muted-tag"><Icon name="mute" size={15}/> {snapshot.playback.muted === true ? 'MUTED' : snapshot.playback.muted === false ? 'MUTE REQUIRED' : 'MUTE LOCK'}</span></div><div className="watch-actions"><button className="button primary" onClick={() => goSurface('GUIDE')}><Icon name="guide"/> Open compact guide <kbd>{keyLabel('guide')}</kbd></button><button className="button" disabled={!snapshot.preferences.previousChannel || !snapshot.guide.some(entry => entry.channel.id === snapshot.preferences.previousChannel && entryPlayable(entry, snapshot)) || Boolean(pending)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}><Icon name="back"/> Previous <kbd>{keyLabel('previous')}</kbd></button></div></div><div className="player-preserved"><Icon name="window" size={32}/><strong>Video stays in YouTube TV</strong><p>This workspace controls navigation. Google handles your account and protected playback.</p><a href="https://tv.youtube.com/" target="_blank" rel="noreferrer">Open original player <Icon name="external" size={14}/></a></div></section>
+           <div className="watch-columns"><section className="content-card"><div className="section-title"><h2>Favorites <span>{favorites.length}</span></h2><button className="text-button" onClick={() => { goSurface('GUIDE'); setFilter('favorites'); }}>View guide <Icon name="arrow" size={15}/></button></div>{favorites.length ? <div className="quick-channels">{favorites.slice(0, 8).map(entry => <QuickChannel key={entry.channel.id} entry={entry} snapshot={snapshot} onWatch={watchEntry}/>)}</div> : <EmptyInline icon="star" title="Keep your channels close" text="Star a channel in the guide to pin it here." action={() => goSurface('GUIDE')} actionLabel="Choose favorites"/>}</section><section className="content-card"><div className="section-title"><h2>Recently watched</h2><span className="quiet-label">CONFIRMED SWITCHES</span></div>{recents.length ? <div className="recent-list">{recents.slice(0, 5).map(entry => <QuickChannel key={entry.channel.id} entry={entry} snapshot={snapshot} onWatch={watchEntry}/>)}</div> : <EmptyInline icon="back" title="Pick up where you left off" text="Confirmed channel switches populate your local history."/>}</section></div>
+-          {previousEntry && <div className="previous-strip"><Icon name="back"/><span>Previous channel</span><strong>{previousEntry.channel.name}</strong><span>{previousEntry.programTitle}</span><button className="text-button" disabled={!snapshot.capabilities.navigation} onClick={() => void run('Previous channel', () => bridge.previousChannel())}>Go back <kbd>{keyLabel('previous')}</kbd></button></div>}
++          {previousEntry && <div className="previous-strip"><Icon name="back"/><span>Previous channel</span><strong>{previousEntry.channel.name}</strong><span>{previousEntry.programTitle ? `Last observed · ${previousEntry.programTitle}` : 'Saved history'}</span><button className="text-button" disabled={!previousEntry || !entryPlayable(previousEntry, snapshot)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}>Go back <kbd>{keyLabel('previous')}</kbd></button></div>}
+         </>}
+ 
+         {surface === 'GUIDE' && <>
+           {replacePaneId && <div className="replace-banner"><Icon name="refresh"/><span>Choose a channel to replace window {snapshot.panes.findIndex(pane => pane.id === replacePaneId) + 1}. Other windows stay in place.</span><button className="text-button" onClick={() => setReplacePaneId(null)}>Cancel</button></div>}
+           <div className="guide-toolbar"><div className="segmented" aria-label="Channel filter">{(['all', 'favorites', 'recent'] as const).map(value => <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value)} aria-pressed={filter === value}>{value === 'all' ? 'All channels' : value === 'favorites' ? 'Favorites' : 'Recents'}{value === 'favorites' && <span>{snapshot.preferences.favorites.length}</span>}</button>)}</div><SearchBox value={query} setValue={setQuery} inputRef={searchRef} placeholder="Find channel or program"/></div>
+           {manageGuide && <div className="customize-help"><span>Star favorites. Move channels with the arrows. Hide channels from your everyday guide.</span><label><input type="checkbox" checked={includeHidden} onChange={event => setIncludeHidden(event.target.checked)}/> Show hidden channels</label><button className="button subtle" disabled={Boolean(pending)} onClick={() => void run('Restore native channel order', () => bridge.setPreference({ channelOrder: [] }))}>Use native order</button></div>}
+-          <section className="guide-table" aria-label="Compact live guide"><div className="guide-table-head"><span>CHANNEL</span><span>CURRENT PROGRAM</span><span className="guide-time-heading">SCHEDULE</span><span>CONTROLS</span></div>{guideEntries.length ? guideEntries.map((entry, index) => {
++          <section className="guide-table" aria-label="Compact live guide"><div className="guide-table-head"><span>CHANNEL</span><span>{snapshot.guide.some(entry => entry.metadataSource === 'CACHED') ? 'LAST OBSERVED PROGRAM' : 'OBSERVED PROGRAM'}</span><span className="guide-time-heading">SCHEDULE</span><span>CONTROLS</span></div>{guideEntries.length ? guideEntries.map((entry, index) => {
+             const favorite = snapshot.preferences.favorites.includes(entry.channel.id);
+-            const current = snapshot.currentChannelId === entry.channel.id;
++            const current = snapshot.currentConfirmed && snapshot.currentChannelId === entry.channel.id;
+             const hidden = snapshot.preferences.hiddenChannels.includes(entry.channel.id);
+             const playable = entryPlayable(entry, snapshot);
+             return <div key={entry.channel.id} role="group" aria-label={`${entry.channel.name}: ${entry.programTitle || 'Program unavailable'}`} tabIndex={focusedChannel === entry.channel.id || (!guideEntries.some(item => item.channel.id === focusedChannel) && index === 0) ? 0 : -1} onFocus={() => setFocusedChannel(entry.channel.id)} className={`guide-row ${current ? 'current' : ''} ${hidden ? 'hidden-channel' : ''}`}>
+               <div className="guide-channel-cell"><button className={`favorite-toggle icon-button ${favorite ? 'is-favorite' : ''}`} onClick={() => setList('favorites', entry.channel.id)} title={favorite ? `Remove ${entry.channel.name} from favorites` : `Favorite ${entry.channel.name}`} aria-label={favorite ? `Remove ${entry.channel.name} from favorites` : `Favorite ${entry.channel.name}`} aria-pressed={favorite}><Icon name="star" size={16}/></button><span className="channel-logo">{channelMark(entry.channel.name)}</span><div className="channel-name"><strong>{entry.channel.name}</strong>{current ? <span className="current-label">● CURRENT</span> : hidden ? <span>Hidden</span> : <span>{String(index + 1).padStart(2, '0')}</span>}</div></div>
+-              <div className="guide-program-cell"><strong>{entry.programTitle || 'Program information unavailable'}</strong><span>{entry.nextProgramTitle ? `Next · ${entry.nextProgramTitle}` : entry.evidenceClass === 'FIXTURE' ? 'Illustrative fixture · no playback target' : entry.available ? entry.target ? 'Observed navigation target' : 'Target not verified' : 'Availability not confirmed'}</span></div>
++              <div className="guide-program-cell"><strong>{entry.programTitle ? `${entry.metadataSource === 'CACHED' ? 'Last observed · ' : ''}${entry.programTitle}` : 'Program information unavailable'}</strong><span>{entry.metadataSource === 'CACHED' ? `Saved metadata · observed ${entry.observedAt || 'time unknown'} · open native Live` : entry.nextProgramTitle ? `Next · ${entry.nextProgramTitle}` : entry.evidenceClass === 'FIXTURE' ? 'Illustrative fixture · no playback target' : entry.available ? entry.target ? 'Observed navigation target' : 'Target not verified' : 'Availability not confirmed'}</span></div>
+               <div className="guide-schedule-cell">{entry.programStart || entry.programEnd ? <><span>{formatTime(entry.programStart)}{entry.programStart && entry.programEnd ? ' – ' : ''}{formatTime(entry.programEnd)}</span><div className="schedule-track"><span style={{ width: `${scheduleProgress(entry)}%` }}/></div></> : <span className="schedule-unknown">Schedule unknown</span>}</div>
+-              <div className="guide-row-actions">{manageGuide ? <><button className="icon-button" aria-label={`Move ${entry.channel.name} up`} title="Move up" disabled={!canMoveChannel(index, -1)} onClick={() => moveChannel(entry.channel.id, -1)}><Icon name="up" size={16}/></button><button className="icon-button" aria-label={`Move ${entry.channel.name} down`} title="Move down" disabled={!canMoveChannel(index, 1)} onClick={() => moveChannel(entry.channel.id, 1)}><Icon name="down" size={16}/></button><button className={`icon-button ${hidden ? 'is-hidden' : ''}`} aria-label={`${hidden ? 'Show' : 'Hide'} ${entry.channel.name}`} title={hidden ? 'Show channel' : 'Hide channel'} onClick={() => setList('hiddenChannels', entry.channel.id)}><Icon name="eye" size={16}/></button></> : <><button className={`button compact ${current ? 'currently-watching' : ''}`} disabled={!playable || Boolean(pending)} onClick={() => watchEntry(entry)} title={!playable ? 'Requires a verified, available YouTube TV channel target' : `Watch ${entry.channel.name}`}>{replacePaneId ? 'Replace' : current ? 'Watching' : 'Watch'}{!current && <Icon name="arrow" size={13}/>}</button><button className="icon-button add-window" disabled={!playable || !snapshot.capabilities.managedWindows || Boolean(pending)} onClick={() => addEntry(entry)} title="Add to managed windows" aria-label={`Add ${entry.channel.name} to managed windows`}><Icon name="plus" size={17}/></button></>}</div>
++              <div className="guide-row-actions">{manageGuide ? <><button className="icon-button" aria-label={`Move ${entry.channel.name} up`} title="Move up" disabled={!canMoveChannel(index, -1)} onClick={() => moveChannel(entry.channel.id, -1)}><Icon name="up" size={16}/></button><button className="icon-button" aria-label={`Move ${entry.channel.name} down`} title="Move down" disabled={!canMoveChannel(index, 1)} onClick={() => moveChannel(entry.channel.id, 1)}><Icon name="down" size={16}/></button><button className={`icon-button ${hidden ? 'is-hidden' : ''}`} aria-label={`${hidden ? 'Show' : 'Hide'} ${entry.channel.name}`} title={hidden ? 'Show channel' : 'Hide channel'} onClick={() => setList('hiddenChannels', entry.channel.id)}><Icon name="eye" size={16}/></button></> : <><button className={`button compact ${current ? 'currently-watching' : ''}`} disabled={!playable || Boolean(pending)} onClick={() => watchEntry(entry)} title={!playable ? 'Requires a verified, available YouTube TV channel target' : `Watch ${entry.channel.name}`}>{replacePaneId ? 'Replace' : current && snapshot.currentConfirmed ? 'Watching' : 'Watch'}{!current && <Icon name="arrow" size={13}/>}</button><button className="icon-button add-window" disabled={!playable || !snapshot.capabilities.managedWindows || Boolean(pending)} onClick={() => addEntry(entry)} title="Add to managed windows" aria-label={`Add ${entry.channel.name} to managed windows`}><Icon name="plus" size={17}/></button></>}</div>
+             </div>;
+           }) : <EmptyState icon="guide" title={query ? 'No matching channels' : filter === 'favorites' ? 'Your favorites start here' : filter === 'recent' ? 'No confirmed channel history yet' : 'Waiting for an observed guide'} text={query ? 'Try a channel name or a word from its current program.' : filter === 'favorites' ? 'Choose All channels, then star the ones you watch most.' : filter === 'recent' ? 'Channel history updates after a confirmed successful switch.' : 'Open the Live guide in your supported YouTube TV tab. This workspace will only show channels the adapter can observe.'}/>}</section>
+-          <div className="guide-footer"><span>{guideEntries.length} channels shown · {demo ? 'fixture data' : snapshot.observedAt ? `observed ${formatTime(snapshot.observedAt)}` : 'awaiting observation'}</span><span>Favorites and settings are saved on this Mac.</span></div>
++          <div className="guide-footer"><span>{guideEntries.length} channels shown · {demo ? 'fixture data' : snapshot.guideObservedAt ? `guide last observed ${snapshot.guideObservedAt}` : 'awaiting observation'}</span><span>Favorites and settings are saved on this Mac.</span></div>
+         </>}
+ 
+         {surface === 'SPORTS' && <>
+@@ -386,7 +389,7 @@
+ }
+ 
+ function QuickChannel({ entry, snapshot, onWatch }: { entry: GuideEntry; snapshot: DesktopSnapshot; onWatch: (entry: GuideEntry) => void }) {
+-  return <button className={`quick-channel ${snapshot.currentChannelId === entry.channel.id ? 'selected' : ''}`} onClick={() => onWatch(entry)} disabled={!entryPlayable(entry, snapshot)}><span className="channel-logo">{channelMark(entry.channel.name)}</span><span><strong>{entry.channel.name}</strong><small>{entry.programTitle || 'Program unknown'}</small></span><Icon name="arrow" size={15}/></button>;
++  return <button className={`quick-channel ${snapshot.currentChannelId === entry.channel.id ? 'selected' : ''}`} onClick={() => onWatch(entry)} disabled={!entryPlayable(entry, snapshot)}><span className="channel-logo">{channelMark(entry.channel.name)}</span><span><strong>{entry.channel.name}</strong><small>{entry.metadataSource === 'CACHED' ? `Saved · ${entry.programTitle || 'program unknown'} · navigation unavailable` : entry.programTitle || 'Program unknown'}</small></span><Icon name="arrow" size={15}/></button>;
+ }
+ 
+ function EmptyInline({ icon, title, text, action, actionLabel }: { icon: IconName; title: string; text: string; action?: () => void; actionLabel?: string }) {
+--- a/packages/ui/src/types.ts
++++ b/packages/ui/src/types.ts
+@@ -24,6 +24,8 @@
+   mode: 'extension' | 'demo';
+   connection: 'connected' | 'waiting' | 'unavailable';
+   statusMessage?: string;
++  currentConfirmed?: boolean;
++  guideObservedAt?: string;
+   currentChannelId?: string;
+   currentProgram?: string;
+   playback: { playing: boolean | null; muted: boolean | null };
+@@ -54,6 +56,7 @@
+   restoreLayout(): Promise<ActionResult>;
+   mute?(): Promise<ActionResult>;
+   removePane?(paneId: string): Promise<ActionResult>;
++  recoverGuide?(): Promise<ActionResult>;
+   refresh?(): Promise<ActionResult>;
+ }
+ 
+--- a/packages/yttv-adapter/src/index.ts
++++ b/packages/yttv-adapter/src/index.ts
+@@ -9,7 +9,7 @@
+ export const TARGET_MAX_AGE_MS = 30 * 60_000;
+ export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
+   const target = entry.target;
+-  if (!entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
++  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
+   const age = now - Date.parse(target.verifiedAt);
+   return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
+ }
+@@ -157,7 +157,7 @@
+         const playable = freshLiveTarget(entry);
+         return { ...entry, available: playable, target: playable ? entry.target : null };
+       });
+-      guideObservedAt = guide[0]?.observedAt;
++      guideObservedAt = guide.length ? new Date(Math.max(...guide.map(entry => Date.parse(entry.observedAt)))).toISOString() : undefined;
+       notify();
+     },
+     mute: async (): Promise<CapabilityResult<boolean>> => {
+--- a/packages/ui/src/behavior.test.ts
++++ b/packages/ui/src/behavior.test.ts
+@@ -174,3 +174,34 @@
+     for (const key of ['favorites', 'keyboardMappings', 'currentChannel', 'previousChannel', 'recentChannels'] as const) assert.deepEqual(after[key], baseline[key]);
+   } finally { unmount(); await window.happyDOM.abort(); }
+ });
++
++test('cached guide and saved Watch history stay understandable with disabled navigation and native recovery', async () => {
++  const { window, bridge, unmount, navigated } = await setup();
++  try {
++    const base = await bridge.getSnapshot(); let recovery = 0;
++    bridge.getSnapshot = async () => ({ ...base, mode: 'extension', connection: 'connected', currentConfirmed: false,
++      guideObservedAt: '2026-10-01T16:00:00Z', currentChannelId: base.guide[0].channel.id,
++      preferences: { ...base.preferences, currentChannel: base.guide[0].channel.id, previousChannel: base.guide[1].channel.id, favorites: [base.guide[0].channel.id, 'yttv:synthetic-missing'], recentChannels: [base.guide[0].channel.id, 'yttv:synthetic-missing'] },
++      guide: base.guide.map(row => ({ ...row, evidenceClass: 'LIVE', metadataSource: 'CACHED', target: null, available: false })),
++      capabilities: { ...base.capabilities, navigation: false } });
++    bridge.recoverGuide = async () => { recovery++; return { ok: true }; };
++    // Remount with extension mode so the recovery panel is included.
++    unmount();
++    const api = (window as unknown as { DesktopTVUI: { mountDesktop: (root: unknown, bridge: unknown, options: unknown) => () => void } }).DesktopTVUI;
++    const cleanup = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: false });
++    try {
++      await pause(); const document = window.document;
++      assert.match(document.body.textContent!, /LAST OBSERVED PROGRAM/);
++      assert.match(document.querySelector('.guide-footer')!.textContent!, /2026-10-01T16:00:00Z/);
++      assert.equal(document.querySelectorAll('.guide-row-actions button:not([disabled])').length, 0);
++      (Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Open native Live') as any).click(); await pause(); assert.equal(recovery, 1);
++      document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'w', bubbles: true, composed: true })); await pause();
++      assert.match(document.body.textContent!, /LAST CONFIRMED CHANNEL · SAVED/);
++      assert.match(document.body.textContent!, /Saved channel \(synthetic-missing\)/);
++      assert.equal(document.querySelectorAll('.quick-channel:not([disabled])').length, 0);
++      assert(document.querySelector('.previous-strip button[disabled]'));
++      assert.equal(navigated.length, 0);
++      assert.doesNotMatch(document.body.textContent!, /Playing in the original supported browser tab/);
++    } finally { cleanup(); }
++  } finally { await window.happyDOM.abort(); }
++});
+--- /dev/null
++++ b/tests/guide-cache.test.ts
+@@ -0,0 +1,64 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { createGuideMetadataStore, readGuideCache, GUIDE_CACHE_MAX_ROWS, PROGRAM_METADATA_MAX_AGE_MS } from '../packages/storage/src/guide-cache';
++import type { GuideEntry } from '../packages/core/src/index';
++
++const now = Date.parse('2026-10-02T16:00:00Z');
++const row = (id = 'yttv:synthetic-a', age = 1000): GuideEntry => ({ channel: { id, name: 'Synthetic channel' },
++  programTitle: 'Synthetic program', nextProgramTitle: 'Synthetic next', evidenceClass: 'LIVE', observedAt: new Date(now - age).toISOString(),
++  available: true, target: { kind: 'navigation', channelId: id, url: 'https://tv.youtube.com/watch?v=synthetic-test-only', verifiedAt: new Date(now - age).toISOString(), evidenceClass: 'LIVE' } });
++const raw = (rows = [row()]): unknown => ({ schemaVersion: 1, observedAt: new Date(now).toISOString(), rows });
++
++test('metadata whitelist drops URLs, targets, credentials and session authority without renewing age', () => {
++  const cache = readGuideCache({ ...(raw() as object), token: 'private', tabId: 123, rows: [{ ...row(), sessionId: 'private', password: 'private' }] }, now)!;
++  assert.equal(cache.rows[0].observedAt, row().observedAt);
++  assert.equal(cache.rows[0].metadataSource, 'CACHED'); assert.equal(cache.rows[0].target, null); assert.equal(cache.rows[0].available, false);
++  assert.doesNotMatch(JSON.stringify(cache), /https:|synthetic-test-only|private|tabId|sessionId|password|verifiedAt/);
++  const reread = readGuideCache(cache, now + 10_000)!;
++  assert.equal(reread.observedAt, cache.observedAt); assert.equal(reread.rows[0].observedAt, cache.rows[0].observedAt);
++});
++
++test('stale program metadata expires while unavailable identity and observed order remain', () => {
++  const rows = [row('yttv:synthetic-a', PROGRAM_METADATA_MAX_AGE_MS + 1), { ...row('yttv:synthetic-b'), available: false, target: null }];
++  const cache = readGuideCache(raw(rows), now)!;
++  assert.deepEqual(cache.rows.map(r => r.channel.id), rows.map(r => r.channel.id));
++  assert.equal(cache.rows[0].programTitle, undefined); assert.equal(cache.rows[0].nextProgramTitle, undefined);
++  assert.equal(cache.rows[0].observedAt, rows[0].observedAt); assert.equal(cache.rows[1].programTitle, 'Synthetic program');
++});
++
++test('missing malformed future unsupported duplicate and oversized cache states fail closed', () => {
++  for (const value of [undefined, null, 'bad-json', [], {}, { ...(raw() as object), schemaVersion: 2 },
++    { ...(raw() as object), observedAt: new Date(now + 1).toISOString() }, raw([{ ...row(), observedAt: new Date(now + 1).toISOString() }]),
++    raw([{ ...row(), observedAt: 'bad-date' }]), raw([row(), row()]), raw(Array.from({ length: GUIDE_CACHE_MAX_ROWS + 1 }, (_, i) => row(`yttv:synthetic-${i}`))),
++    { ...(raw() as object), extra: 'x'.repeat(512_001) }, raw([{ ...row(), channel: { id: 'https://example.test/token=secret', name: 'bad' } }])]) {
++    assert.equal(readGuideCache(value, now), null);
++  }
++});
++
++test('failed storage read or write keeps metadata recovery optional and permits later fresh retention', async () => {
++  let reject = true; let stored: unknown;
++  const store = createGuideMetadataStore({ get: async () => { throw new Error('synthetic read failure'); }, set: async (_key, value) => { if (reject) throw new Error('synthetic write failure'); stored = value; } }, () => now);
++  assert.equal(await store.load(), null);
++  await store.retain([row()]); assert.equal(store.rows.length, 1);
++  reject = false; await store.retain([row('yttv:synthetic-a', 0)]);
++  assert.equal(readGuideCache(stored, now)!.rows[0].observedAt, row('yttv:synthetic-a', 0).observedAt);
++});
++
++test('serialized asynchronous writes cannot overwrite a newer guide and older observations are ignored', async () => {
++  let stored: unknown; let release!: () => void; let calls = 0;
++  const store = createGuideMetadataStore({ get: async () => undefined, set: async (_key, value) => { calls++; if (calls === 1) await new Promise<void>(resolve => { release = resolve; }); stored = value; } }, () => now);
++  await store.load();
++  const older = store.retain([row()]); await Promise.resolve(); await Promise.resolve();
++  const newer = store.retain([{ ...row('yttv:synthetic-a', 0), programTitle: 'New synthetic program' }, row('yttv:synthetic-b')]);
++  assert.equal(calls, 1); release(); await Promise.all([older, newer]);
++  await store.retain([row('yttv:synthetic-a', 5000)]);
++  assert.equal(readGuideCache(stored, now)!.rows[0].programTitle, 'New synthetic program'); assert.equal(calls, 2);
++  assert.deepEqual(store.rows.map(r => r.channel.id), ['yttv:synthetic-a', 'yttv:synthetic-b']);
++});
++
++test('cache reads cached Watch observations and fixture observations never write or renew metadata', async () => {
++  let writes = 0;
++  const store = createGuideMetadataStore({ get: async () => raw(), set: async () => { writes++; } }, () => now);
++  const loaded = await store.load(); await store.retain(store.rows); await store.retain([{ ...row(), evidenceClass: 'FIXTURE' }]);
++  assert.equal(writes, 0); assert.equal(store.rows[0].observedAt, loaded!.rows[0].observedAt);
++});
+--- /dev/null
++++ b/tests/guide-recovery.test.ts
+@@ -0,0 +1,74 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { build } from 'esbuild';
++import { runInNewContext } from 'node:vm';
++import { envelope, type Command } from '../apps/chrome-extension/src/adapter';
++import { defaultPreferences, PREFERENCES_KEY } from '../packages/storage/src/index';
++import { GUIDE_CACHE_KEY } from '../packages/storage/src/guide-cache';
++
++// VM-only bridge fixtures: no browser, real playback handle or real navigation is available.
++const worker = build({ entryPoints: ['apps/chrome-extension/src/background.ts'], bundle: true, write: false, format: 'iife', platform: 'browser' });
++const stamp = new Date(Date.now() - 1000).toISOString();
++const rows = ['a', 'unavailable', 'b'].map(id => ({ channel: { id: `yttv:synthetic-${id}`, name: `Synthetic ${id}` }, programTitle: 'Synthetic program', observedAt: stamp, evidenceClass: 'LIVE', available: false, target: null }));
++const prefs = { ...defaultPreferences(), favorites: [rows[0].channel.id], hiddenChannels: [rows[1].channel.id], channelOrder: rows.map(r => r.channel.id).reverse(), currentChannel: rows[0].channel.id, previousChannel: rows[2].channel.id, recentChannels: [rows[0].channel.id, rows[2].channel.id] };
++const watch = () => ({ guide: [], route: 'watch', observedAt: new Date().toISOString(), playback: { playing: true, muted: true, readyState: 4, currentTime: 10 } });
++async function harness(cache: unknown = { schemaVersion: 1, observedAt: stamp, rows }, failCache = false, failPrefs = false) {
++  const local: Record<string, unknown> = { [GUIDE_CACHE_KEY]: structuredClone(cache), [PREFERENCES_KEY]: structuredClone(prefs) };
++  const actions: unknown[] = []; let callback: any;
++  const sender = { id: 'synthetic-extension', url: 'https://tv.youtube.com/watch?v=synthetic-test-only', tab: { id: 1 } };
++  const chrome = {
++    storage: { local: { get: async (key: string) => { if ((failCache && key === GUIDE_CACHE_KEY) || (failPrefs && key === PREFERENCES_KEY)) throw new Error('Synthetic storage failure'); return { [key]: structuredClone(local[key]) }; }, set: async (value: object) => { if (failCache && GUIDE_CACHE_KEY in value) throw new Error('Synthetic cache write failure'); Object.assign(local, structuredClone(value)); } }, session: { get: async () => ({}), set: async () => {} } },
++    runtime: { id: 'synthetic-extension', getURL: () => 'chrome-extension://synthetic-extension/', sendMessage: async () => {}, onMessage: { addListener: (fn: any) => { callback = fn; } } },
++    tabs: { query: async () => [{ id: 1, url: sender.url, active: true }], get: async () => ({ id: 1, url: sender.url }), update: async (_id: number, value: unknown) => { actions.push(structuredClone(value)); }, sendMessage: async (_id: number, message: any) => message.type === 'GET_OBSERVATION' ? watch() : { ok: false, code: 'TARGET_UNAVAILABLE' }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
++  };
++  const restart = async () => { runInNewContext((await worker).outputFiles[0].text, { chrome, URL, setTimeout, clearTimeout, setInterval, clearInterval }); };
++  await restart();
++  const send = (command: Command): Promise<any> => new Promise(resolve => callback(envelope(command), sender, (value: unknown) => resolve(structuredClone(value))));
++  return { send, local, actions, restart };
++}
++
++test('fresh worker plus runtime reload and Watch initialization restores rows/preferences with disabled authority and unchanged history', async () => {
++  const h = await harness();
++  for (let i = 0; i < 2; i++) {
++    const snap = await h.send({ type: 'GET_SNAPSHOT' });
++    assert.deepEqual(snap.guide.map((r: any) => r.channel.id), rows.map(r => r.channel.id));
++    assert.deepEqual(snap.preferences, prefs); assert.equal(snap.currentConfirmed, false);
++    assert.equal(snap.capabilities.navigation, false); assert.equal(snap.guideObservedAt, stamp);
++    assert(snap.guide.every((r: any) => r.metadataSource === 'CACHED' && !r.available && r.target === null && r.observedAt === stamp));
++    await h.send({ type: 'OBSERVE', observation: { ...watch(), guide: snap.guide, guideObservedAt: stamp } as any });
++    assert.deepEqual((await h.send({ type: 'GET_SNAPSHOT' })).preferences, prefs);
++    assert.equal((await h.send({ type: 'PREVIOUS' })).code, 'TARGET_UNAVAILABLE');
++    assert.equal((await h.send({ type: 'CREATE_PANE', channelId: rows[0].channel.id })).code, 'TARGET_UNAVAILABLE');
++    assert.equal(h.actions.some((a: any) => a.url), false, 'restoration never navigates');
++    await h.restart();
++  }
++});
++
++test('native Live reacquisition enables only fresh validated targets and preserves missing/unavailable rows', async () => {
++  const h = await harness(); await h.send({ type: 'GET_SNAPSHOT' });
++  const fresh = new Date().toISOString();
++  const validated = { ...rows[0], observedAt: fresh, available: true, target: { kind: 'navigation', channelId: rows[0].channel.id, url: 'https://tv.youtube.com/watch?v=synthetic-test-only', verifiedAt: fresh, evidenceClass: 'LIVE' } };
++  await h.send({ type: 'OBSERVE', observation: { ...watch(), route: 'guide', guide: [validated, { ...rows[2], observedAt: fresh, target: { ...validated.target, channelId: rows[2].channel.id, url: 'https://media.invalid/synthetic' }, available: true }], guideObservedAt: fresh } as any });
++  const snap = await h.send({ type: 'GET_SNAPSHOT' });
++  assert.equal(snap.capabilities.navigation, true); assert.equal(snap.guide.length, 3);
++  assert(snap.guide[0].target); assert.equal(snap.guide[1].target, null); assert.equal(snap.guide[2].target, null);
++  assert.deepEqual(snap.preferences, prefs); assert.equal(snap.currentConfirmed, false);
++  assert.doesNotMatch(JSON.stringify(h.local[GUIDE_CACHE_KEY]), /https:|verifiedAt|tabId|windowId/);
++  await h.restart(); assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).capabilities.navigation, false);
++});
++
++test('missing or failed cache preserves preferences Watch playback and explicit same-tab Live recovery', async () => {
++  for (const h of [await harness(null), await harness({ schemaVersion: 2 }), await harness(null, true)]) {
++    const snap = await h.send({ type: 'GET_SNAPSHOT' });
++    assert.deepEqual(snap.preferences, prefs); assert.equal(snap.playback.playing, true); assert.equal(snap.capabilities.navigation, false);
++    assert.equal((await h.send({ type: 'OPEN_NATIVE_GUIDE' })).ok, true);
++    assert.deepEqual(h.actions.at(-1), { url: 'https://tv.youtube.com/live', muted: true });
++  }
++});
++
++test('failed preference read cannot overwrite retained preferences or block optional cached guide', async () => {
++  const h = await harness(undefined, false, true);
++  assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).guide.length, 3);
++  assert.equal((await h.send({ type: 'PREFERENCE', patch: { favorites: [] } })).ok, false);
++  assert.deepEqual(h.local[PREFERENCES_KEY], prefs);
++});
+--- a/tests/yttv-adapter.test.ts
++++ b/tests/yttv-adapter.test.ts
+@@ -97,3 +97,23 @@
+     assert.equal(window.location.search, '?v=cbs');
+   } finally { adapter.dispose(); await window.happyDOM.abort(); }
+ });
++
++test('restart metadata seed keeps observation age and cannot navigate; native Live alone reacquires targets', async () => {
++  const window = fixtureWindow();
++  const native = parseGuide(window.document as unknown as Document, new Date(Date.now() - 1000).toISOString())[0];
++  window.location.href = 'https://tv.youtube.com/watch?v=synthetic-test-only';
++  const adapter = createDOMAdapter(window.document as unknown as Document);
++  try {
++    // Deliberately inject an apparently fresh target beside the cached marker: still disabled.
++    adapter.seedGuide([{ ...native, metadataSource: 'CACHED' }]);
++    const cached = adapter.getObservation();
++    assert.equal(cached.guide[0].target, null); assert.equal(cached.guide[0].available, false);
++    assert.equal(cached.guide[0].observedAt, native.observedAt);
++    assert.equal((await adapter.navigateToChannel(native.channel.id)).ok, false);
++    assert.equal(window.location.search, '?v=synthetic-test-only');
++    window.location.href = 'https://tv.youtube.com/live';
++    const reacquired = adapter.getObservation();
++    assert(reacquired.guide[0].target); assert.equal(reacquired.guide[0].metadataSource, undefined);
++    assert.notEqual(reacquired.guide[0].observedAt, native.observedAt);
++  } finally { adapter.dispose(); await window.happyDOM.abort(); }
++});

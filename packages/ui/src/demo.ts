@@ -40,7 +40,7 @@ export function createDemoBridge(): ClientBridge {
     navigateChannel: unavailable, previousChannel: unavailable, createPane: unavailable, selectPane: unavailable,
     replacePane: unavailable, expandPane: unavailable, restoreLayout: unavailable, mute: unavailable,
     async setPreference(patch) {
-      snapshot = { ...snapshot, preferences: sanitizePreferences({ ...snapshot.preferences, ...patch, nightMuteLock: true }) };
+      snapshot = { ...snapshot, preferences: sanitizePreferences({ ...snapshot.preferences, ...patch, nightMuteLock: false }) };
       try { localStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(snapshot.preferences)); }
       catch { return { ok: false, reason: 'Preview settings changed for this visit; this browser does not permit local storage.' }; }
       listeners.forEach(listener => listener());

@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-02T16:49:15.716623+00:00",
+  "head": "081b65bf6a541290e2b4c09c23351a1d489cd9e7",
+  "source_matches": {
+    "apps/chrome-extension/demo.html": true,
+    "apps/chrome-extension/manifest.json": true,
+    "apps/chrome-extension/panel.html": true,
+    "apps/chrome-extension/src/adapter.ts": true,
+    "apps/chrome-extension/src/background.ts": true,
+    "apps/chrome-extension/src/bridge.ts": true,
+    "apps/chrome-extension/src/content.tsx": true,
+    "apps/chrome-extension/src/panel.tsx": true,
+    "apps/chrome-extension/src/runtime.ts": true,
+    "package-lock.json": true,
+    "package.json": true,
+    "packages/core/src/index.ts": true,
+    "packages/event-resolver/src/index.ts": true,
+    "packages/quadbox/src/index.ts": true,
+    "packages/sports-engine/src/index.ts": true,
+    "packages/storage/src/index.ts": true,
+    "packages/ui/src/build.d.ts": true,
+    "packages/ui/src/demo.ts": true,
+    "packages/ui/src/index.tsx": true,
+    "packages/ui/src/styles.css": true,
+    "packages/ui/src/styles.d.ts": true,
+    "packages/ui/src/types.ts": true,
+    "packages/yttv-adapter/src/index.ts": true,
+    "scripts/build.mjs": true,
+    "tsconfig.json": true
+  },
+  "bundle_matches": {
+    "background.js": true,
+    "build-identity.json": true,
+    "content.css": true,
+    "content.js": true,
+    "demo.html": true,
+    "manifest.json": true,
+    "panel.css": true,
+    "panel.html": true,
+    "panel.js": true
+  }
+}

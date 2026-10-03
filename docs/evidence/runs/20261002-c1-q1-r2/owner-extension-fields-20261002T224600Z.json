@@ -1,0 +1,18 @@
+{
+  "at_utc": "2026-10-02T22:46:00.083909+00:00",
+  "method": "Human owner report from chrome://extensions existing entry; not agent automation",
+  "owner_reported_entry_name": "YouTube TV Desktop \u2014 Local Beta",
+  "owner_reported_id": "idaaiiafgopfpaojpnhaoefbefllioab",
+  "owner_reported_version": "0.1.6",
+  "owner_reported_loaded_from": null,
+  "loaded_from_status": "NOT PROVIDED-owner Details check requested",
+  "expected_version": "0.1.7",
+  "expected_loaded_from": "/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension",
+  "expected_folder_read_only_inspection": {
+    "manifest_version": "0.1.7",
+    "build": "9d07499eeceaf524"
+  },
+  "discrepancy": "Owner extension-page version0.1.6 differs from expected folder disk version0.1.7; actual loaded folder remains unknown",
+  "cause": "UNKNOWN",
+  "reloads_requested_this_investigation": 0
+}

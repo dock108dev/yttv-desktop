@@ -1,5 +1,5 @@
 import {
-  freshnessOf, isPlaybackTarget, normalizeText, timestamp,
+  ACTIVE_STATUSES, HELD_STATUSES, freshnessOf, isPlaybackTarget, normalizeText, timestamp,
   type ChannelRef, type EvidenceClass, type GuideEntry, type PlaybackTarget, type SportsEvent,
 } from '../../core/src/index.js';
 
@@ -61,7 +61,14 @@ export function resolveEvent(event: SportsEvent, entries: readonly GuideEntry[],
     if (guideStart !== null && eventStart !== null && Math.abs(guideStart - eventStart) <= (options.startWindowMs ?? 90 * 60_000)) {
       confidence += 0.1; provenance.push({ kind: 'START', source: 'available-guide', at: entry.observedAt, detail: 'Scheduled start is within matching window; scheduled end does not finalize the event.', weight: 0.1 });
     }
-    const fresh = isFreshAt(entry.observedAt, now, options.guideMaxAgeMs ?? 90_000);
+    // With no provider broadcast metadata, a current active matchup and native league
+    // plus BOTH teams may corroborate the target. A future schedule cannot claim this airing.
+    if (!event.broadcastNetworks.length && home && away && entry.league && leagueKey(entry.league) === leagueKey(event.league) &&
+      (ACTIVE_STATUSES.has(event.status) || HELD_STATUSES.has(event.status))) {
+      confidence += 0.35;
+      provenance.push({ kind: 'TEAMS', source: 'available-guide', at: entry.observedAt, detail: 'Native league and both teams corroborate a provider active/held matchup without broadcast metadata.', weight: 0.35 });
+    }
+    const fresh = entry.metadataSource !== 'CACHED' && isFreshAt(entry.observedAt, now, options.guideMaxAgeMs ?? 90_000);
     const targetShapeValid = isPlaybackTarget(entry.target) && entry.target.channelId === entry.channel.id && entry.target.evidenceClass === entry.evidenceClass;
     const targetVerified = targetShapeValid && isFreshAt(entry.target!.verifiedAt, now, options.targetMaxAgeMs ?? 90_000);
     const targetState = targetVerified ? 'VERIFIED' : targetShapeValid ? 'STALE' : 'UNAVAILABLE';

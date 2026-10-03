@@ -1,0 +1,28 @@
+[
+  {
+    "stage": "single-CBS-enabled",
+    "feedback": "Owner replied yes to hearing CBS",
+    "evidenceClass": "OWNER_LISTENING",
+    "receivedAt": "2026-10-02T23:55:34.122Z"
+  },
+  {
+    "stage": "CBS-NBC-CBS-handoff",
+    "receivedAt": "2026-10-02T23:59:33.586Z",
+    "evidenceClass": "OWNER_LISTENING",
+    "feedback": "Initially selected Silent or wrong channel; owner corrected immediately: whoops no bad click its fine. Corrected report: handoff fine.",
+    "initialAnswerRetained": true
+  },
+  {
+    "stage": "handoff-correction",
+    "receivedAt": "2026-10-03T00:02:22.349Z",
+    "evidenceClass": "OWNER_LISTENING",
+    "feedback": "Owner clarified: it worked i mis clicked"
+  },
+  {
+    "stage": "viewing-observation",
+    "receivedAt": "2026-10-03T00:10:13.050Z",
+    "evidenceClass": "OWNER_VIEWING_FEEDBACK",
+    "question": "Any visible freezing, overlapping sound, or system warning during this viewing trial?",
+    "feedback": "No issues noticed"
+  }
+]

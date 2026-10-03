@@ -1,0 +1,110 @@
+{
+  "version": "0.1.7",
+  "sourceFingerprint": "9d07499eeceaf5245d13998c6cada47b8de7162128ba88a250dc8037552d95c9",
+  "sourceInputs": [
+    {
+      "path": "apps/chrome-extension/demo.html",
+      "sha256": "3c9e7900572da3fde9e8f91d66ce5922e722a9874d842ed4cfef7fc43fdd7233"
+    },
+    {
+      "path": "apps/chrome-extension/manifest.json",
+      "sha256": "ed3771abe7ceff44701b0a7612a92c7b2115993f3378ee5f6e3a8d1a8b503e34"
+    },
+    {
+      "path": "apps/chrome-extension/panel.html",
+      "sha256": "d863a609f93f24379d38a4a1373b51bfc84ba46339089242b3e47b181129492e"
+    },
+    {
+      "path": "apps/chrome-extension/src/adapter.ts",
+      "sha256": "779507fbcc4c34a5b42d727158361204ff820e549c6b0137494dcabd791bf4f2"
+    },
+    {
+      "path": "apps/chrome-extension/src/background.ts",
+      "sha256": "3d47574880ac3ba391ccbd94ec4964eadc2d63338771aeab709b2a4064320df7"
+    },
+    {
+      "path": "apps/chrome-extension/src/bridge.ts",
+      "sha256": "53585d87831acfd67f6133e9980e83b6bc84cf4811e6512e67d9df5c038edb54"
+    },
+    {
+      "path": "apps/chrome-extension/src/content.tsx",
+      "sha256": "0b89018c51f791ae280c44c8386236864b6ca54d5866c443040a013f9fb0fde9"
+    },
+    {
+      "path": "apps/chrome-extension/src/panel.tsx",
+      "sha256": "808be8ffcf9cd7ee8dd2a321532f1d518fdc83772d20a1a22593f2a809f5d25e"
+    },
+    {
+      "path": "apps/chrome-extension/src/runtime.ts",
+      "sha256": "fb742640347dc7ef70b8ea817e640def77f690557890ed9ccc5ddf2ec446116a"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "dee16c08c1672115abc7d30ea959ad96a89799b92ec54a77cb856deab0b1e8db"
+    },
+    {
+      "path": "package.json",
+      "sha256": "e0a0005ee49e090020128b317012623d847b2dc4599094879de27feb7934e4e3"
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "sha256": "1684b80f7df873387c137d6fe53f0ef21a7b2deadb84a9256bb1fe5e0168a0c8"
+    },
+    {
+      "path": "packages/event-resolver/src/index.ts",
+      "sha256": "41ef7c9a82ac7e5a1b86f355bb99861524f520bd2695e1be4faa3912c999d4f7"
+    },
+    {
+      "path": "packages/quadbox/src/index.ts",
+      "sha256": "bbdb591f8322b991d3cd3238d4e04b9ad43154ff9ce3dd39324328374da3bb97"
+    },
+    {
+      "path": "packages/sports-engine/src/index.ts",
+      "sha256": "025018d276db3b3cf60aeb3a60f9ed11093367705a63e160039944cd1aaa6d09"
+    },
+    {
+      "path": "packages/storage/src/guide-cache.ts",
+      "sha256": "06bcb4c0a734a304ffb173965643b7c8f0e1d8a0c74b02c04d913314df63ebbc"
+    },
+    {
+      "path": "packages/storage/src/index.ts",
+      "sha256": "224215f08b0026f4c00a0f502699f34ad32fd3b92815761d79a16decad4995b0"
+    },
+    {
+      "path": "packages/ui/src/build.d.ts",
+      "sha256": "772fec8e5f5561f512bcc058d4804aea59e6346d846799b019f8497cc4b85719"
+    },
+    {
+      "path": "packages/ui/src/demo.ts",
+      "sha256": "4de4b170175d4b34f1602abe932fb102c75251dc26bb2d3705f46b852fba5617"
+    },
+    {
+      "path": "packages/ui/src/index.tsx",
+      "sha256": "f30d6e6d96744f07bbb43bf9ee36d4547f85af39a4b4f9a8f01366b4ba9bdf9f"
+    },
+    {
+      "path": "packages/ui/src/styles.css",
+      "sha256": "aa3c376e65897e70bc871d8c871315a5b4d4d7cce684f84d4ccffb462375078f"
+    },
+    {
+      "path": "packages/ui/src/styles.d.ts",
+      "sha256": "79aff81f0a489bf20f0b0a6b58a5688a855db87e29dcdc00433946aa9a409b20"
+    },
+    {
+      "path": "packages/ui/src/types.ts",
+      "sha256": "ea21671489389b6f34490ad7f5e8ea57367b519c6b64eebdbf864afcc6f09433"
+    },
+    {
+      "path": "packages/yttv-adapter/src/index.ts",
+      "sha256": "cbfddd4430e3a6ff47644343b59a570fe2edc6193a8c3e0d297e9977fc540425"
+    },
+    {
+      "path": "scripts/build.mjs",
+      "sha256": "75a600c33d2f9bcc14d7a6d4bf189f4805ab69dd4b4ac619e8c8681e24ce7f02"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "5a2441c73785f67efbc5a20698239951d9e7a5c6510050a18df1bc516a8dc5bb"
+    }
+  ]
+}

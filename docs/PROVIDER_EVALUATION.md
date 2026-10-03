@@ -1,6 +1,15 @@
 # Sports provider evaluation
 
-Prepared 2026-10-02. **No vendor selected, provisioned, queried or paid.** This is a documentation review, not evidence of live data quality, complete league coverage or licensed use. Provider API: getEvents(date), getEvent(id), getLiveEvents(); vendor/league normalization remains isolated. [Sources](SOURCES.md) retain dated official findings.
+Updated 2026-10-02 after S2-L1. **BALLDONTLIE NBA Free selected for the local factual sports slice; adapter/UI/relay prepared, acquisition blocked on owner key and exact loopback permission.** No account provisioned, provider queried or payment made. This is documentation plus local synthetic verification, not observed current-data quality or live delivery. Provider API: getEvents(date), getEvent(id), getLiveEvents(); vendor/league normalization remains isolated. [Sources](SOURCES.md) retain dated official findings.
+
+
+## Concrete NBA decision
+
+Choose NBA Free, $0/month, documented Games access and five requests/minute. Current official terms permit display/cache subject to restrictions. Local cap is four attempts/minute, including failures; usual cycle is two schedule calls plus at most one tracked detail, demand-driven every 60 seconds with backoff. Credential stays in the local relay; no extension key. [Source decision](evidence/runs/20261002-s2-l1/source-decision.md) separates rights, access, status, update-time, limits and absent broadcast metadata. [One combined owner handoff](evidence/runs/20261002-s2-l1/permission-review.md): private NBA Free key plus http://127.0.0.1:4318/* approval/reload. No paid trial needed.
+
+NBA normalizer, retained-ID polling, UI/search and guarded event intents pass local verification; real coverage/mapping remains NOT RUN. Unknown source timestamp and provider delay remain labeled unknown; “recent retrieval” is fetch age, not an SLA. Watch/Add requires active/held NBA + both teams + native league + a fresh unique eligible native target. Missing corroboration leaves events visible with unavailable actions. Other requested leagues remain unconnected. Candidate v0.1.9/57058bd9d522e2bd is prepared and uninstalled.
+
+## Historical candidates — retained planning context
 
 | Candidate | Officially documented signal | Planning assessment / unknowns |
 | --- | --- | --- |
@@ -30,4 +39,4 @@ Proposed polling: 30 seconds for active/held events only when permitted; slower 
 
 Do not put provider secrets in an extension bundle or persist them in public/local project evidence. If a source requires a secret, decide on a minimal authorized sports-metadata relay (local service or backend), caching, request limits and provider rights before implementation. A client cannot securely hide a secret. User-supplied local configuration is an option to assess, not a guarantee provider redistribution/extension use is allowed. No video or Google authentication passes through such a relay.
 
-Next provider work is S2-01 after the single-playback foundation, while P0-D1 fixtures can proceed without network access. See [risks](RISKS_AND_OPEN_QUESTIONS.md) and [backlog](BACKLOG.md).
+Next provider work is the same [S2-L1 activation](../NEXT_TASK.md): consume the prepared owner key/permission handoff, then observe actual NBA contents and separately qualify mapping. Source selection is no longer a broad comparison task. Full release qualification remains separate. See [risks](RISKS_AND_OPEN_QUESTIONS.md) and [backlog](BACKLOG.md).

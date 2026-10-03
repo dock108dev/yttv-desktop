@@ -1,0 +1,183 @@
+{
+  "source_inputs": [
+    {
+      "path": "apps/chrome-extension/demo.html",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/manifest.json",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/panel.html",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/adapter.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/background.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/bridge.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/content.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/panel.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/chrome-extension/src/runtime.ts",
+      "matches": true
+    },
+    {
+      "path": "package-lock.json",
+      "matches": true
+    },
+    {
+      "path": "package.json",
+      "matches": true
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/event-resolver/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/quadbox/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/sports-engine/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/storage/src/guide-cache.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/storage/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/build.d.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/demo.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/index.tsx",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/styles.css",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/styles.d.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/ui/src/types.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/yttv-adapter/src/index.ts",
+      "matches": true
+    },
+    {
+      "path": "scripts/build.mjs",
+      "matches": true
+    },
+    {
+      "path": "tsconfig.json",
+      "matches": true
+    }
+  ],
+  "test_inputs": [
+    {
+      "path": "packages/ui/src/behavior.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/adapter.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/chrome-integration.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/chrome-runtime.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/domain.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/guide-cache.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/guide-recovery.test.ts",
+      "matches": true
+    },
+    {
+      "path": "tests/yttv-adapter.test.ts",
+      "matches": true
+    }
+  ],
+  "bundle_files": [
+    {
+      "path": "background.js",
+      "matches": true
+    },
+    {
+      "path": "build-identity.json",
+      "matches": true
+    },
+    {
+      "path": "content.css",
+      "matches": true
+    },
+    {
+      "path": "content.js",
+      "matches": true
+    },
+    {
+      "path": "demo.html",
+      "matches": true
+    },
+    {
+      "path": "manifest.json",
+      "matches": true
+    },
+    {
+      "path": "panel.css",
+      "matches": true
+    },
+    {
+      "path": "panel.html",
+      "matches": true
+    },
+    {
+      "path": "panel.js",
+      "matches": true
+    }
+  ],
+  "patch_matches": true,
+  "at": "2026-10-02T23:02:01.585415+00:00",
+  "result": "PASS"
+}

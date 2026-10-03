@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-02T23:48:32.846494+00:00",
+  "method": "local read-only system commands",
+  "systemVersion": "27.0",
+  "systemBuild": "26A428",
+  "hardwareModel": "Mac15,6",
+  "physicalMemoryBytes": 19327352832,
+  "resourceMethod": "aggregate Chrome process CPU percentages and resident sizes from ps; all Chrome tabs/extension processes, not per-feed attribution; summed RSS can double-count shared pages; instantaneous CPU is process-average, not formal p95",
+  "thermalGpuNetwork": "not measured"
+}

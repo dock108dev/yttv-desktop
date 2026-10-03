@@ -7,8 +7,14 @@ export const SELECTORS = {
   program: 'main h1, main [role="heading"], [role="main"] h1, [role="main"] [role="heading"]',
 } as const;
 export const TARGET_MAX_AGE_MS = 30 * 60_000;
+export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
+  const target = entry.target;
+  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
+  const age = now - Date.parse(target.verifiedAt);
+  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
+}
 export interface PlaybackObservation {
-  playing: boolean | null; muted: boolean | null; readyState: number | null;
+  playing: boolean | null; muted: boolean | null; volume?: number | null; readyState: number | null;
   currentTime: number | null; width: number | null; height: number | null;
 }
 export interface AdapterObservation {
@@ -46,10 +52,16 @@ export function parseGuide(document: Document, now = new Date().toISOString()): 
     const channelId = stableChannelId(name); if (seen.has(channelId)) continue;
     seen.add(channelId);
     const href = endpoint?.querySelector('a[href]')?.getAttribute('href');
-    const url = href ? navigationUrl(href, document.location?.href) : null;
+    // Native thumbnail endpoints can be empty on a fresh guide. Its first
+    // current-program link is also an ordinary supported navigation control.
+    // Never skip forward to a later airing (which could schedule a future show).
+    const currentHref = row.querySelector(`${SELECTORS.airings} a`)?.getAttribute('href');
+    const url = (href ? navigationUrl(href, document.location?.href) : null) ??
+      (currentHref ? navigationUrl(currentHref, document.location?.href) : null);
     const programs = [...row.querySelectorAll(`${SELECTORS.airings} a`)].map(link => text(link)).filter(Boolean);
     const target: PlaybackTarget | null = url ? { kind: 'navigation', channelId, url, verifiedAt: now, evidenceClass: 'LIVE' } : null;
-    entries.push({ channel: { id: channelId, name }, programTitle: programs[0], nextProgramTitle: programs[1],
+    const league = /\bNBA\b/i.test(programs[0] ?? '') ? 'NBA' : undefined;
+    entries.push({ channel: { id: channelId, name }, programTitle: programs[0], nextProgramTitle: programs[1], league,
       available: Boolean(target), target, observedAt: now, evidenceClass: 'LIVE' });
   }
   return entries;
@@ -63,23 +75,12 @@ function scoreVideo(video: HTMLVideoElement): number {
   const rect = video.getBoundingClientRect();
   return (visible(video) ? 1e9 : 0) + (!video.paused && video.readyState >= 2 ? 1e8 : 0) + rect.width * rect.height;
 }
-export function createDOMAdapter(document: Document, options: { ignoreElement?: Element; nightMuteLock?: boolean } = {}) {
+export function createDOMAdapter(document: Document, options: { ignoreElement?: Element } = {}) {
   let guide: GuideEntry[] = []; let guideObservedAt: string | undefined; let guideSignature = '';
   let disposed = false; const listeners = new Set<(observation: AdapterObservation) => void>();
   const pendingNavigations = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const muteVideo = (event?: Event) => {
-    const video = event?.target instanceof HTMLVideoElement ? event.target : null;
-    if (video) { video.muted = true; video.defaultMuted = true; }
-    for (const item of document.querySelectorAll('video')) { item.muted = true; item.defaultMuted = true; }
-  };
-  // The user requested silence overnight. No unmute code exists in this adapter.
-  document.addEventListener('play', muteVideo, true);
-  document.addEventListener('playing', muteVideo, true);
-  document.addEventListener('volumechange', muteVideo, true);
-  muteVideo();
   function getObservation(): AdapterObservation {
-    muteVideo();
     const observedAt = new Date().toISOString();
     const route = document.location.pathname.startsWith('/watch') ? 'watch' : document.location.pathname.startsWith('/live') ? 'guide' : 'other';
     // Hidden SPA guide nodes are not a fresh observation. Identical rows must not renew old target timestamps.
@@ -99,7 +100,7 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
     const program = [...document.querySelectorAll(SELECTORS.program)].filter(visible).map(text).find(Boolean);
     return { guide: guide.map(entry => ({ ...entry })), guideObservedAt, currentChannelId, currentProgram: program,
       playback: { playing: player ? !player.paused && !player.ended && player.readyState >= 2 : null,
-        muted: player?.muted ?? null, readyState: player?.readyState ?? null, currentTime: player?.currentTime ?? null,
+        muted: player?.muted ?? null, volume: player?.volume ?? null, readyState: player?.readyState ?? null, currentTime: player?.currentTime ?? null,
         width: player?.videoWidth ?? null, height: player?.videoHeight ?? null }, observedAt, route };
   }
   function notify() { if (!disposed) { const observation = getObservation(); for (const listener of listeners) listener(observation); } }
@@ -111,11 +112,9 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
   const interval = setInterval(notify, 3000);
   async function navigateToChannel(channelId: string): Promise<CapabilityResult<AdapterObservation>> {
     const entry = guide.find(item => item.channel.id === channelId); const target = entry?.target;
-    if (!target || !navigationUrl(target.url) || Date.now() - Date.parse(target.verifiedAt) > TARGET_MAX_AGE_MS) {
+    if (disposed || !entry || !target || !freshLiveTarget(entry)) {
       return { ok: false, capability: 'navigateToChannel', code: 'TARGET_UNAVAILABLE', reason: 'Open the YouTube TV Live guide to refresh this channel’s observed navigation target.' };
     }
-    const original = getObservation();
-    if (original.currentChannelId === channelId && original.playback.playing) return { ok: true, value: original, observedAt: original.observedAt };
     const link = [...document.querySelectorAll<HTMLAnchorElement>('a[href]')].find(item => navigationUrl(item.getAttribute('href')!, document.location.href) === target.url);
     if (link) link.click(); else document.location.assign(target.url);
     return new Promise(resolve => {
@@ -140,15 +139,41 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
     getObservation, navigateToChannel,
     seedGuide(entries: GuideEntry[]) {
       if (guide.length || !Array.isArray(entries)) return;
-      guide = entries.filter(entry => entry?.channel?.id && entry.target && navigationUrl(entry.target.url) &&
-        entry.target.channelId === entry.channel.id && Date.now() - Date.parse(entry.target.verifiedAt) <= TARGET_MAX_AGE_MS);
-      guideObservedAt = guide[0]?.observedAt;
+      // Unavailable rows still carry guide metadata and saved ordering. Keep them
+      // across document replacement without promoting missing/stale targets.
+      guide = entries.filter(entry => entry?.evidenceClass === 'LIVE' && typeof entry.channel?.id === 'string' &&
+        Boolean(entry.channel.id.trim()) && typeof entry.channel.name === 'string' &&
+        Number.isFinite(Date.parse(entry.observedAt))).map(entry => {
+        const playable = freshLiveTarget(entry);
+        return { ...entry, available: playable, target: playable ? entry.target : null };
+      });
+      guideObservedAt = guide.length ? new Date(Math.max(...guide.map(entry => Date.parse(entry.observedAt)))).toISOString() : undefined;
       notify();
     },
-    mute: async (): Promise<CapabilityResult<boolean>> => { muteVideo(); return { ok: true, value: true, observedAt: new Date().toISOString() }; },
+    setAudio: async (change: { muted?: boolean; volume?: number }): Promise<CapabilityResult<PlaybackObservation>> => {
+      const player = activeVideo(document);
+      if (disposed || !player) return { ok: false, capability: 'audio', code: 'TARGET_UNAVAILABLE', reason: 'No observable player is available. Use the original player.' };
+      if ((change.muted !== undefined && typeof change.muted !== 'boolean') ||
+          (change.volume !== undefined && (!Number.isFinite(change.volume) || change.volume < 0 || change.volume > 1)))
+        return { ok: false, capability: 'audio', code: 'UNKNOWN', reason: 'Invalid player audio choice.' };
+      try {
+        if (change.volume !== undefined) player.volume = change.volume;
+        if (change.muted !== undefined) player.muted = change.muted;
+        const playback = getObservation().playback;
+        if ((change.muted !== undefined && playback.muted !== change.muted) ||
+            (change.volume !== undefined && Math.abs((playback.volume ?? -1) - change.volume) > .001)) throw new Error('Readback mismatch');
+        notify();
+        return { ok: true, value: playback, observedAt: new Date().toISOString() };
+      } catch { return { ok: false, capability: 'audio', code: 'UNKNOWN', reason: 'Player audio readback did not confirm the choice.' }; }
+    },
+    mute: async (): Promise<CapabilityResult<boolean>> => {
+      const player = activeVideo(document);
+      if (disposed || !player) return { ok: false, capability: 'mute', code: 'TARGET_UNAVAILABLE', reason: 'No active adapter player is available.' };
+      player.muted = true; notify();
+      return { ok: true, value: player.muted, observedAt: new Date().toISOString() };
+    },
     subscribe(listener: (observation: AdapterObservation) => void) { listeners.add(listener); listener(getObservation()); return () => listeners.delete(listener); },
-    dispose() { disposed = true; observer.disconnect(); clearInterval(interval); if (timer) clearTimeout(timer); for (const cancel of [...pendingNavigations]) cancel(); listeners.clear();
-      document.removeEventListener('play', muteVideo, true); document.removeEventListener('playing', muteVideo, true); document.removeEventListener('volumechange', muteVideo, true); },
+    dispose() { disposed = true; observer.disconnect(); clearInterval(interval); if (timer) clearTimeout(timer); for (const cancel of [...pendingNavigations]) cancel(); listeners.clear(); },
   };
 }
 export type DOMAdapter = ReturnType<typeof createDOMAdapter>;

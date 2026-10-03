@@ -1,0 +1,28 @@
+# Next task — S2-L1: first real Live Sports slice
+
+Updated 2026-10-02 after [C1-Q2 completion](docs/evidence/runs/20261002-c1-q2/run.md). Single-feed audio and a supervised two-feed managed-window trial PASS on installed v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab. No viewing handoff is pending. This file owns the next product scope; full release acceptance remains separate.
+
+## Product outcome and preserved baseline
+
+Make the Sports screen useful with one real supported league: current events, team search, truthful score/state/freshness and verified Watch/Add through the existing main-plus-one route. The shared Sports Engine/resolver already has fixture contracts and tests; the installed UI still directly creates illustrative fixtures. Ship the first live-data path rather than repeating the completed viewing trial or qualifying every league at once.
+
+Preserve the usable v0.1.8 baseline, preferences, extension ID/storage, uncommitted work, all prior bundles and evidence. CBS was left playing at its original volume. Avoid unnecessary playback interruption. Normal sound remains authorized. Site mute and formal performance attribution remain recorded unknowns, not blockers for independent Sports engineering.
+
+## One bounded implementation pass
+
+1. Read provider evaluation, source/architecture/product requirements and current Sports Engine/resolver/UI/bridges. Choose one requested league with a practical permitted current-data source after checking current official documentation. Supported source rights/access, data status/freshness and broadcast metadata are separate facts. A public URL or free trial alone does not establish permitted live use; scrambled/delayed data cannot be relabeled current.
+2. Prefer one low-cost or credential-free permitted route where suitable. Do not provision an account, buy a plan or extract credentials from browsers/Keychain/sibling projects. Use only deliberately supplied/authorized project configuration. Research source selection and implement the eligible adapter in the same task where possible. If no permitted accessible source is available, return one concrete recommended access decision with documented tier/cost/limits and exact owner action, retaining an honest unavailable Sports state.
+3. Reuse the existing vendor-neutral provider, normalization, freshness, retained-event and search contracts. Wire real provider state into the installed bridge/UI; keep the fixture lab explicit and separate. Show initial-league coverage and leave unsupported leagues unavailable. API outage/429/stale/empty results must not silently switch to invented games or finalize retained events.
+4. Preserve original source/update times and distinguish fetch time. Actual sports state controls retention beyond the scheduled guide end; delay/suspension/unknown/final labels stay truthful. Do not fabricate scheduled end, clock, scores or broadcast information absent from the source.
+5. Connect the resolver to fresh observed native guide candidates. Team search returns the event first. Watch/Add requires a fresh unambiguous corroborated mapping and eligible target; network name alone or cached guide rows cannot grant navigation. Unknown/ambiguous mapping should leave a useful real event visible with an explicit unavailable action. Preserve event identity when using main or one added window.
+6. Use the smallest workable data-access architecture. Keep provider secrets out of extension bundles/logs/evidence. A sports-only local relay may be prepared if necessary; no protected video or Google auth enters it. Existing permissions remain storage plus tv.youtube.com until an explicitly approved change. Do not silently weaken the permission audit. If new provider/localhost host access is necessary, prepare the exact minimal change and locally reviewable candidate before one combined owner permission/reload handoff.
+7. Add focused provider/polling/UI/resolver regressions with clearly retained fixtures. Run npm run verify after changes; freeze source/bundle/runtime identity. When access permits, observe a bounded real schedule/status/team-search path and separately confirm mapped Watch/Add in the installed candidate. Use replay/fixtures for rare overtime/delay states when no such live event exists; never claim those were observed live.
+8. Use the qualified two-feed playback controls; do not repeat the full 15-minute viewing trial unless new playback changes or defects justify it. Formal lifecycle/control/performance checks remain grouped release work. No third/fourth feed or composed video in this slice.
+
+## Closeout and boundaries
+
+Deliver either a working one-league Live Sports slice with explicit coverage/mapping limits, or one exact external access/permission blocker and a prepared implementation/decision where feasible. Do not call a fixture-only adapter or provider marketing page a live result. Provide simple use instructions and evidence classes, not another multi-provider planning exercise.
+
+Preserve original playback on provider/resolver/UI failure. Bound requests according to verified source limits, back off on errors and stop at denied access or spend requirement. No purchases/provisioning, protected capture, DRM/account-limit bypass, platform expansion, remote operations or publication.
+
+Update provider evaluation, beta status, backlog, roadmap, decisions, acceptance summary, run index and Desktop pointer once at closeout. Full U01–U18/beta acceptance remains open; this is a first-league milestone. Ask for owner input only for a concrete missing access requirement or exact new permission, after completing independent preparation.

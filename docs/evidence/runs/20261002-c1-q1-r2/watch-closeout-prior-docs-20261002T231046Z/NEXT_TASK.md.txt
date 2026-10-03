@@ -1,0 +1,46 @@
+# Next task — resolve installed identity, then resume C1-Q1-R2
+
+Updated 2026-10-02. **Installed identity PASS: v0.1.7/9d07499eeceaf524/same ID**, after owner independently reloaded while test tab remained unrefreshed. One notice, workspace teardown, muted advancement, designated refresh, native Live priming (169rows/20 unavailable) and confirmed muted CBS2 Watch navigation observed. **Loaded from is still pending**; no further staged reload until actual source folder reported. Earlier failed attempt and cause UNKNOWN retained. This file owns active scope; [R2 run](docs/evidence/runs/20261002-c1-q1-r2/run.md) owns methods/verdicts. Foundation PARTIAL; two-feed GATED.
+
+## Candidate and retained results
+
+Project `/Users/michaelfuscoletti/Desktop/yttv-desktop`, main HEAD `081b65bf6a541290e2b4c09c23351a1d489cd9e7` plus preserved uncommitted work.
+
+- Prepared disk: **v0.1.7 / build 9d07499eeceaf524**. [Candidate inventory](docs/evidence/runs/20261002-c1-q1-r2/candidate-017.json), retained bundles and patches identify the exact candidate. Recorded verification PASS: **66 tests, typecheck, build/narrow permission audit, docs check**. Current read-only check matches all 26 inputs, test inputs and nine bundle files; no rebuild or source change.
+- Earlier failed Chrome observation: **v0.1.6 / a4fb694fb9dd7388**, expected ID **idaaiiafgopfpaojpnhaoefbefllioab**, at 19:54:52 UTC after owner-reported reload and designated-tab refresh. Zero invalidation notices observed; bounded advancing muted playback and one host observed. Cause UNKNOWN. Preserve [failed attempt](docs/evidence/runs/20261002-c1-q1-r2/continuation-observations.json) and historical evidence.
+- [R1](docs/evidence/runs/20261002-c1-q1-r1/run.md): scoped U04 saved-settings PASS; U01/U02/U03/U17/U18 and AC01/03/04/05/13 PARTIAL; AC02/navigation p95 INCONCLUSIVE. Temporary settings restored. These results qualify their original candidate, not the prepared replacement.
+
+## First unresolved gate — missing owner source folder, then Watch restart
+
+In the Chrome window/profile containing the designated **Live - YouTube TV** tab, owner opens `chrome://extensions` and inspects the existing entry **idaaiiafgopfpaojpnhaoefbefllioab**. Version is now owner-reported0.1.7 and exact content runtime matches prepared build. Report missing Loaded from; earlier0.1.6 owner report remains retained. Expected fields:
+
+- **Version** — expected **0.1.7**.
+- **Loaded from** — expected `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`.
+
+No reload yet. Extension management remains owner-only because prior automation was blocked and alternate-surface workarounds were prohibited. Do not assume the mismatch's cause.
+
+If either differs, record the actual fields and investigate that specific discrepancy. Read-only inspection of an owner-supplied folder is permitted. Preserve retained evidence directories and every other bundle; no overwrite, profile migration, Remove/reinstall, duplicate Load unpacked or storage clearing. Prepare a concrete resolution from the observed discrepancy before requesting any action.
+
+If both match, stage **one controlled reload** of the existing entry. Keep designated Live open and unrefreshed. Record owner completion; observe notice/host/workspace and available muted playback continuity before refreshing only that tab. Confirm Shortcuts **v0.1.7 / 9d07499eeceaf524 / same ID**. If older identity remains, stop further reload attempts, retain page fields/runtime identity/timestamps/notice/permitted diagnostics, and select one concrete next diagnostic step. No speculative source changes or blocked-management workaround.
+
+## Resume R2 only after installed identity matches
+
+1. Prime metadata from refreshed native Live on v0.1.7. This is first cache priming, not restart proof; v0.1.6 had no persistent metadata cache. Record row count/order/timestamps/unavailable rows and baseline preference/history presentation without unnecessary edits.
+2. Reach confirmed muted Watch playback through an eligible target in the same tab.
+3. Stage the second owner runtime reload with Watch open and unrefreshed. Observe invalidation notice and muted continuity, then refresh only Watch.
+4. Verify immediate cached rows, favorite/recent/order/hidden/bindings and saved last-confirmed history, original observation age, explicitly last-observed programs, disabled cached Watch/Add/Previous, one host, no fabricated switch/history mutation and ordinary muted playback.
+5. Use explicit **Open native Live** recovery. Record fresh validated target reacquisition separately from subsequent confirmed muted navigation. Restore ordinary muted playback.
+6. Actual worker restart requires a separate supported staged method and evidence that the worker restarted; elapsed idle time, runtime reload and synthetic replacement are insufficient. If unavailable, record BLOCKED/NOT RUN with the remaining owner action.
+7. Full browser restart and disable/enable remain separate staged owner handoffs. Preserve unrelated browser state, same ID/storage and preferences. Record individual verdicts.
+
+For concrete source failures only: retain failed evidence, make a bounded repair and focused regression, run `npm run verify`, rebind source/input/bundle/version/build identity, and confirm replacement installed identity before new browser evidence. Preserve earlier candidates and all uncommitted work. Reuse unchanged checks rather than inferring new acceptance.
+
+## Closeout and boundaries
+
+Update R2 run, BETA_STATUS, BACKLOG, ROADMAP, DECISIONS, acceptance status, evidence index and Desktop pointer with actual results. Assess U01/AC04, U03/U04 and U18/AC13 subsets while retaining other partial/inconclusive criteria. Finish with one bounded next task following the first unresolved foundation gate.
+
+All real playback stays muted until explicitly lifted. No extra feed or managed window. Preserve original player/account/Library/DVR/ads, preferences, unrelated tabs and the closed prior beta group. Narrow sanitized collection only: no credentials, cookies, tokens, account details, protected frames, playback URLs or broad raw logs. Close only test-created extras.
+
+Stop affected checks for missing auth/entitlement, protected/session-limit errors, repeated unexplained freezes, thermal/memory warnings, unexpected audio, interference or unsafe exposure; preserve supported playback.
+
+Two-feed testing remains GATED on foundation PASS and verified actual account allowance/available streams, including household use. Full beta/owner/U01–U18/three-game acceptance remains open. Live Sports/provider provisioning, higher counts, audible handoff, composed QuadBox, Safari/Windows/native, purchases, capture/restriction bypass, remote operations and publication are outside scope. ROADMAP owns sequencing; BACKLOG owns item status; Desktop tracker is a pointer.

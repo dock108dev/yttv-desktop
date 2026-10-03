@@ -38,7 +38,7 @@ test('bridge unregisters runtime/storage listeners and stops sending after inval
   bridge.dispose();
 });
 
-test('content invalidation disposes observers/timers, keeps mute safety and one notice; reinjection/SPA never duplicate UI', async () => {
+test('content invalidation disposes observers/timers, preserves native audio choice and one notice; reinjection/SPA never duplicate UI', async () => {
   const bundle = await build({ entryPoints: [new URL('../apps/chrome-extension/src/content.tsx', import.meta.url).pathname], bundle: true, write: false, format: 'iife', platform: 'browser',
     plugins: [{ name: 'isolated-content-fixture', setup(builder) {
       builder.onResolve({ filter: /packages\/ui\/src\/index$/ }, () => ({ path: 'ui-fixture', namespace: 'fixture' }));
@@ -88,7 +88,7 @@ test('content invalidation disposes observers/timers, keeps mute safety and one 
     (host.shadowRoot!.querySelector('.toggle') as any).click();
     await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(calls, stoppedCalls);
     const video = window.document.querySelector('video')!; video.muted = false;
-    video.dispatchEvent(new window.Event('playing', { bubbles: true })); assert.equal(video.muted, true);
+    video.dispatchEvent(new window.Event('playing', { bubbles: true })); assert.equal(video.muted, false);
   } finally {
     for (const id of intervals) clearInterval(id); for (const id of timeouts) clearTimeout(id); await window.happyDOM.abort();
   }

@@ -1,0 +1,130 @@
+{
+  "version": "0.1.9",
+  "sourceFingerprint": "57058bd9d522e2bdd25e2f119c44921bfffb92fd28adb9458f02a18098b1fe97",
+  "sourceInputs": [
+    {
+      "path": "apps/chrome-extension/demo.html",
+      "sha256": "3c9e7900572da3fde9e8f91d66ce5922e722a9874d842ed4cfef7fc43fdd7233"
+    },
+    {
+      "path": "apps/chrome-extension/manifest.json",
+      "sha256": "86a9011fe4fdfb3a2a65f62c8f2f052fcccb701888a30d46fd09b5d2c7b0ccb3"
+    },
+    {
+      "path": "apps/chrome-extension/panel.html",
+      "sha256": "d863a609f93f24379d38a4a1373b51bfc84ba46339089242b3e47b181129492e"
+    },
+    {
+      "path": "apps/chrome-extension/src/adapter.ts",
+      "sha256": "09b7f269fd790bad09e01310882d59e4995ad60f6355f496f345f74a735bd135"
+    },
+    {
+      "path": "apps/chrome-extension/src/background.ts",
+      "sha256": "bf4c4ab87b0050a0993c955bb893b5376b17d9172b290a5b419a5a2e5549e3d7"
+    },
+    {
+      "path": "apps/chrome-extension/src/bridge.ts",
+      "sha256": "d403092612803f93e88a5bb77828692e54d860eb0b2453cd8e3dde201ccb43a4"
+    },
+    {
+      "path": "apps/chrome-extension/src/content.tsx",
+      "sha256": "fa7e0705ec26534aa6dd07daf5599a1e14097e272b87c720baa61df326da5e07"
+    },
+    {
+      "path": "apps/chrome-extension/src/panel.tsx",
+      "sha256": "808be8ffcf9cd7ee8dd2a321532f1d518fdc83772d20a1a22593f2a809f5d25e"
+    },
+    {
+      "path": "apps/chrome-extension/src/runtime.ts",
+      "sha256": "fb742640347dc7ef70b8ea817e640def77f690557890ed9ccc5ddf2ec446116a"
+    },
+    {
+      "path": "apps/chrome-extension/src/sports.ts",
+      "sha256": "75860a696fb00c3096599ee690f22fd3ccd135af56d847c49e62334b6c8d20d7"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "dee16c08c1672115abc7d30ea959ad96a89799b92ec54a77cb856deab0b1e8db"
+    },
+    {
+      "path": "package.json",
+      "sha256": "233c355cff89a4f97d152a06a6e628578ce29ade7d52362b4175ca874c3251bb"
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "sha256": "d40ef8265910e34037981c3b7502a87f19291ab62a0dc5b9b2b0e48ba63d21fa"
+    },
+    {
+      "path": "packages/event-resolver/src/index.ts",
+      "sha256": "b63f47f4572bcb480d793be72fc68da9b329ab6ff5417841b2e09c2866aa6e6a"
+    },
+    {
+      "path": "packages/quadbox/src/index.ts",
+      "sha256": "82d4b487d1e30c5078d0eb8d74dbfcd0dcd1eea27424a9054cd78fc70fa993cd"
+    },
+    {
+      "path": "packages/sports-engine/src/balldontlie.ts",
+      "sha256": "f9a252d8e096ffb7d1f0c80685a575b218907e36cf60485df50ee2fddde193c6"
+    },
+    {
+      "path": "packages/sports-engine/src/index.ts",
+      "sha256": "ffd46e29b7b5e1f7b6eab10658b8de81c2fb9fd4302aa302825c7fd3055e58c0"
+    },
+    {
+      "path": "packages/sports-engine/src/live.ts",
+      "sha256": "503b24e22ac644ec170d7b8395fedb6c5e12b18d09e2a7a36ee24b566bf88893"
+    },
+    {
+      "path": "packages/sports-engine/src/relay.ts",
+      "sha256": "dac47d73e8332ec230f8a658b52a53fa3d929ce6ed2524215a91148b3a008c51"
+    },
+    {
+      "path": "packages/storage/src/guide-cache.ts",
+      "sha256": "06bcb4c0a734a304ffb173965643b7c8f0e1d8a0c74b02c04d913314df63ebbc"
+    },
+    {
+      "path": "packages/storage/src/index.ts",
+      "sha256": "f9b987592e88e9b4869143c66317e165806053c3a86d9aa24264c632721084fd"
+    },
+    {
+      "path": "packages/ui/src/build.d.ts",
+      "sha256": "772fec8e5f5561f512bcc058d4804aea59e6346d846799b019f8497cc4b85719"
+    },
+    {
+      "path": "packages/ui/src/demo.ts",
+      "sha256": "47b7d40e0e2c077e280982158468757bb570e3e4eb9544dabdedc40b65c3ccbe"
+    },
+    {
+      "path": "packages/ui/src/index.tsx",
+      "sha256": "4d2b76c5c801582c158ddbeae01380e38fae3e571db3c82179ece3c4850dd550"
+    },
+    {
+      "path": "packages/ui/src/styles.css",
+      "sha256": "cd1387e879d82286d09b036fdb3095261d1573356b5fcc9eff999ea55bde523c"
+    },
+    {
+      "path": "packages/ui/src/styles.d.ts",
+      "sha256": "79aff81f0a489bf20f0b0a6b58a5688a855db87e29dcdc00433946aa9a409b20"
+    },
+    {
+      "path": "packages/ui/src/types.ts",
+      "sha256": "078380dcfd9ea9875caa6e7eaacc632c08fd320df75b7e92e23ec3c46e85a189"
+    },
+    {
+      "path": "packages/yttv-adapter/src/index.ts",
+      "sha256": "466e087f7ce1d311099bd498b52d3e3c7fc96a026a4dcec884efb5dda33d9e68"
+    },
+    {
+      "path": "scripts/build.mjs",
+      "sha256": "3c611bad71959283f06551cf6c5b325d42552e4ef07e50013407f50dc6113b30"
+    },
+    {
+      "path": "scripts/sports-relay.ts",
+      "sha256": "d04aa4ae5a30f616bdaad4e1f92188e2a6f47258565792547d2abc1723649ed4"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "5b52b56d2e35d0095ed1a6ffd0570d7a1f1a886d96e1a1d6780c175ef0426c48"
+    }
+  ]
+}

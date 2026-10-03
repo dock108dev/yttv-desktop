@@ -1,0 +1,1237 @@
+diff --git a/apps/chrome-extension/manifest.json b/apps/chrome-extension/manifest.json
+index 5f44b49..d72a5cc 100644
+--- a/apps/chrome-extension/manifest.json
++++ b/apps/chrome-extension/manifest.json
+@@ -2,7 +2,7 @@
+   "manifest_version": 3,
+   "name": "YouTube TV Desktop — Local Beta",
+   "description": "Compact guide and sports fixtures around the authorized YouTube TV player. All playback muted overnight.",
+-  "version": "0.1.3",
++  "version": "0.1.7",
+   "permissions": ["storage"],
+   "host_permissions": ["https://tv.youtube.com/*"],
+   "background": { "service_worker": "background.js" },
+diff --git a/apps/chrome-extension/src/adapter.ts b/apps/chrome-extension/src/adapter.ts
+index 553bfcf..efe0ed9 100644
+--- a/apps/chrome-extension/src/adapter.ts
++++ b/apps/chrome-extension/src/adapter.ts
+@@ -3,7 +3,7 @@ import type { AdapterObservation } from '../../../packages/yttv-adapter/src/inde
+ import type { Preferences } from '../../../packages/storage/src/index';
+ export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
+ export type Command =
+-  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' }
++  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' }
+   | { type: 'OBSERVE'; observation: AdapterObservation }
+   | { type: 'NAVIGATE'; channelId: string }
+   | { type: 'PREFERENCE'; patch: Partial<Preferences> }
+diff --git a/apps/chrome-extension/src/background.ts b/apps/chrome-extension/src/background.ts
+index b23d6a8..590a995 100644
+--- a/apps/chrome-extension/src/background.ts
++++ b/apps/chrome-extension/src/background.ts
+@@ -1,6 +1,7 @@
+ import { isPlaybackTarget, type GuideEntry } from '../../../packages/core/src/index';
+ import { defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
+-import { navigationUrl, TARGET_MAX_AGE_MS, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
++import { createGuideMetadataStore } from '../../../packages/storage/src/guide-cache';
++import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
+ import type { ActionResult, DesktopSnapshot, UIManagedPane } from '../../../packages/ui/src/types';
+ import { envelope, isMessage, type Command } from './adapter';
+ 
+@@ -9,7 +10,13 @@ const DRAWER_KEY = 'yttv-desktop.open-drawers.v1';
+ const MAX_TOTAL_WATCH_SESSIONS = 3;
+ type Bounds = { left?: number; top?: number; width?: number; height?: number; state?: string };
+ type Pane = UIManagedPane & { windowId: number; tabId: number; savedBounds?: Bounds };
++const guideMetadata = createGuideMetadataStore({
++  get: async key => (await chrome.storage.local.get(key))[key],
++  set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
++});
+ let preferences = defaultPreferences();
++let preferencesReadable = true;
++const confirmedTabs = new Set<number>();
+ let panes: Pane[] = []; let activePaneId: string | undefined; let expandedPaneId: string | undefined;
+ let mainTabId: number | undefined;
+ const observations = new Map<number, AdapterObservation>();
+@@ -26,15 +33,18 @@ const validId = (value: unknown): value is string => typeof value === 'string' &
+ const isYTTV = (url?: string) => { try { return new URL(url ?? '').origin === 'https://tv.youtube.com'; } catch { return false; } };
+ const isWatch = (url?: string) => { try { return isYTTV(url) && new URL(url!).pathname.startsWith('/watch'); } catch { return false; } };
+ const init = (async () => {
+-  const stored = await chrome.storage.local.get(PREFERENCES_KEY);
+-  preferences = sanitizePreferences(stored[PREFERENCES_KEY]);
++  try {
++    const stored = await chrome.storage.local.get(PREFERENCES_KEY);
++    preferences = sanitizePreferences(stored[PREFERENCES_KEY]);
++  } catch { preferencesReadable = false; }
++  await guideMetadata.load();
+   // No user interface or imported preferences can disable the explicit overnight mute policy.
+   preferences.nightMuteLock = true;
+-  const storedDrawers = (await chrome.storage.session.get(DRAWER_KEY))[DRAWER_KEY];
++  const storedDrawers = (await chrome.storage.session.get(DRAWER_KEY).catch(() => ({} as Record<string, unknown>)))[DRAWER_KEY];
+   if (Array.isArray(storedDrawers)) {
+     for (const tabId of storedDrawers.slice(0, 1000)) if (Number.isInteger(tabId) && tabId > 0) openDrawers.add(tabId);
+   }
+-  const session = (await chrome.storage.session.get(SESSION_KEY))[SESSION_KEY] as Record<string, unknown> | undefined;
++  const session = (await chrome.storage.session.get(SESSION_KEY).catch(() => ({} as Record<string, unknown>)))[SESSION_KEY] as Record<string, unknown> | undefined;
+   if (session && Array.isArray(session.panes)) {
+     for (const raw of session.panes.slice(0, 3)) {
+       if (!raw || typeof raw !== 'object') continue;
+@@ -59,6 +69,7 @@ async function saveDrawers() {
+ }
+ 
+ async function savePreferences() {
++  if (!preferencesReadable) throw new Error('Preferences storage could not be read; existing values preserved.');
+   const clean = sanitizePreferences({ ...preferences, nightMuteLock: true });
+   const next = preferenceWriteQueue.catch(() => undefined).then(() => chrome.storage.local.set({ [PREFERENCES_KEY]: clean }));
+   preferenceWriteQueue = next; await next;
+@@ -76,12 +87,13 @@ async function notify() {
+ }
+ function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
+   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.guide) || !Number.isFinite(Date.parse(raw.observedAt))) return null;
+-  const guide: GuideEntry[] = raw.guide.slice(0, 500).filter(entry => entry && validId(entry.channel?.id) && typeof entry.channel.name === 'string' && entry.channel.name.length <= 150 && Number.isFinite(Date.parse(entry.observedAt))).map(entry => ({
++  const guide: GuideEntry[] = raw.guide.slice(0, 500).filter(entry => entry && entry.evidenceClass === 'LIVE' && validId(entry.channel?.id) && typeof entry.channel.name === 'string' && entry.channel.name.length <= 150 && Number.isFinite(Date.parse(entry.observedAt))).map(entry => ({
+     channel: { id: entry.channel.id, name: entry.channel.name },
+     programTitle: typeof entry.programTitle === 'string' ? entry.programTitle.slice(0, 300) : undefined,
+     nextProgramTitle: typeof entry.nextProgramTitle === 'string' ? entry.nextProgramTitle.slice(0, 300) : undefined,
+-    available: Boolean(entry.available && isPlaybackTarget(entry.target) && entry.target.channelId === entry.channel.id),
+-    target: isPlaybackTarget(entry.target) && entry.target.channelId === entry.channel.id && navigationUrl(entry.target.url) ? entry.target : null,
++    metadataSource: entry.metadataSource === 'CACHED' ? 'CACHED' : 'OBSERVED',
++    available: Boolean(entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry)),
++    target: entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry) ? entry.target : null,
+     observedAt: entry.observedAt, evidenceClass: 'LIVE',
+   }));
+   return { guide, guideObservedAt: raw.guideObservedAt,
+@@ -97,13 +109,16 @@ function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
+ async function observe(tabId: number, raw: AdapterObservation) {
+   const clean = cleanObservation(raw); if (!clean) return;
+   const prior = observations.get(tabId);
++  if (prior && Date.parse(clean.observedAt) < Date.parse(prior.observedAt)) return;
+   // A hard navigation temporarily reports no guide. Retain its volatile metadata until a
+   // fresh Live guide replaces it, rather than persisting transient watch targets to disk.
+   const observation = clean.guide.length || !prior?.guide.length ? clean : { ...clean, guide: prior.guide, guideObservedAt: prior.guideObservedAt };
+   const advancing = observation.currentChannelId && observation.currentChannelId === prior?.currentChannelId &&
+-    observation.playback.playing && typeof observation.playback.currentTime === 'number' &&
++    observation.route === 'watch' && prior?.route === 'watch' && observation.playback.playing && prior.playback.playing && typeof observation.playback.currentTime === 'number' &&
+     typeof prior.playback.currentTime === 'number' && observation.playback.currentTime > prior.playback.currentTime + .05;
+   observations.set(tabId, observation);
++  if (advancing) confirmedTabs.add(tabId); else confirmedTabs.delete(tabId);
++  if (clean.route === 'guide') await guideMetadata.retain(clean.guide);
+   await chrome.tabs.update(tabId, { muted: true }).catch(() => undefined);
+   if (mainTabId === undefined && !panes.some(pane => pane.tabId === tabId)) mainTabId = tabId;
+   if (tabId === mainTabId && observation.currentChannelId && advancing) {
+@@ -129,14 +144,20 @@ async function refreshObservations() {
+   await Promise.all(tabs.map(async tab => {
+     if (!tab.id) return;
+     await chrome.tabs.update(tab.id, { muted: true });
+-    try { const raw = await chrome.tabs.sendMessage(tab.id, envelope({ type: 'GET_OBSERVATION' })); const clean = cleanObservation(raw); if (clean) observations.set(tab.id, clean); } catch { /* Page may still be loading. */ }
++    try { const raw = await chrome.tabs.sendMessage(tab.id, envelope({ type: 'GET_OBSERVATION' })); if (cleanObservation(raw)) await observe(tab.id, raw); } catch { /* Page may still be loading. */ }
+   }));
+ }
+ function guideFor(tabId?: number): GuideEntry[] {
+   const candidate = tabId ? observations.get(tabId) : undefined;
+   const source = candidate?.guide.length ? candidate : [...observations.values()].filter(item => item.guide.length).sort((a, b) => Date.parse(b.guideObservedAt ?? b.observedAt) - Date.parse(a.guideObservedAt ?? a.observedAt))[0];
+-  return (source?.guide ?? []).map(entry => {
+-    const fresh = entry.target && Date.now() - Date.parse(entry.target.verifiedAt) <= TARGET_MAX_AGE_MS;
++  const rows = guideMetadata.rows;
++  for (const entry of source?.guide ?? []) {
++    const index = rows.findIndex(row => row.channel.id === entry.channel.id);
++    if (index < 0) rows.push(entry);
++    else if (Date.parse(entry.observedAt) >= Date.parse(rows[index].observedAt)) rows[index] = entry;
++  }
++  return rows.map(entry => {
++    const fresh = freshLiveTarget(entry);
+     return { ...entry, available: Boolean(entry.available && fresh), target: fresh ? entry.target : null };
+   });
+ }
+@@ -145,8 +166,10 @@ async function snapshot(requestingTabId?: number): Promise<DesktopSnapshot> {
+   if (tabId && !observations.has(tabId)) await refreshObservations();
+   const observation = tabId ? observations.get(tabId) : undefined; const guide = guideFor(tabId);
+   return { mode: 'extension', connection: observation ? 'connected' : 'waiting',
+-    statusMessage: guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Managed windows remain muted overnight.' : 'Open the native YouTube TV Live guide to observe channel navigation targets. Normal playback remains available.',
+-    currentChannelId: observation?.currentChannelId, currentProgram: observation?.currentProgram,
++    guideObservedAt: guide.length ? new Date(Math.max(...guide.map(row => Date.parse(row.observedAt)))).toISOString() : undefined,
++    currentConfirmed: Boolean(tabId && confirmedTabs.has(tabId) && observation?.currentChannelId === preferences.currentChannel),
++    statusMessage: guide.length && !guide.some(entry => entry.target) ? 'Saved guide metadata · last observed, not current. Open native Live to validate navigation; playback stays unchanged.' : guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Managed windows remain muted overnight.' : 'Open the native YouTube TV Live guide to observe channel navigation targets. Normal playback remains available.',
++    currentChannelId: preferences.currentChannel ?? undefined, currentProgram: observation?.currentChannelId === preferences.currentChannel ? observation.currentProgram : undefined,
+     playback: { playing: observation?.playback.playing ?? null, muted: true }, guide, preferences,
+     panes: panes.map(({ savedBounds: _bounds, ...pane }) => pane), activePaneId, expandedPaneId,
+     capabilities: { navigation: guide.some(entry => Boolean(entry.target)), guide: guide.length > 0, managedWindows: true, audio: false }, observedAt: observation?.observedAt };
+@@ -155,6 +178,7 @@ async function navigate(channelId: string, requestingTabId?: number): Promise<Ac
+   if (!validId(channelId)) return fail('INVALID_CHANNEL', 'A channel identifier is required.');
+   const tabId = await chooseTab(requestingTabId);
+   if (!tabId) return fail('TARGET_UNAVAILABLE', 'Open YouTube TV in Chrome and its native Live guide first.');
++  if (!guideFor(tabId).some(entry => entry.channel.id === channelId && freshLiveTarget(entry))) return fail('TARGET_UNAVAILABLE', 'Refresh the native Live guide; this channel target is unavailable or stale.');
+   await chrome.tabs.update(tabId, { muted: true });
+   try {
+     const result = await chrome.tabs.sendMessage(tabId, envelope({ type: 'NAVIGATE', channelId }));
+@@ -243,6 +267,12 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
+     }
+     case 'OBSERVE': if (contentSender) await observe(sender.tab!.id!, command.observation); return ok();
+     case 'GET_SNAPSHOT': return snapshot(contentSender ? sender.tab!.id : undefined);
++    case 'OPEN_NATIVE_GUIDE': {
++      const tabId = await chooseTab(contentSender ? sender.tab!.id : undefined);
++      if (!tabId) return fail('TARGET_UNAVAILABLE', 'Open YouTube TV in Chrome first.');
++      await chrome.tabs.update(tabId, { url: 'https://tv.youtube.com/live', muted: true });
++      return ok('Opened native Live in this tab. Fresh guide observations are required before Watch/Add.');
++    }
+     case 'NAVIGATE': return navigate(command.channelId, contentSender ? sender.tab!.id : undefined);
+     case 'PREVIOUS': return preferences.previousChannel ? navigate(preferences.previousChannel, contentSender ? sender.tab!.id : undefined) : fail('NO_PREVIOUS', 'No confirmed previous channel yet.');
+     case 'PREFERENCE': {
+@@ -268,7 +298,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+   return true;
+ });
+ chrome.tabs.onRemoved.addListener(tabId => {
+-  observations.delete(tabId); if (mainTabId === tabId) mainTabId = undefined;
++  observations.delete(tabId); confirmedTabs.delete(tabId); if (mainTabId === tabId) mainTabId = undefined;
+   void init.then(async () => { if (openDrawers.delete(tabId)) await saveDrawers(); });
+   const removed = panes.some(pane => pane.tabId === tabId); panes = panes.filter(pane => pane.tabId !== tabId);
+   if (removed) void init.then(saveSessions).then(notify);
+diff --git a/apps/chrome-extension/src/bridge.ts b/apps/chrome-extension/src/bridge.ts
+index d04ebdb..33221bf 100644
+--- a/apps/chrome-extension/src/bridge.ts
++++ b/apps/chrome-extension/src/bridge.ts
+@@ -43,6 +43,7 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
+     dispose: () => lifecycle.dispose(),
+     getSnapshot: () => snapshot,
+     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
++    recoverGuide: () => request({ type: 'OPEN_NATIVE_GUIDE' }),
+     navigateChannel: channelId => request({ type: 'NAVIGATE', channelId }),
+     previousChannel: () => request({ type: 'PREVIOUS' }),
+     setPreference: patch => request({ type: 'PREFERENCE', patch }),
+diff --git a/apps/chrome-extension/src/content.tsx b/apps/chrome-extension/src/content.tsx
+index de8926a..a279aa6 100644
+--- a/apps/chrome-extension/src/content.tsx
++++ b/apps/chrome-extension/src/content.tsx
+@@ -67,7 +67,7 @@ function start() {
+   if (lifecycle.active) {
+     adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation }))); });
+     const bridge = createClientBridge(lifecycle);
+-    if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
++    if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false, extensionId: chrome.runtime.id }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
+   }
+   // New managed watch pages have never rendered the guide themselves. Bootstrap only the
+   // background's still-volatile, freshly observed guide; no playback target is persisted.
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+index 2506812..c2dc1d7 100644
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -15,6 +15,7 @@ export interface PlaybackTarget {
+   kind: 'navigation'; channelId: string; url: string; verifiedAt: string; evidenceClass: EvidenceClass;
+ }
+ export interface GuideEntry {
++  metadataSource?: 'OBSERVED' | 'CACHED';
+   channel: ChannelRef; programTitle?: string; nextProgramTitle?: string;
+   programStart?: string; programEnd?: string; league?: string; teamIds?: string[];
+   available: boolean; target: PlaybackTarget | null; observedAt: string; evidenceClass: EvidenceClass;
+diff --git a/packages/storage/src/index.ts b/packages/storage/src/index.ts
+index 3ae7e0d..f2fe061 100644
+--- a/packages/storage/src/index.ts
++++ b/packages/storage/src/index.ts
+@@ -1,11 +1,35 @@
+ import { normalizeText, type GuideEntry, type PlaybackTarget } from '../../core/src/index.js';
+ 
+-export type KeyboardAction = 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
++export type KeyboardAction = 'watch' | 'search' | 'help' | 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
+   'pane2' | 'pane3' | 'pane4' | 'expand' | 'restore' | 'up' | 'down' | 'left' | 'right';
+ export const DEFAULT_KEYBOARD_MAPPINGS: Record<KeyboardAction, string> = {
+   guide: 'g', sports: 's', quadbox: 'q', previous: 'p', mute: 'm', pane1: '1', pane2: '2', pane3: '3', pane4: '4',
+   expand: 'Enter', restore: 'Escape', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight',
++  watch: 'w', search: '/', help: '?',
+ };
++export const KEYBOARD_LABELS: Record<KeyboardAction, string> = {
++  watch: 'Watch', guide: 'Guide', sports: 'Sports', quadbox: 'QuadBox', previous: 'Previous channel', mute: 'Mute all',
++  pane1: 'Focus window 1', pane2: 'Focus window 2', pane3: 'Focus window 3', pane4: 'Focus window 4',
++  expand: 'Activate row / expand window', restore: 'Cancel / restore layout', up: 'Previous guide row', down: 'Next guide row',
++  left: 'First row control', right: 'Last row control', search: 'Search', help: 'Show shortcuts',
++};
++/** Only unmodified keys: browser chords, Tab, space and function keys retain native ownership. */
++export function normalizeKeyboardKey(value: string): string | null {
++  const key = value.trim();
++  if (!key) return '';
++  const named = ['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].find(item => item.toLowerCase() === key.toLowerCase());
++  return named ?? (/^[!-~]$/.test(key) ? key.toLowerCase() : null);
++}
++export function validateKeyboardMappings(mappings: Record<KeyboardAction, string>): string | null {
++  const used = new Set<string>();
++  for (const action of Object.keys(DEFAULT_KEYBOARD_MAPPINGS) as KeyboardAction[]) {
++    const key = normalizeKeyboardKey(mappings[action]);
++    if (key === null) return `${KEYBOARD_LABELS[action]}: use one printable key, Enter, Escape or an arrow key.`;
++    if (key && used.has(key)) return `The key ${key} is assigned more than once. Use a different key or leave it blank.`;
++    if (key) used.add(key);
++  }
++  return null;
++}
+ export interface SavedQuadPane { id: string; eventId: string | null; channelId: string | null; target: PlaybackTarget | null }
+ export interface SavedQuadLayout { id: string; name: string; panes: SavedQuadPane[]; selectedPaneId: string | null }
+ export interface Preferences {
+@@ -55,8 +79,8 @@ export function sanitizePreferences(value: unknown): Preferences {
+   for (const action of Object.keys(mappings) as KeyboardAction[]) {
+     const proposed = typeof keyboard[action] === 'string' && (keyboard[action] as string).length <= 24 ? (keyboard[action] as string).trim() : mappings[action];
+     // Empty disables a key. Duplicate custom keys cannot trigger multiple actions.
+-    const normalized = proposed.toLowerCase();
+-    mappings[action] = normalized && used.has(normalized) ? '' : proposed;
++    const normalized = normalizeKeyboardKey(proposed) ?? '';
++    mappings[action] = normalized && used.has(normalized) ? '' : normalized;
+     if (normalized) used.add(normalized);
+   }
+   const ui = object(input.ui);
+diff --git a/packages/ui/src/behavior.test.ts b/packages/ui/src/behavior.test.ts
+index 017a187..91dc765 100644
+--- a/packages/ui/src/behavior.test.ts
++++ b/packages/ui/src/behavior.test.ts
+@@ -13,15 +13,24 @@ const bundlePromise = build({
+ });
+ const pause = () => new Promise(resolvePause => setTimeout(resolvePause, 35));
+ 
+-async function setup() {
++async function setup(mockNavigation = false) {
+   const window = new Window({ url: 'http://127.0.0.1:4173/demo.html', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+   window.document.body.innerHTML = '<main id="root"></main><video id="host-player"></video>';
+   // Evaluation is limited to the locally bundled project source; no remote markup/scripts.
+   window.eval(`${(await bundlePromise).outputFiles![0]!.text}\nwindow.DesktopTVUI = DesktopTVUI;`);
+   const api = (window as unknown as { DesktopTVUI: { mountDesktop: (root: unknown, bridge: unknown, options: unknown) => () => void } }).DesktopTVUI;
+   const bridge = createDemoBridge();
++  const navigated: string[] = [];
++  if (mockNavigation) {
++    const fixtureSnapshot = bridge.getSnapshot.bind(bridge);
++    bridge.getSnapshot = async () => {
++      const snapshot = await fixtureSnapshot();
++      return { ...snapshot, mode: 'extension', capabilities: { ...snapshot.capabilities, navigation: true }, guide: snapshot.guide.map(entry => ({ ...entry, available: true, evidenceClass: 'LIVE', target: { kind: 'navigation', channelId: entry.channel.id, url: 'https://tv.youtube.com/watch?v=synthetic-test', verifiedAt: new Date().toISOString(), evidenceClass: 'LIVE' } })) };
++    };
++    bridge.navigateChannel = async id => { navigated.push(id); return { ok: true }; };
++  }
+   const unmount = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: true });
+-  return { window, bridge, unmount };
++  return { window, bridge, unmount, navigated };
+ }
+ 
+ test('preview is disclosed, fixtures cannot Watch/Add, favorite settings update through bridge', async () => {
+@@ -76,3 +85,123 @@ test('managed window screen makes separate original players and muted focus expl
+     assert.ok(window.document.querySelector('.heading-actions .button[disabled]'));
+   } finally { unmount(); await window.happyDOM.abort(); }
+ });
++
++test('saved bindings drive dispatch and help; conflicts are rejected without losing saved keys', async () => {
++  const { window, bridge, unmount } = await setup();
++  try {
++    await pause();
++    const document = window.document;
++    document.querySelector('.rail-bottom button')!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
++    await pause();
++    const change = (label: string, value: string) => {
++      const input = document.querySelector(`input[aria-label="${label} key"]`) as any;
++      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new window.Event('input', { bubbles: true }));
++    };
++    const save = () => (Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Save shortcuts') as any).click();
++    change('Sports', 'g'); await pause(); save(); await pause();
++    assert.match(document.querySelector('[role="alert"]')?.textContent ?? '', /more than once/);
++    assert.equal((await bridge.getSnapshot()).preferences.keyboardMappings.sports, 's');
++    change('Sports', 'x'); await pause(); save(); await pause();
++    assert.equal((await bridge.getSnapshot()).preferences.keyboardMappings.sports, 'x');
++    assert.match(document.querySelector('input[aria-label="Sports key"]')!.parentElement!.textContent!, /x/);
++    document.querySelector('[aria-label="Close keyboard shortcuts"]')!.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); await pause();
++    const app = document.querySelector('.desktop-app')!;
++    app.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true, composed: true })); await pause();
++    assert.equal(document.querySelector('h1')?.textContent, 'Guide');
++    app.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'x', bubbles: true, composed: true })); await pause();
++    assert.equal(document.querySelector('h1')?.textContent, 'Sports');
++    assert.match(document.querySelector('.nav-item[aria-current="page"]')?.getAttribute('title') ?? '', /x/);
++  } finally { unmount(); await window.happyDOM.abort(); }
++});
++
++test('guide rows navigate with visible focus; controls, editable ancestors and browser chords own their keys', async () => {
++  const { window, unmount } = await setup();
++  try {
++    await pause(); const document = window.document;
++    const app = document.querySelector('.desktop-app')!;
++    const key = (target: any, value: string, extras = {}) => {
++      const event = new window.KeyboardEvent('keydown', { key: value, bubbles: true, composed: true, cancelable: true, ...extras });
++      target.dispatchEvent(event); return event;
++    };
++    key(app, 'ArrowDown'); await pause();
++    const rows = document.querySelectorAll('.guide-row');
++    assert.equal(document.activeElement, rows[0]);
++    key(rows[0], 'ArrowDown'); await pause();
++    assert.equal(document.activeElement, rows[1]); assert.equal(rows[1].getAttribute('tabindex'), '0');
++    key(rows[1], 'ArrowLeft'); await pause();
++    assert.equal(document.activeElement, rows[1].querySelector('button'));
++    assert.equal(key(document.activeElement, 's').defaultPrevented, false); await pause();
++    assert.equal(document.querySelector('h1')?.textContent, 'Guide');
++    assert.equal(key(app, 's', { metaKey: true }).defaultPrevented, false);
++    const editable = document.createElement('div'); editable.setAttribute('contenteditable', 'plaintext-only');
++    const child = document.createElement('span'); editable.append(child); app.append(editable);
++    assert.equal(key(child, 's').defaultPrevented, false);
++    assert.equal(key(rows[1], 'Enter').defaultPrevented, false, 'fixture row cannot navigate');
++  } finally { unmount(); await window.happyDOM.abort(); }
++});
++
++
++test('configured activation dispatches the focused synthetic eligible row and teardown removes keyboard handling', async () => {
++  const { window, bridge, unmount, navigated } = await setup(true);
++  try {
++    await bridge.setPreference({ keyboardMappings: { ...(await bridge.getSnapshot()).preferences.keyboardMappings, expand: 'z' } });
++    await pause();
++    const row = window.document.querySelector('.guide-row')!;
++    row.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true })); await pause();
++    assert.equal(navigated.length, 0);
++    row.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z', bubbles: true, composed: true })); await pause();
++    assert.equal(navigated.length, 1); assert.equal(navigated[0], 'fixture-channel:espn');
++    unmount();
++    row.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z', bubbles: true, composed: true })); await pause();
++    assert.equal(navigated.length, 1);
++  } finally { await window.happyDOM.abort(); }
++});
++
++test('native order restoration keeps favorites, hidden channels, bindings and history', async () => {
++  const { window, bridge, unmount } = await setup();
++  try {
++    const baseline = (await bridge.getSnapshot()).preferences;
++    await bridge.setPreference({ channelOrder: ['fixture-channel:fox', 'fixture-channel:espn'], hiddenChannels: ['fixture-channel:fox'] });
++    await pause();
++    const document = window.document;
++    (Array.from(document.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Customize') as any).click();
++    await pause();
++    (Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Use native order') as any).click();
++    await pause();
++    const after = (await bridge.getSnapshot()).preferences;
++    assert.deepEqual(after.channelOrder, []);
++    assert.deepEqual(after.hiddenChannels, ['fixture-channel:fox']);
++    for (const key of ['favorites', 'keyboardMappings', 'currentChannel', 'previousChannel', 'recentChannels'] as const) assert.deepEqual(after[key], baseline[key]);
++  } finally { unmount(); await window.happyDOM.abort(); }
++});
++
++test('cached guide and saved Watch history stay understandable with disabled navigation and native recovery', async () => {
++  const { window, bridge, unmount, navigated } = await setup();
++  try {
++    const base = await bridge.getSnapshot(); let recovery = 0;
++    bridge.getSnapshot = async () => ({ ...base, mode: 'extension', connection: 'connected', currentConfirmed: false,
++      guideObservedAt: '2026-10-01T16:00:00Z', currentChannelId: base.guide[0].channel.id,
++      preferences: { ...base.preferences, currentChannel: base.guide[0].channel.id, previousChannel: base.guide[1].channel.id, favorites: [base.guide[0].channel.id, 'yttv:synthetic-missing'], recentChannels: [base.guide[0].channel.id, 'yttv:synthetic-missing'] },
++      guide: base.guide.map(row => ({ ...row, evidenceClass: 'LIVE', metadataSource: 'CACHED', target: null, available: false })),
++      capabilities: { ...base.capabilities, navigation: false } });
++    bridge.recoverGuide = async () => { recovery++; return { ok: true }; };
++    // Remount with extension mode so the recovery panel is included.
++    unmount();
++    const api = (window as unknown as { DesktopTVUI: { mountDesktop: (root: unknown, bridge: unknown, options: unknown) => () => void } }).DesktopTVUI;
++    const cleanup = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: false });
++    try {
++      await pause(); const document = window.document;
++      assert.match(document.body.textContent!, /LAST OBSERVED PROGRAM/);
++      assert.match(document.querySelector('.guide-footer')!.textContent!, /2026-10-01T16:00:00Z/);
++      assert.equal(document.querySelectorAll('.guide-row-actions button:not([disabled])').length, 0);
++      (Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Open native Live') as any).click(); await pause(); assert.equal(recovery, 1);
++      document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'w', bubbles: true, composed: true })); await pause();
++      assert.match(document.body.textContent!, /LAST CONFIRMED CHANNEL · SAVED/);
++      assert.match(document.body.textContent!, /Saved channel \(synthetic-missing\)/);
++      assert.equal(document.querySelectorAll('.quick-channel:not([disabled])').length, 0);
++      assert(document.querySelector('.previous-strip button[disabled]'));
++      assert.equal(navigated.length, 0);
++      assert.doesNotMatch(document.body.textContent!, /Playing in the original supported browser tab/);
++    } finally { cleanup(); }
++  } finally { await window.happyDOM.abort(); }
++});
+diff --git a/packages/ui/src/build.d.ts b/packages/ui/src/build.d.ts
+index 2aeb8f4..6fa8903 100644
+--- a/packages/ui/src/build.d.ts
++++ b/packages/ui/src/build.d.ts
+@@ -1 +1,2 @@
+ declare const __YTTV_VERSION__: string;
++declare const __YTTV_BUILD__: string;
+diff --git a/packages/ui/src/index.tsx b/packages/ui/src/index.tsx
+index 536d14a..70bc5fc 100644
+--- a/packages/ui/src/index.tsx
++++ b/packages/ui/src/index.tsx
+@@ -1,7 +1,7 @@
+ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import type { GuideEntry, SportsEvent } from '../../core/src/index';
+-import { defaultPreferences, orderGuide } from '../../storage/src/index';
++import { defaultPreferences, orderGuide, DEFAULT_KEYBOARD_MAPPINGS, KEYBOARD_LABELS, normalizeKeyboardKey, validateKeyboardMappings, type KeyboardAction } from '../../storage/src/index';
+ import { createIllustrativeFixtures, eventVisibility, searchEvents } from '../../sports-engine/src/index';
+ import { resolveEvent } from '../../event-resolver/src/index';
+ import type { ActionResult, ClientBridge, DesktopOptions, DesktopSnapshot, UIManagedPane } from './types';
+@@ -11,6 +11,7 @@ export type { ActionResult, ClientBridge, DesktopOptions, DesktopSnapshot, UIMan
+ 
+ type Surface = 'WATCH' | 'GUIDE' | 'SPORTS' | 'QUADBOX';
+ type GuideFilter = 'all' | 'favorites' | 'recent';
++const BUILD_ID = typeof __YTTV_BUILD__ === 'undefined' ? 'development' : __YTTV_BUILD__;
+ const BUILD_VERSION = typeof __YTTV_VERSION__ === 'undefined' ? 'development' : __YTTV_VERSION__;
+ type IconName = 'watch' | 'guide' | 'sports' | 'quad' | 'search' | 'star' | 'back' | 'arrow' | 'mute' | 'window' | 'expand' | 'restore' | 'plus' | 'check' | 'close' | 'settings' | 'refresh' | 'up' | 'down' | 'eye' | 'external';
+ 
+@@ -66,15 +67,15 @@ function useDesktopSnapshot(bridge: ClientBridge) {
+   return [snapshot, refresh] as const;
+ }
+ 
+-const surfaceItems: { id: Surface; label: string; icon: IconName; shortcut: string }[] = [
+-  { id: 'WATCH', label: 'Watch', icon: 'watch', shortcut: 'W' },
+-  { id: 'GUIDE', label: 'Guide', icon: 'guide', shortcut: 'G' },
+-  { id: 'SPORTS', label: 'Sports', icon: 'sports', shortcut: 'S' },
+-  { id: 'QUADBOX', label: 'QuadBox', icon: 'quad', shortcut: 'Q' },
++const surfaceItems: { id: Surface; label: string; icon: IconName; action: KeyboardAction }[] = [
++  { id: 'WATCH', label: 'Watch', icon: 'watch', action: 'watch' },
++  { id: 'GUIDE', label: 'Guide', icon: 'guide', action: 'guide' },
++  { id: 'SPORTS', label: 'Sports', icon: 'sports', action: 'sports' },
++  { id: 'QUADBOX', label: 'QuadBox', icon: 'quad', action: 'quadbox' },
+ ];
+ 
+ function editableTarget(target: EventTarget | null) {
+-  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], video, audio'));
++  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], video, audio'));
+ }
+ 
+ function channelMark(name: string) {
+@@ -103,6 +104,12 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
+   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+   const [replacePaneId, setReplacePaneId] = useState<string | null>(null);
+   const [showShortcuts, setShowShortcuts] = useState(false);
++  const [shortcutDraft, setShortcutDraft] = useState({ ...DEFAULT_KEYBOARD_MAPPINGS });
++  const [shortcutError, setShortcutError] = useState<string | null>(null);
++  const [focusedChannel, setFocusedChannel] = useState<string | null>(null);
++  const mappings = snapshot.preferences.keyboardMappings;
++  const keyLabel = (action: KeyboardAction) => mappings[action] || 'Off';
++  const openShortcuts = () => { setShortcutDraft({ ...mappings }); setShortcutError(null); setShowShortcuts(true); };
+   const [sportsLeague, setSportsLeague] = useState('ALL');
+   const [selectedFixtures, setSelectedFixtures] = useState<string[]>([]);
+   const [clock, setClock] = useState(Date.now());
+@@ -112,8 +119,9 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
+   const initializedSurface = useRef(false);
+   const demo = options.demo || snapshot.mode === 'demo';
+   const [fixtures, setFixtures] = useState(() => createIllustrativeFixtures(Date.now()));
+-  const currentEntry = snapshot.guide.find(entry => entry.channel.id === snapshot.currentChannelId);
+-  const previousEntry = snapshot.guide.find(entry => entry.channel.id === snapshot.preferences.previousChannel);
++  const savedEntry = (id: string): GuideEntry => snapshot.guide.find(entry => entry.channel.id === id) ?? { channel: { id, name: `Saved channel (${id.replace(/^yttv:/, '')})` }, available: false, target: null, observedAt: '', evidenceClass: 'LIVE', metadataSource: 'CACHED' };
++  const currentEntry = snapshot.currentChannelId ? savedEntry(snapshot.currentChannelId) : undefined;
++  const previousEntry = snapshot.preferences.previousChannel ? savedEntry(snapshot.preferences.previousChannel) : undefined;
+ 
+   useEffect(() => {
+     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+@@ -174,39 +182,6 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
+     void run('Save view', () => bridge.setPreference({ ui: { ...snapshot.preferences.ui, lastSurface: next } }));
+   }, [bridge, run, snapshot.preferences.ui]);
+ 
+-  useEffect(() => {
+-    const handler = (event: KeyboardEvent) => {
+-      const path = event.composedPath();
+-      const app = appRef.current;
+-      // Keep shortcuts inside this workspace, including when mounted in a Shadow DOM.
+-      // Hidden drawers and the original YouTube TV player never receive these bindings.
+-      const standaloneBody = app?.getRootNode() instanceof Document && (event.target === document.body || event.target === document.documentElement);
+-      if (!app || (!path.includes(app) && !standaloneBody)) return;
+-      if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || path.some(editableTarget)) return;
+-      const key = event.key.toLowerCase();
+-      if (event.key === 'Escape') {
+-        if (showShortcuts) setShowShortcuts(false);
+-        else if (replacePaneId) setReplacePaneId(null);
+-        else if (snapshot.expandedPaneId) void run('Restore windows', () => bridge.restoreLayout());
+-        else if (query) setQuery('');
+-        return;
+-      }
+-      if (key === '/' && (surface === 'GUIDE' || surface === 'SPORTS')) { event.preventDefault(); searchRef.current?.focus(); return; }
+-      if (key === '?') { event.preventDefault(); setShowShortcuts(value => !value); return; }
+-      const requested = surfaceItems.find(item => item.shortcut.toLowerCase() === key);
+-      if (requested) { event.preventDefault(); goSurface(requested.id); return; }
+-      if (key === 'p' && snapshot.preferences.previousChannel && snapshot.capabilities.navigation) { event.preventDefault(); void run('Previous channel', () => bridge.previousChannel()); }
+-      if (key === 'm' && bridge.mute) { event.preventDefault(); void run('Mute all playback', () => bridge.mute!()); }
+-      if (surface === 'QUADBOX' && /^[1-4]$/.test(key)) {
+-        const pane = snapshot.panes[Number(key) - 1];
+-        if (pane) { event.preventDefault(); void run('Focus window', () => bridge.selectPane(pane.id)); }
+-      }
+-      const interactiveTarget = path.some(target => target instanceof Element && Boolean(target.closest('button, a')));
+-      if (surface === 'QUADBOX' && event.key === 'Enter' && snapshot.activePaneId && !interactiveTarget) { event.preventDefault(); void run('Expand window', () => bridge.expandPane(snapshot.activePaneId!)); }
+-    };
+-    window.addEventListener('keydown', handler);
+-    return () => window.removeEventListener('keydown', handler);
+-  }, [bridge, goSurface, query, replacePaneId, run, showShortcuts, snapshot, surface]);
+ 
+   const guideEntries = useMemo(() => {
+     let entries = orderGuide(snapshot.guide, snapshot.preferences, { query, includeHidden });
+@@ -265,53 +240,118 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
+     void run('Add managed window', () => bridge.createPane(entry.channel.id));
+   };
+ 
++  useEffect(() => {
++    const handler = (event: KeyboardEvent) => {
++      const path = event.composedPath();
++      const app = appRef.current;
++      if (!app || !path.includes(app) || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
++      // Modal dismissal stays reachable even when the saved restore binding is disabled.
++      if (showShortcuts) {
++        if (event.key === 'Escape') { event.preventDefault(); setShowShortcuts(false); }
++        return;
++      }
++      if (event.repeat || path.some(editableTarget) || path.some(target => target instanceof Element && Boolean(target.closest('button, a, summary, [role="button"], [role="slider"], [role="checkbox"], [role="combobox"], [role="menuitem"]')))) return;
++      const key = normalizeKeyboardKey(event.key);
++      const action = (Object.keys(mappings) as KeyboardAction[]).find(item => key && mappings[item] === key);
++      if (!action) return;
++      const handled = () => { event.preventDefault(); event.stopPropagation(); };
++      if (action === 'restore') {
++        if (replacePaneId) setReplacePaneId(null);
++        else if (snapshot.expandedPaneId) void run('Restore windows', () => bridge.restoreLayout());
++        else if (query) setQuery('');
++        else return;
++        handled(); return;
++      }
++      if (action === 'search' && (surface === 'GUIDE' || surface === 'SPORTS')) { handled(); searchRef.current?.focus(); return; }
++      if (action === 'help') { handled(); openShortcuts(); return; }
++      const requested = surfaceItems.find(item => item.action === action);
++      if (requested) { handled(); goSurface(requested.id); return; }
++      if (action === 'previous' && previousEntry && entryPlayable(previousEntry, snapshot)) { handled(); void run('Previous channel', () => bridge.previousChannel()); }
++      if (action === 'mute' && bridge.mute) { handled(); void run('Mute all playback', () => bridge.mute!()); }
++      if (surface === 'QUADBOX' && /^pane[1-4]$/.test(action)) {
++        const pane = snapshot.panes[Number(action.slice(-1)) - 1];
++        if (pane) { handled(); void run('Focus window', () => bridge.selectPane(pane.id)); }
++      }
++      if (surface === 'QUADBOX' && action === 'expand' && snapshot.activePaneId) { handled(); void run('Expand window', () => bridge.expandPane(snapshot.activePaneId!)); }
++      if (surface !== 'GUIDE') return;
++      const rows = Array.from(app.querySelectorAll<HTMLElement>('.guide-row'));
++      const row = path.find(target => target instanceof HTMLElement && target.classList.contains('guide-row')) as HTMLElement | undefined;
++      const index = row ? rows.indexOf(row) : -1;
++      if ((action === 'up' || action === 'down') && rows.length) {
++        handled();
++        const next = rows[index < 0 ? (action === 'up' ? rows.length - 1 : 0) : Math.max(0, Math.min(rows.length - 1, index + (action === 'up' ? -1 : 1)))];
++        next.focus(); next.scrollIntoView?.({ block: 'nearest' });
++      }
++      if (row && (action === 'left' || action === 'right')) {
++        const controls = Array.from(row.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
++        const control = action === 'left' ? controls[0] : controls.at(-1);
++        if (control) { handled(); control.focus(); }
++      }
++      if (row && action === 'expand' && !manageGuide) {
++        const entry = guideEntries[index];
++        if (entry && entryPlayable(entry, snapshot) && !pending) { handled(); watchEntry(entry); }
++      }
++    };
++    window.addEventListener('keydown', handler);
++    return () => window.removeEventListener('keydown', handler);
++  }, [bridge, goSurface, query, replacePaneId, run, showShortcuts, snapshot, surface, guideEntries, manageGuide, pending]);
++
++  const saveShortcuts = async () => {
++    const error = validateKeyboardMappings(shortcutDraft);
++    if (error) { setShortcutError(error); return; }
++    setShortcutError(null);
++    await run('Save keyboard shortcuts', () => bridge.setPreference({ keyboardMappings: shortcutDraft }));
++  };
++
+   const visibleSports = searchEvents(fixtures, query, { now: clock }).filter(event => sportsLeague === 'ALL' || event.league === sportsLeague);
+   const leagues = ['ALL', 'MLB', 'NFL', 'NCAA_FOOTBALL', 'NBA', 'NHL'];
+-  const favorites = orderGuide(snapshot.guide, snapshot.preferences).filter(entry => snapshot.preferences.favorites.includes(entry.channel.id));
+-  const recents = snapshot.preferences.recentChannels.map(id => snapshot.guide.find(entry => entry.channel.id === id)).filter((entry): entry is GuideEntry => Boolean(entry));
++  const presentationEntry = savedEntry;
++  const favorites = orderGuide([...snapshot.guide, ...snapshot.preferences.favorites.filter(id => !snapshot.guide.some(entry => entry.channel.id === id)).map(presentationEntry)], snapshot.preferences).filter(entry => snapshot.preferences.favorites.includes(entry.channel.id));
++  const recents = snapshot.preferences.recentChannels.map(presentationEntry);
+ 
+   const headerTitles: Record<Surface, string> = { WATCH: 'Your television, at a glance.', GUIDE: 'Less scrolling. More watching.', SPORTS: 'Follow the game. Not the schedule.', QUADBOX: 'More games. One control surface.' };
+ 
+-  return <div className="desktop-app" ref={appRef}>
++  return <div className="desktop-app" ref={appRef} tabIndex={0} aria-label="Desktop workspace">
+     <aside className="rail" aria-label="Main navigation">
+       <button className="brand" onClick={() => goSurface('WATCH')} aria-label="Desktop TV home"><span className="brand-mark">dtv<span>.</span></span><span className="brand-caption">DESKTOP TV</span></button>
+-      <nav>{surfaceItems.map(item => <button key={item.id} className={`nav-item ${surface === item.id ? 'selected' : ''}`} onClick={() => goSurface(item.id)} aria-current={surface === item.id ? 'page' : undefined} title={`${item.label} (${item.shortcut})`}><Icon name={item.icon} size={21}/><span>{item.label}</span></button>)}</nav>
+-      <div className="rail-bottom"><button className="nav-item" onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)"><span className="keycap">?</span><span>Shortcuts</span></button><span className="rail-version">LOCAL BETA · v{BUILD_VERSION}</span></div>
++      <nav>{surfaceItems.map(item => <button key={item.id} className={`nav-item ${surface === item.id ? 'selected' : ''}`} onClick={() => goSurface(item.id)} aria-current={surface === item.id ? 'page' : undefined} title={`${item.label} (${keyLabel(item.action)})`}><Icon name={item.icon} size={21}/><span>{item.label}</span></button>)}</nav>
++      <div className="rail-bottom"><button className="nav-item" onClick={openShortcuts} title={`Keyboard shortcuts (${keyLabel('help')})`}><span className="keycap">{keyLabel('help')}</span><span>Shortcuts</span></button><span className="rail-version">LOCAL BETA · v{BUILD_VERSION}</span></div>
+     </aside>
+ 
+     <div className="workspace">
+       {demo && <div className="preview-banner"><span className="fixture-badge">LOCAL PREVIEW</span><span>Fixture channels and sample sports. No authentication, live scores or video playback in this preview.</span></div>}
+       <header className="topbar"><div className={`connection ${snapshot.connection}`}><span className="status-dot"/><span>{demo ? 'Preview workspace' : snapshot.connection === 'connected' ? 'YouTube TV connected' : snapshot.connection === 'waiting' ? 'Waiting for YouTube TV' : 'Player bridge unavailable'}</span></div><div className="topbar-actions"><span className="night-lock"><Icon name="mute" size={15}/><span>Night mode · All playback muted</span></span><a href="https://tv.youtube.com/" target="_blank" rel="noreferrer" className="open-yttv">YouTube TV <Icon name="external" size={14}/></a></div></header>
+       <main className={`main-content surface-${surface.toLowerCase()}`}>
+-        <div className="page-heading"><div><div className="eyebrow">{surface === 'QUADBOX' ? 'MANAGED WINDOW WORKSPACE' : surface === 'SPORTS' ? 'INDEPENDENT SPORTS ENGINE' : 'YOUR DESKTOP EXPERIENCE'}</div><h1>{surfaceItems.find(item => item.id === surface)?.label}</h1><p>{headerTitles[surface]}</p></div><div className="heading-actions">{surface === 'SPORTS' && <button className="button subtle" onClick={() => { const now = Date.now(); setFixtures(createIllustrativeFixtures(now)); setClock(now); }}><Icon name="refresh"/> Refresh fixtures</button>}{surface === 'GUIDE' && <button className={`button subtle ${manageGuide ? 'active' : ''}`} onClick={toggleGuideManagement} aria-pressed={manageGuide}><Icon name="settings"/> {manageGuide ? 'Done editing' : 'Customize'}</button>}{surface === 'QUADBOX' && snapshot.expandedPaneId && <button className="button" onClick={() => void run('Restore windows', () => bridge.restoreLayout())}><Icon name="restore"/> Restore layout <kbd>Esc</kbd></button>}{surface === 'QUADBOX' && <button className="button primary" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows}><Icon name="plus"/> Add channel</button>}</div></div>
++        <div className="page-heading"><div><div className="eyebrow">{surface === 'QUADBOX' ? 'MANAGED WINDOW WORKSPACE' : surface === 'SPORTS' ? 'INDEPENDENT SPORTS ENGINE' : 'YOUR DESKTOP EXPERIENCE'}</div><h1>{surfaceItems.find(item => item.id === surface)?.label}</h1><p>{headerTitles[surface]}</p></div><div className="heading-actions">{surface === 'SPORTS' && <button className="button subtle" onClick={() => { const now = Date.now(); setFixtures(createIllustrativeFixtures(now)); setClock(now); }}><Icon name="refresh"/> Refresh fixtures</button>}{surface === 'GUIDE' && <button className={`button subtle ${manageGuide ? 'active' : ''}`} onClick={toggleGuideManagement} aria-pressed={manageGuide}><Icon name="settings"/> {manageGuide ? 'Done editing' : 'Customize'}</button>}{surface === 'QUADBOX' && snapshot.expandedPaneId && <button className="button" onClick={() => void run('Restore windows', () => bridge.restoreLayout())}><Icon name="restore"/> Restore layout <kbd>{keyLabel('restore')}</kbd></button>}{surface === 'QUADBOX' && <button className="button primary" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows}><Icon name="plus"/> Add channel</button>}</div></div>
+ 
+         {notice && <div className={`notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}><Icon name={notice.kind === 'error' ? 'window' : 'check'}/><span>{notice.text}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss message"><Icon name="close" size={15}/></button></div>}
+         {pending && <div className="operation-status" role="status"><span className="loading-dot"/>{pending}…</div>}
++        {!demo && !snapshot.capabilities.navigation && <div className="connection-help" role="status"><div><strong>Guide navigation needs a fresh native Live observation.</strong><p>Saved channels and programs are last observed metadata. Watch/Add remain unavailable; current playback and preferences are preserved.</p></div>{bridge.recoverGuide && <button className="button subtle" onClick={() => void run('Open native Live', () => bridge.recoverGuide!())}>Open native Live</button>}</div>}
+         {!demo && snapshot.connection !== 'connected' && <div className="connection-help"><Icon name="window" size={20}/><div><strong>{snapshot.statusMessage || 'Open YouTube TV in Chrome to connect the guide.'}</strong><p>Keep its original player open. Channel observations and controls appear when the supported adapter is available.</p></div><button className="button subtle" onClick={() => void run('Refresh connection', bridge.refresh ? () => bridge.refresh!() : async () => { await refresh(); return { ok: true }; })}><Icon name="refresh"/> Refresh</button></div>}
+ 
+         {surface === 'WATCH' && <>
+-          <section className="watch-context"><div className="watch-gradient"/><div className="watch-context-copy"><span className="section-kicker"><span className="status-dot"/>{snapshot.playback.playing === true ? 'PLAYBACK OBSERVED' : 'CURRENT PLAYER'}</span><h2>{snapshot.currentProgram || currentEntry?.programTitle || 'Your original player stays in YouTube TV.'}</h2><div className="watch-channel"><span className="channel-logo large">{currentEntry ? channelMark(currentEntry.channel.name) : 'TV'}</span><div><strong>{currentEntry?.channel.name || 'Authorized YouTube TV playback'}</strong><span>{demo ? 'Local preview · no video playback' : snapshot.playback.playing === true ? 'Playing in the original supported browser tab' : 'Playback state is not yet confirmed'}</span></div><span className="muted-tag"><Icon name="mute" size={15}/> {snapshot.playback.muted === true ? 'MUTED' : snapshot.playback.muted === false ? 'MUTE REQUIRED' : 'MUTE LOCK'}</span></div><div className="watch-actions"><button className="button primary" onClick={() => goSurface('GUIDE')}><Icon name="guide"/> Open compact guide <kbd>G</kbd></button><button className="button" disabled={!snapshot.preferences.previousChannel || !snapshot.capabilities.navigation || Boolean(pending)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}><Icon name="back"/> Previous <kbd>P</kbd></button></div></div><div className="player-preserved"><Icon name="window" size={32}/><strong>Video stays in YouTube TV</strong><p>This workspace controls navigation. Google handles your account and protected playback.</p><a href="https://tv.youtube.com/" target="_blank" rel="noreferrer">Open original player <Icon name="external" size={14}/></a></div></section>
++          <section className="watch-context"><div className="watch-gradient"/><div className="watch-context-copy"><span className="section-kicker"><span className="status-dot"/>{snapshot.currentConfirmed ? 'PLAYBACK CONFIRMED' : snapshot.currentChannelId ? 'LAST CONFIRMED CHANNEL · SAVED' : 'CURRENT PLAYER'}</span><h2>{(snapshot.currentConfirmed ? snapshot.currentProgram : undefined) || (currentEntry?.programTitle ? `Last observed · ${currentEntry.programTitle}` : undefined) || 'Your original player stays in YouTube TV.'}</h2><div className="watch-channel"><span className="channel-logo large">{currentEntry ? channelMark(currentEntry.channel.name) : 'TV'}</span><div><strong>{currentEntry?.channel.name || 'Authorized YouTube TV playback'}</strong><span>{demo ? 'Local preview · no video playback' : snapshot.currentConfirmed ? 'Confirmed in the original supported browser tab' : 'Saved history · current channel not yet confirmed'}</span></div><span className="muted-tag"><Icon name="mute" size={15}/> {snapshot.playback.muted === true ? 'MUTED' : snapshot.playback.muted === false ? 'MUTE REQUIRED' : 'MUTE LOCK'}</span></div><div className="watch-actions"><button className="button primary" onClick={() => goSurface('GUIDE')}><Icon name="guide"/> Open compact guide <kbd>{keyLabel('guide')}</kbd></button><button className="button" disabled={!snapshot.preferences.previousChannel || !snapshot.guide.some(entry => entry.channel.id === snapshot.preferences.previousChannel && entryPlayable(entry, snapshot)) || Boolean(pending)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}><Icon name="back"/> Previous <kbd>{keyLabel('previous')}</kbd></button></div></div><div className="player-preserved"><Icon name="window" size={32}/><strong>Video stays in YouTube TV</strong><p>This workspace controls navigation. Google handles your account and protected playback.</p><a href="https://tv.youtube.com/" target="_blank" rel="noreferrer">Open original player <Icon name="external" size={14}/></a></div></section>
+           <div className="watch-columns"><section className="content-card"><div className="section-title"><h2>Favorites <span>{favorites.length}</span></h2><button className="text-button" onClick={() => { goSurface('GUIDE'); setFilter('favorites'); }}>View guide <Icon name="arrow" size={15}/></button></div>{favorites.length ? <div className="quick-channels">{favorites.slice(0, 8).map(entry => <QuickChannel key={entry.channel.id} entry={entry} snapshot={snapshot} onWatch={watchEntry}/>)}</div> : <EmptyInline icon="star" title="Keep your channels close" text="Star a channel in the guide to pin it here." action={() => goSurface('GUIDE')} actionLabel="Choose favorites"/>}</section><section className="content-card"><div className="section-title"><h2>Recently watched</h2><span className="quiet-label">CONFIRMED SWITCHES</span></div>{recents.length ? <div className="recent-list">{recents.slice(0, 5).map(entry => <QuickChannel key={entry.channel.id} entry={entry} snapshot={snapshot} onWatch={watchEntry}/>)}</div> : <EmptyInline icon="back" title="Pick up where you left off" text="Confirmed channel switches populate your local history."/>}</section></div>
+-          {previousEntry && <div className="previous-strip"><Icon name="back"/><span>Previous channel</span><strong>{previousEntry.channel.name}</strong><span>{previousEntry.programTitle}</span><button className="text-button" disabled={!snapshot.capabilities.navigation} onClick={() => void run('Previous channel', () => bridge.previousChannel())}>Go back <kbd>P</kbd></button></div>}
++          {previousEntry && <div className="previous-strip"><Icon name="back"/><span>Previous channel</span><strong>{previousEntry.channel.name}</strong><span>{previousEntry.programTitle ? `Last observed · ${previousEntry.programTitle}` : 'Saved history'}</span><button className="text-button" disabled={!previousEntry || !entryPlayable(previousEntry, snapshot)} onClick={() => void run('Previous channel', () => bridge.previousChannel())}>Go back <kbd>{keyLabel('previous')}</kbd></button></div>}
+         </>}
+ 
+         {surface === 'GUIDE' && <>
+           {replacePaneId && <div className="replace-banner"><Icon name="refresh"/><span>Choose a channel to replace window {snapshot.panes.findIndex(pane => pane.id === replacePaneId) + 1}. Other windows stay in place.</span><button className="text-button" onClick={() => setReplacePaneId(null)}>Cancel</button></div>}
+           <div className="guide-toolbar"><div className="segmented" aria-label="Channel filter">{(['all', 'favorites', 'recent'] as const).map(value => <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value)} aria-pressed={filter === value}>{value === 'all' ? 'All channels' : value === 'favorites' ? 'Favorites' : 'Recents'}{value === 'favorites' && <span>{snapshot.preferences.favorites.length}</span>}</button>)}</div><SearchBox value={query} setValue={setQuery} inputRef={searchRef} placeholder="Find channel or program"/></div>
+-          {manageGuide && <div className="customize-help"><span>Star favorites. Move channels with the arrows. Hide channels from your everyday guide.</span><label><input type="checkbox" checked={includeHidden} onChange={event => setIncludeHidden(event.target.checked)}/> Show hidden channels</label></div>}
+-          <section className="guide-table" aria-label="Compact live guide"><div className="guide-table-head"><span>CHANNEL</span><span>CURRENT PROGRAM</span><span className="guide-time-heading">SCHEDULE</span><span>CONTROLS</span></div>{guideEntries.length ? guideEntries.map((entry, index) => {
++          {manageGuide && <div className="customize-help"><span>Star favorites. Move channels with the arrows. Hide channels from your everyday guide.</span><label><input type="checkbox" checked={includeHidden} onChange={event => setIncludeHidden(event.target.checked)}/> Show hidden channels</label><button className="button subtle" disabled={Boolean(pending)} onClick={() => void run('Restore native channel order', () => bridge.setPreference({ channelOrder: [] }))}>Use native order</button></div>}
++          <section className="guide-table" aria-label="Compact live guide"><div className="guide-table-head"><span>CHANNEL</span><span>{snapshot.guide.some(entry => entry.metadataSource === 'CACHED') ? 'LAST OBSERVED PROGRAM' : 'OBSERVED PROGRAM'}</span><span className="guide-time-heading">SCHEDULE</span><span>CONTROLS</span></div>{guideEntries.length ? guideEntries.map((entry, index) => {
+             const favorite = snapshot.preferences.favorites.includes(entry.channel.id);
+-            const current = snapshot.currentChannelId === entry.channel.id;
++            const current = snapshot.currentConfirmed && snapshot.currentChannelId === entry.channel.id;
+             const hidden = snapshot.preferences.hiddenChannels.includes(entry.channel.id);
+             const playable = entryPlayable(entry, snapshot);
+-            return <div key={entry.channel.id} className={`guide-row ${current ? 'current' : ''} ${hidden ? 'hidden-channel' : ''}`}>
++            return <div key={entry.channel.id} role="group" aria-label={`${entry.channel.name}: ${entry.programTitle || 'Program unavailable'}`} tabIndex={focusedChannel === entry.channel.id || (!guideEntries.some(item => item.channel.id === focusedChannel) && index === 0) ? 0 : -1} onFocus={() => setFocusedChannel(entry.channel.id)} className={`guide-row ${current ? 'current' : ''} ${hidden ? 'hidden-channel' : ''}`}>
+               <div className="guide-channel-cell"><button className={`favorite-toggle icon-button ${favorite ? 'is-favorite' : ''}`} onClick={() => setList('favorites', entry.channel.id)} title={favorite ? `Remove ${entry.channel.name} from favorites` : `Favorite ${entry.channel.name}`} aria-label={favorite ? `Remove ${entry.channel.name} from favorites` : `Favorite ${entry.channel.name}`} aria-pressed={favorite}><Icon name="star" size={16}/></button><span className="channel-logo">{channelMark(entry.channel.name)}</span><div className="channel-name"><strong>{entry.channel.name}</strong>{current ? <span className="current-label">● CURRENT</span> : hidden ? <span>Hidden</span> : <span>{String(index + 1).padStart(2, '0')}</span>}</div></div>
+-              <div className="guide-program-cell"><strong>{entry.programTitle || 'Program information unavailable'}</strong><span>{entry.nextProgramTitle ? `Next · ${entry.nextProgramTitle}` : entry.evidenceClass === 'FIXTURE' ? 'Illustrative fixture · no playback target' : entry.available ? entry.target ? 'Observed navigation target' : 'Target not verified' : 'Availability not confirmed'}</span></div>
++              <div className="guide-program-cell"><strong>{entry.programTitle ? `${entry.metadataSource === 'CACHED' ? 'Last observed · ' : ''}${entry.programTitle}` : 'Program information unavailable'}</strong><span>{entry.metadataSource === 'CACHED' ? `Saved metadata · observed ${entry.observedAt || 'time unknown'} · open native Live` : entry.nextProgramTitle ? `Next · ${entry.nextProgramTitle}` : entry.evidenceClass === 'FIXTURE' ? 'Illustrative fixture · no playback target' : entry.available ? entry.target ? 'Observed navigation target' : 'Target not verified' : 'Availability not confirmed'}</span></div>
+               <div className="guide-schedule-cell">{entry.programStart || entry.programEnd ? <><span>{formatTime(entry.programStart)}{entry.programStart && entry.programEnd ? ' – ' : ''}{formatTime(entry.programEnd)}</span><div className="schedule-track"><span style={{ width: `${scheduleProgress(entry)}%` }}/></div></> : <span className="schedule-unknown">Schedule unknown</span>}</div>
+-              <div className="guide-row-actions">{manageGuide ? <><button className="icon-button" aria-label={`Move ${entry.channel.name} up`} title="Move up" disabled={!canMoveChannel(index, -1)} onClick={() => moveChannel(entry.channel.id, -1)}><Icon name="up" size={16}/></button><button className="icon-button" aria-label={`Move ${entry.channel.name} down`} title="Move down" disabled={!canMoveChannel(index, 1)} onClick={() => moveChannel(entry.channel.id, 1)}><Icon name="down" size={16}/></button><button className={`icon-button ${hidden ? 'is-hidden' : ''}`} aria-label={`${hidden ? 'Show' : 'Hide'} ${entry.channel.name}`} title={hidden ? 'Show channel' : 'Hide channel'} onClick={() => setList('hiddenChannels', entry.channel.id)}><Icon name="eye" size={16}/></button></> : <><button className={`button compact ${current ? 'currently-watching' : ''}`} disabled={!playable || Boolean(pending)} onClick={() => watchEntry(entry)} title={!playable ? 'Requires a verified, available YouTube TV channel target' : `Watch ${entry.channel.name}`}>{replacePaneId ? 'Replace' : current ? 'Watching' : 'Watch'}{!current && <Icon name="arrow" size={13}/>}</button><button className="icon-button add-window" disabled={!playable || !snapshot.capabilities.managedWindows || Boolean(pending)} onClick={() => addEntry(entry)} title="Add to managed windows" aria-label={`Add ${entry.channel.name} to managed windows`}><Icon name="plus" size={17}/></button></>}</div>
++              <div className="guide-row-actions">{manageGuide ? <><button className="icon-button" aria-label={`Move ${entry.channel.name} up`} title="Move up" disabled={!canMoveChannel(index, -1)} onClick={() => moveChannel(entry.channel.id, -1)}><Icon name="up" size={16}/></button><button className="icon-button" aria-label={`Move ${entry.channel.name} down`} title="Move down" disabled={!canMoveChannel(index, 1)} onClick={() => moveChannel(entry.channel.id, 1)}><Icon name="down" size={16}/></button><button className={`icon-button ${hidden ? 'is-hidden' : ''}`} aria-label={`${hidden ? 'Show' : 'Hide'} ${entry.channel.name}`} title={hidden ? 'Show channel' : 'Hide channel'} onClick={() => setList('hiddenChannels', entry.channel.id)}><Icon name="eye" size={16}/></button></> : <><button className={`button compact ${current ? 'currently-watching' : ''}`} disabled={!playable || Boolean(pending)} onClick={() => watchEntry(entry)} title={!playable ? 'Requires a verified, available YouTube TV channel target' : `Watch ${entry.channel.name}`}>{replacePaneId ? 'Replace' : current && snapshot.currentConfirmed ? 'Watching' : 'Watch'}{!current && <Icon name="arrow" size={13}/>}</button><button className="icon-button add-window" disabled={!playable || !snapshot.capabilities.managedWindows || Boolean(pending)} onClick={() => addEntry(entry)} title="Add to managed windows" aria-label={`Add ${entry.channel.name} to managed windows`}><Icon name="plus" size={17}/></button></>}</div>
+             </div>;
+           }) : <EmptyState icon="guide" title={query ? 'No matching channels' : filter === 'favorites' ? 'Your favorites start here' : filter === 'recent' ? 'No confirmed channel history yet' : 'Waiting for an observed guide'} text={query ? 'Try a channel name or a word from its current program.' : filter === 'favorites' ? 'Choose All channels, then star the ones you watch most.' : filter === 'recent' ? 'Channel history updates after a confirmed successful switch.' : 'Open the Live guide in your supported YouTube TV tab. This workspace will only show channels the adapter can observe.'}/>}</section>
+-          <div className="guide-footer"><span>{guideEntries.length} channels shown · {demo ? 'fixture data' : snapshot.observedAt ? `observed ${formatTime(snapshot.observedAt)}` : 'awaiting observation'}</span><span>Favorites and settings are saved on this Mac.</span></div>
++          <div className="guide-footer"><span>{guideEntries.length} channels shown · {demo ? 'fixture data' : snapshot.guideObservedAt ? `guide last observed ${snapshot.guideObservedAt}` : 'awaiting observation'}</span><span>Favorites and settings are saved on this Mac.</span></div>
+         </>}
+ 
+         {surface === 'SPORTS' && <>
+@@ -324,15 +364,16 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
+ 
+         {surface === 'QUADBOX' && <>
+           <div className="quad-disclosure"><Icon name="window" size={23}/><div><strong>Supported browser windows, controlled together</strong><p>Each feed stays in its original YouTube TV window. This is a managed-window fallback; it does not compose protected video into this page. Simultaneous playback remains subject to your account, browser and channel availability.</p></div><span className="capability-pill">WINDOW ROUTE</span></div>
+-          <div className="quad-toolbar"><span><strong>{snapshot.panes.length}</strong> managed {snapshot.panes.length === 1 ? 'window' : 'windows'} <span className="divider">/</span> <Icon name="mute" size={15}/> All muted</span><div><span className="quiet-label">1–4 FOCUS · ENTER EXPAND · ESC RESTORE</span></div></div>
+-          {snapshot.panes.length ? <div className={`quad-grid ${snapshot.panes.length === 1 ? 'single' : ''}`}>{snapshot.panes.map((pane, index) => <ManagedPane key={pane.id} pane={pane} index={index} selected={pane.id === snapshot.activePaneId} expanded={pane.id === snapshot.expandedPaneId} pending={Boolean(pending)} onFocus={() => void run('Focus window', () => bridge.selectPane(pane.id))} onExpand={() => void run('Expand window', () => bridge.expandPane(pane.id))} onReplace={() => { setReplacePaneId(pane.id); setSurface('GUIDE'); setQuery(''); setFilter('all'); }} onRemove={bridge.removePane ? () => void run('Close managed window', () => bridge.removePane!(pane.id)) : undefined}/>)}{snapshot.panes.length < 4 && <button className="add-pane" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows}><span className="add-pane-icon"><Icon name="plus" size={25}/></span><strong>Add another channel</strong><span>Only within your verified simultaneous-stream allowance</span></button>}</div> : <EmptyState icon="quad" title="Build your viewing workspace" text="Start from a verified channel in the Guide, then Add to managed windows. Every window opens muted. Two, three or four feeds require separate account and playback feasibility evidence." action={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} actionLabel="Choose channels"/>}
++          <div className="quad-toolbar"><span><strong>{snapshot.panes.length}</strong> managed {snapshot.panes.length === 1 ? 'window' : 'windows'} <span className="divider">/</span> <Icon name="mute" size={15}/> All muted</span><div><span className="quiet-label">{(['pane1', 'pane2', 'pane3', 'pane4'] as const).map(keyLabel).join(' / ')} FOCUS · {keyLabel('expand')} EXPAND · {keyLabel('restore')} RESTORE</span></div></div>
++          {snapshot.panes.length ? <div className={`quad-grid ${snapshot.panes.length === 1 ? 'single' : ''}`}>{snapshot.panes.map((pane, index) => <ManagedPane key={pane.id} pane={pane} index={index} selected={pane.id === snapshot.activePaneId} expanded={pane.id === snapshot.expandedPaneId} pending={Boolean(pending)} focusKey={keyLabel(`pane${index + 1}` as KeyboardAction)} onFocus={() => void run('Focus window', () => bridge.selectPane(pane.id))} onExpand={() => void run('Expand window', () => bridge.expandPane(pane.id))} onReplace={() => { setReplacePaneId(pane.id); setSurface('GUIDE'); setQuery(''); setFilter('all'); }} onRemove={bridge.removePane ? () => void run('Close managed window', () => bridge.removePane!(pane.id)) : undefined}/>)}{snapshot.panes.length < 4 && <button className="add-pane" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows}><span className="add-pane-icon"><Icon name="plus" size={25}/></span><strong>Add another channel</strong><span>Only within your verified simultaneous-stream allowance</span></button>}</div> : <EmptyState icon="quad" title="Build your viewing workspace" text="Start from a verified channel in the Guide, then Add to managed windows. Every window opens muted. Two, three or four feeds require separate account and playback feasibility evidence." action={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} actionLabel="Choose channels"/>}
+           <div className="quad-footer"><span>Night mode is locked. Selecting a window changes focus while audio stays muted.</span><span>No playback, entitlement or 4-stream guarantee.</span></div>
+         </>}
+       </main>
+       <footer className="app-footer"><span>YouTube TV provides the streams. We provide the desktop experience.</span><span>LOCAL · PRIVATE · NO VIDEO PROXY</span></footer>
+     </div>
+ 
+-    {showShortcuts && <div className="modal-backdrop" onClick={() => setShowShortcuts(false)}><section ref={shortcutsRef} className="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" onClick={event => event.stopPropagation()}><div className="section-title"><h2 id="shortcuts-title">Move at your own pace.</h2><button className="icon-button" onClick={() => setShowShortcuts(false)} aria-label="Close keyboard shortcuts"><Icon name="close"/></button></div><p>Shortcuts work inside this workspace, outside editable fields and interactive controls.</p><div className="shortcut-grid">{[...surfaceItems.map(item => [item.label, item.shortcut]), ['Previous channel', 'P'], ['Mute all', 'M'], ['Search', '/'], ['Focus managed window', '1–4'], ['Expand focused window', 'Enter'], ['Restore layout', 'Esc'], ['Show shortcuts', '?']].map(([label, key]) => <div key={label}><span>{label}</span><kbd>{key}</kbd></div>)}</div><div className="shortcut-night"><Icon name="mute"/> Overnight audio is locked to muted. No shortcut unmutes playback.</div><button className="button primary" onClick={() => setShowShortcuts(false)} autoFocus>Got it</button></section></div>}
++    {showShortcuts && <div className="modal-backdrop" onClick={() => setShowShortcuts(false)}><section ref={shortcutsRef} className="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" onClick={event => event.stopPropagation()}><div className="section-title"><h2 id="shortcuts-title">Keyboard shortcuts</h2><button className="icon-button" onClick={() => setShowShortcuts(false)} aria-label="Close keyboard shortcuts"><Icon name="close"/></button></div><p>Focus the workspace or a guide row to use shortcuts. Typing, buttons, player controls and browser chords keep their own keys. Tab reaches row controls; arrows move between rows. Blank disables a binding. Escape always closes this dialog.</p><div className="shortcut-grid">{(Object.keys(KEYBOARD_LABELS) as KeyboardAction[]).map(action => <label key={action}><span>{KEYBOARD_LABELS[action]} <kbd>{keyLabel(action)}</kbd></span><input aria-label={`${KEYBOARD_LABELS[action]} key`} value={shortcutDraft[action]} maxLength={24} onChange={event => setShortcutDraft(previous => ({ ...previous, [action]: event.target.value }))}/></label>)}</div>{shortcutError && <p role="alert">{shortcutError}</p>}<div className="shortcut-night"><Icon name="mute"/> All playback stays muted. Selecting a window changes focus only.</div><div className="shortcut-actions"><button className="button" onClick={() => { setShortcutDraft({ ...DEFAULT_KEYBOARD_MAPPINGS }); setShortcutError(null); }}>Use defaults</button><button className="button primary" disabled={Boolean(pending)} onClick={() => void saveShortcuts()}>Save shortcuts</button></div><p className="runtime-identity">Runtime v{BUILD_VERSION} · build {BUILD_ID}{options.extensionId ? ` · extension ${options.extensionId}` : ''}</p></section></div>}
++
+   </div>;
+ }
+ 
+@@ -344,11 +385,11 @@ function scheduleProgress(entry: GuideEntry) {
+ }
+ 
+ function SearchBox({ value, setValue, inputRef, placeholder }: { value: string; setValue: (value: string) => void; inputRef: React.RefObject<HTMLInputElement | null>; placeholder: string }) {
+-  return <div className="search-box"><Icon name="search" size={17}/><input ref={inputRef} value={value} onChange={event => setValue(event.target.value)} placeholder={placeholder} aria-label={placeholder}/>{value ? <button className="icon-button" onClick={() => setValue('')} aria-label="Clear search"><Icon name="close" size={14}/></button> : <kbd>/</kbd>}</div>;
++  return <div className="search-box"><Icon name="search" size={17}/><input ref={inputRef} value={value} onChange={event => setValue(event.target.value)} placeholder={placeholder} aria-label={placeholder}/>{value ? <button className="icon-button" onClick={() => setValue('')} aria-label="Clear search"><Icon name="close" size={14}/></button> : <span className="search-hint">Search</span>}</div>;
+ }
+ 
+ function QuickChannel({ entry, snapshot, onWatch }: { entry: GuideEntry; snapshot: DesktopSnapshot; onWatch: (entry: GuideEntry) => void }) {
+-  return <button className={`quick-channel ${snapshot.currentChannelId === entry.channel.id ? 'selected' : ''}`} onClick={() => onWatch(entry)} disabled={!entryPlayable(entry, snapshot)}><span className="channel-logo">{channelMark(entry.channel.name)}</span><span><strong>{entry.channel.name}</strong><small>{entry.programTitle || 'Program unknown'}</small></span><Icon name="arrow" size={15}/></button>;
++  return <button className={`quick-channel ${snapshot.currentChannelId === entry.channel.id ? 'selected' : ''}`} onClick={() => onWatch(entry)} disabled={!entryPlayable(entry, snapshot)}><span className="channel-logo">{channelMark(entry.channel.name)}</span><span><strong>{entry.channel.name}</strong><small>{entry.metadataSource === 'CACHED' ? `Saved · ${entry.programTitle || 'program unknown'} · navigation unavailable` : entry.programTitle || 'Program unknown'}</small></span><Icon name="arrow" size={15}/></button>;
+ }
+ 
+ function EmptyInline({ icon, title, text, action, actionLabel }: { icon: IconName; title: string; text: string; action?: () => void; actionLabel?: string }) {
+@@ -369,8 +410,8 @@ function SportsCard({ event, guide, now, selected, onSelect }: { event: SportsEv
+   return <article className={`sports-card ${selected ? 'selected' : ''}`}><div className="sports-card-top"><span className="league-label">{event.league.replace(/_/g, ' ')}</span><span className={`game-status ${!visibility.isFresh || visibility.group === 'UPCOMING' || visibility.group === 'UNCERTAIN' || isFinal ? 'final' : isHeld ? 'held' : 'live'}`}><span className="status-dot"/>{compactLabel}</span></div><div className="team-score"><span className="team-mark">{(event.awayTeam.shortName || event.awayTeam.name).slice(0, 3).toUpperCase()}</span><strong>{event.awayTeam.name}</strong><span className="score">{event.score?.away ?? '—'}</span></div><div className="team-score"><span className="team-mark home">{(event.homeTeam.shortName || event.homeTeam.name).slice(0, 3).toUpperCase()}</span><strong>{event.homeTeam.name}</strong><span className="score">{event.score?.home ?? '—'}</span></div><div className="game-detail"><span>{visibility.isFresh ? event.period || visibility.label : 'Last known state'}{visibility.isFresh && event.clock ? ` · ${event.clock}` : ''}</span><span>{event.broadcastNetworks.map(network => network.name).join(' / ') || 'Network unknown'}</span></div><p className="game-status-detail">{visibility.isFresh ? event.statusDetail || visibility.reason : visibility.reason}</p>{beyondSchedule && visibility.isFresh && <div className="overrun-note"><Icon name="check" size={13}/> Discoverable beyond scheduled end</div>}{!visibility.isFresh && <div className="overrun-note uncertain"><Icon name="refresh" size={13}/> Snapshot {formatTime(event.fetchedAt)} · refresh required</div>}<div className="resolution-line"><span className="fixture-badge tiny">FIXTURE</span><span>{resolution.state === 'CONFIRMED' ? 'Fixture mapping only · not playable' : 'No verified live playback target'}</span></div><div className="sports-card-actions"><button className={`button compact ${selected ? 'active' : ''}`} onClick={onSelect}><Icon name={selected ? 'check' : 'plus'} size={14}/>{selected ? 'Selected fixture' : 'Select fixture'}</button><button className="button compact" disabled title="A fixture is not an eligible live playback target">Watch</button><button className="icon-button" disabled aria-label="Add to QuadBox unavailable for fixture" title="Live provider and verified target required"><Icon name="quad" size={16}/></button></div></article>;
+ }
+ 
+-function ManagedPane({ pane, index, selected, expanded, pending, onFocus, onExpand, onReplace, onRemove }: { pane: UIManagedPane; index: number; selected: boolean; expanded: boolean; pending: boolean; onFocus: () => void; onExpand: () => void; onReplace: () => void; onRemove?: () => void }) {
+-  return <article className={`managed-pane ${selected ? 'selected' : ''}`}><div className="pane-header"><span className="pane-number">{index + 1}</span><div><strong>{pane.channelName}</strong><span>{expanded ? 'Window expanded' : selected ? 'Focused window' : 'Managed browser window'}</span></div><span className="muted-tag"><Icon name="mute" size={14}/> {pane.muted ? 'MUTED' : 'MUTE REQUIRED'}</span>{onRemove && <button className="icon-button" onClick={onRemove} disabled={pending} aria-label={`Close ${pane.channelName} managed window`}><Icon name="close" size={15}/></button>}</div><button className="pane-window-surface" onClick={onFocus} disabled={pending} title={`Focus ${pane.channelName} window; audio remains muted`}><span className="window-diagram"><span/><span/><span/><Icon name="watch" size={32}/></span><strong>Open its YouTube TV window</strong><span>{pane.status || 'Window requested · advancing playback not yet verified'}</span></button>{pane.error && <div className="pane-error" role="status">{pane.error}</div>}<div className="pane-actions"><button className="button compact" onClick={onFocus} disabled={pending}><Icon name="window" size={14}/> Focus <kbd>{index + 1}</kbd></button><button className="icon-button" onClick={onExpand} disabled={pending} aria-label={`Expand ${pane.channelName} window`} title="Expand window"><Icon name="expand" size={17}/></button><button className="text-button" onClick={onReplace} disabled={pending}><Icon name="refresh" size={14}/> Replace</button></div></article>;
++function ManagedPane({ pane, index, selected, expanded, pending, onFocus, onExpand, onReplace, onRemove, focusKey }: { focusKey: string; pane: UIManagedPane; index: number; selected: boolean; expanded: boolean; pending: boolean; onFocus: () => void; onExpand: () => void; onReplace: () => void; onRemove?: () => void }) {
++  return <article className={`managed-pane ${selected ? 'selected' : ''}`}><div className="pane-header"><span className="pane-number">{index + 1}</span><div><strong>{pane.channelName}</strong><span>{expanded ? 'Window expanded' : selected ? 'Focused window' : 'Managed browser window'}</span></div><span className="muted-tag"><Icon name="mute" size={14}/> {pane.muted ? 'MUTED' : 'MUTE REQUIRED'}</span>{onRemove && <button className="icon-button" onClick={onRemove} disabled={pending} aria-label={`Close ${pane.channelName} managed window`}><Icon name="close" size={15}/></button>}</div><button className="pane-window-surface" onClick={onFocus} disabled={pending} title={`Focus ${pane.channelName} window; audio remains muted`}><span className="window-diagram"><span/><span/><span/><Icon name="watch" size={32}/></span><strong>Open its YouTube TV window</strong><span>{pane.status || 'Window requested · advancing playback not yet verified'}</span></button>{pane.error && <div className="pane-error" role="status">{pane.error}</div>}<div className="pane-actions"><button className="button compact" onClick={onFocus} disabled={pending}><Icon name="window" size={14}/> Focus <kbd>{focusKey}</kbd></button><button className="icon-button" onClick={onExpand} disabled={pending} aria-label={`Expand ${pane.channelName} window`} title="Expand window"><Icon name="expand" size={17}/></button><button className="text-button" onClick={onReplace} disabled={pending}><Icon name="refresh" size={14}/> Replace</button></div></article>;
+ }
+ 
+ export function mountDesktop(element: HTMLElement, bridge: ClientBridge, options?: DesktopOptions) {
+diff --git a/packages/ui/src/styles.css b/packages/ui/src/styles.css
+index 1174191..5cee104 100644
+--- a/packages/ui/src/styles.css
++++ b/packages/ui/src/styles.css
+@@ -87,6 +87,8 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
+ .guide-row { min-height: 65px; border-bottom: 1px solid #242b35; transition: background .15s; }
+ .guide-row:last-child { border-bottom: 0; }
+ .guide-row:hover { background: #19202a; }
++.guide-row:focus-visible { outline: 2px solid #b9e7a7; outline-offset: -3px; background: #222f39; }
++.desktop-app:focus-visible { outline: 2px solid #b9e7a7; outline-offset: -2px; }
+ .guide-row.current { background: #bfe5ac07; box-shadow: inset 2px 0 #b8d59d; }
+ .guide-row.hidden-channel { opacity: .53; }
+ .guide-channel-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+@@ -233,6 +235,12 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
+ .shortcut-grid>div { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #b4c0d1; }
+ .shortcut-night { display: flex; gap: 9px; color: #9cb889; background: #8caf6d10; border: 1px solid #8caf6d27; border-radius: 5px; padding: 11px; font-size: 10px; line-height: 1.7; margin: 0 0 22px; }
+ .shortcuts-modal>.button { width: 100%; }
++.shortcuts-modal { max-height: calc(100dvh - 48px); overflow: auto; }
++.shortcut-grid>label { display: flex; flex-direction: column; gap: 7px; font-size: 11px; color: #b4c0d1; min-width: 0; }
++.shortcut-grid input { width: 100%; color: #ecf3ff; background: #0b1220; border: 1px solid #455140; border-radius: 4px; padding: 8px; }
++.shortcut-actions { display: flex; flex-wrap: wrap; gap: 8px; }
++.runtime-identity { overflow-wrap: anywhere; }
++@container (max-width: 480px) { .shortcut-grid { grid-template-columns: 1fr; } .modal-backdrop { padding: 12px; } }
+ @keyframes gentle-pulse { 50% { opacity: .4; } }
+ @media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation: none!important; transition: none!important; } }
+ 
+diff --git a/packages/ui/src/types.ts b/packages/ui/src/types.ts
+index 883a88b..19482b3 100644
+--- a/packages/ui/src/types.ts
++++ b/packages/ui/src/types.ts
+@@ -24,6 +24,8 @@ export interface DesktopSnapshot {
+   mode: 'extension' | 'demo';
+   connection: 'connected' | 'waiting' | 'unavailable';
+   statusMessage?: string;
++  currentConfirmed?: boolean;
++  guideObservedAt?: string;
+   currentChannelId?: string;
+   currentProgram?: string;
+   playback: { playing: boolean | null; muted: boolean | null };
+@@ -54,9 +56,11 @@ export interface ClientBridge {
+   restoreLayout(): Promise<ActionResult>;
+   mute?(): Promise<ActionResult>;
+   removePane?(paneId: string): Promise<ActionResult>;
++  recoverGuide?(): Promise<ActionResult>;
+   refresh?(): Promise<ActionResult>;
+ }
+ 
+ export interface DesktopOptions {
+   demo?: boolean;
++  extensionId?: string;
+ }
+diff --git a/packages/yttv-adapter/src/index.ts b/packages/yttv-adapter/src/index.ts
+index 2138665..dc35fc8 100644
+--- a/packages/yttv-adapter/src/index.ts
++++ b/packages/yttv-adapter/src/index.ts
+@@ -7,6 +7,12 @@ export const SELECTORS = {
+   program: 'main h1, main [role="heading"], [role="main"] h1, [role="main"] [role="heading"]',
+ } as const;
+ export const TARGET_MAX_AGE_MS = 30 * 60_000;
++export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
++  const target = entry.target;
++  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
++  const age = now - Date.parse(target.verifiedAt);
++  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
++}
+ export interface PlaybackObservation {
+   playing: boolean | null; muted: boolean | null; readyState: number | null;
+   currentTime: number | null; width: number | null; height: number | null;
+@@ -46,7 +52,12 @@ export function parseGuide(document: Document, now = new Date().toISOString()):
+     const channelId = stableChannelId(name); if (seen.has(channelId)) continue;
+     seen.add(channelId);
+     const href = endpoint?.querySelector('a[href]')?.getAttribute('href');
+-    const url = href ? navigationUrl(href, document.location?.href) : null;
++    // Native thumbnail endpoints can be empty on a fresh guide. Its first
++    // current-program link is also an ordinary supported navigation control.
++    // Never skip forward to a later airing (which could schedule a future show).
++    const currentHref = row.querySelector(`${SELECTORS.airings} a`)?.getAttribute('href');
++    const url = (href ? navigationUrl(href, document.location?.href) : null) ??
++      (currentHref ? navigationUrl(currentHref, document.location?.href) : null);
+     const programs = [...row.querySelectorAll(`${SELECTORS.airings} a`)].map(link => text(link)).filter(Boolean);
+     const target: PlaybackTarget | null = url ? { kind: 'navigation', channelId, url, verifiedAt: now, evidenceClass: 'LIVE' } : null;
+     entries.push({ channel: { id: channelId, name }, programTitle: programs[0], nextProgramTitle: programs[1],
+@@ -111,11 +122,9 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?:
+   const interval = setInterval(notify, 3000);
+   async function navigateToChannel(channelId: string): Promise<CapabilityResult<AdapterObservation>> {
+     const entry = guide.find(item => item.channel.id === channelId); const target = entry?.target;
+-    if (!target || !navigationUrl(target.url) || Date.now() - Date.parse(target.verifiedAt) > TARGET_MAX_AGE_MS) {
++    if (disposed || !entry || !target || !freshLiveTarget(entry)) {
+       return { ok: false, capability: 'navigateToChannel', code: 'TARGET_UNAVAILABLE', reason: 'Open the YouTube TV Live guide to refresh this channel’s observed navigation target.' };
+     }
+-    const original = getObservation();
+-    if (original.currentChannelId === channelId && original.playback.playing) return { ok: true, value: original, observedAt: original.observedAt };
+     const link = [...document.querySelectorAll<HTMLAnchorElement>('a[href]')].find(item => navigationUrl(item.getAttribute('href')!, document.location.href) === target.url);
+     if (link) link.click(); else document.location.assign(target.url);
+     return new Promise(resolve => {
+@@ -140,12 +149,21 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?:
+     getObservation, navigateToChannel,
+     seedGuide(entries: GuideEntry[]) {
+       if (guide.length || !Array.isArray(entries)) return;
+-      guide = entries.filter(entry => entry?.channel?.id && entry.target && navigationUrl(entry.target.url) &&
+-        entry.target.channelId === entry.channel.id && Date.now() - Date.parse(entry.target.verifiedAt) <= TARGET_MAX_AGE_MS);
+-      guideObservedAt = guide[0]?.observedAt;
++      // Unavailable rows still carry guide metadata and saved ordering. Keep them
++      // across document replacement without promoting missing/stale targets.
++      guide = entries.filter(entry => entry?.evidenceClass === 'LIVE' && typeof entry.channel?.id === 'string' &&
++        Boolean(entry.channel.id.trim()) && typeof entry.channel.name === 'string' &&
++        Number.isFinite(Date.parse(entry.observedAt))).map(entry => {
++        const playable = freshLiveTarget(entry);
++        return { ...entry, available: playable, target: playable ? entry.target : null };
++      });
++      guideObservedAt = guide.length ? new Date(Math.max(...guide.map(entry => Date.parse(entry.observedAt)))).toISOString() : undefined;
+       notify();
+     },
+-    mute: async (): Promise<CapabilityResult<boolean>> => { muteVideo(); return { ok: true, value: true, observedAt: new Date().toISOString() }; },
++    mute: async (): Promise<CapabilityResult<boolean>> => {
++      if (disposed || !document.querySelector('video')) return { ok: false, capability: 'mute', code: 'TARGET_UNAVAILABLE', reason: 'No active adapter player is available to mute.' };
++      muteVideo(); return { ok: true, value: true, observedAt: new Date().toISOString() };
++    },
+     subscribe(listener: (observation: AdapterObservation) => void) { listeners.add(listener); listener(getObservation()); return () => listeners.delete(listener); },
+     dispose() { disposed = true; observer.disconnect(); clearInterval(interval); if (timer) clearTimeout(timer); for (const cancel of [...pendingNavigations]) cancel(); listeners.clear();
+       document.removeEventListener('play', muteVideo, true); document.removeEventListener('playing', muteVideo, true); document.removeEventListener('volumechange', muteVideo, true); },
+diff --git a/scripts/build.mjs b/scripts/build.mjs
+index 213d045..9d8ca54 100644
+--- a/scripts/build.mjs
++++ b/scripts/build.mjs
+@@ -1,10 +1,26 @@
+ import { build } from 'esbuild';
+-import { mkdir, copyFile, readFile } from 'node:fs/promises';
++import { mkdir, copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
++import { createHash } from 'node:crypto';
+ import { resolve } from 'node:path';
+ 
+ const root = resolve(import.meta.dirname, '..');
+ const outdir = resolve(root, 'dist/chrome-extension');
+ const manifest = JSON.parse(await readFile(resolve(root, 'apps/chrome-extension/manifest.json'), 'utf8'));
++// Stable runtime identity for the actual inputs, including uncommitted repairs.
++const inputs = ['scripts/build.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html'];
++for (const folder of ['apps/chrome-extension/src', 'packages']) {
++  for (const file of await readdir(resolve(root, folder), { recursive: true })) {
++    if (/\.(ts|tsx|css)$/.test(file) && !file.includes('node_modules') && !file.endsWith('.test.ts')) inputs.push(`${folder}/${file}`);
++  }
++}
++const sourceInputs = [];
++const sourceHash = createHash('sha256');
++for (const path of inputs.sort()) {
++  const bytes = await readFile(resolve(root, path));
++  sourceInputs.push({ path, sha256: createHash('sha256').update(bytes).digest('hex') });
++  sourceHash.update(path).update('\0').update(bytes).update('\0');
++}
++const sourceFingerprint = sourceHash.digest('hex');
+ const inlineCSS = {
+   name: 'inline-css',
+   setup(build) {
+@@ -19,7 +35,7 @@ for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['pane
+     entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' ? 'ts' : 'tsx'}`],
+     outfile: `${outdir}/${name}.js`, bundle: true, format,
+     platform: 'browser', target: 'chrome120', minify: false,
+-    define: { 'process.env.NODE_ENV': '"production"', __YTTV_VERSION__: JSON.stringify(manifest.version) },
++    define: { 'process.env.NODE_ENV': '"production"', __YTTV_VERSION__: JSON.stringify(manifest.version), __YTTV_BUILD__: JSON.stringify(sourceFingerprint.slice(0, 16)) },
+     sourcemap: false, legalComments: 'none', plugins: [inlineCSS],
+   });
+ }
+@@ -28,4 +44,5 @@ for (const file of ['manifest.json', 'panel.html', 'demo.html']) {
+ }
+ if (JSON.stringify(manifest.permissions) !== JSON.stringify(['storage'])) throw new Error('Unexpected permission expansion');
+ if (JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://tv.youtube.com/*'])) throw new Error('Unexpected host expansion');
++await writeFile(resolve(outdir, 'build-identity.json'), JSON.stringify({ version: manifest.version, sourceFingerprint, sourceInputs }, null, 2) + '\n');
+ console.log(`Built ${outdir}; permission audit passed (storage + tv.youtube.com only).`);
+diff --git a/tests/chrome-integration.test.ts b/tests/chrome-integration.test.ts
+index de09228..c4fadf9 100644
+--- a/tests/chrome-integration.test.ts
++++ b/tests/chrome-integration.test.ts
+@@ -108,4 +108,23 @@ test('managed sessions enforce silence, bounded creation, isolated replacement,
+   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, managedSender)).opened, false);
+   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: false }, originalSender)).ok, true);
+   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, false);
++  // Fresh-worker pending and unavailable observations cannot fabricate confirmed history.
++  const pending = { ...observation, observedAt: new Date(Date.now()).toISOString(), playback: { ...observation.playback, currentTime: 20 } };
++  const beforePending = recovered.preferences.currentChannel;
++  await send({ type: 'OBSERVE', observation: pending }, originalSender);
++  assert.equal((await send({ type: 'GET_SNAPSHOT' })).currentChannelId, beforePending);
++  const nextObservation = { ...pending, observedAt: new Date(Date.now()).toISOString(), playback: { ...pending.playback, currentTime: 21 } };
++  await send({ type: 'OBSERVE', observation: nextObservation }, originalSender);
++  const confirmed = await send({ type: 'GET_SNAPSHOT' });
++  assert.equal(confirmed.currentChannelId, 'yttv:cbs');
++  const confirmedHistory = confirmed.preferences.recentChannels;
++  const fixtureObservation = { ...nextObservation, currentChannelId: 'fixture:fox', guide: [{ ...secondChannel, channel: { id: 'fixture:fox', name: 'FOX fixture' }, evidenceClass: 'FIXTURE' as const }], playback: { ...pending.playback, currentTime: 22 } };
++  await send({ type: 'OBSERVE', observation: fixtureObservation }, originalSender);
++  assert.deepEqual((await send({ type: 'GET_SNAPSHOT' })).preferences.recentChannels, confirmedHistory);
++  const failedNavigation = await send({ type: 'NAVIGATE', channelId: 'missing' }, originalSender);
++  assert.equal(failedNavigation.ok, false); assert.equal(failedNavigation.code, 'TARGET_UNAVAILABLE');
++  assert.deepEqual((await send({ type: 'GET_SNAPSHOT' })).preferences.recentChannels, confirmedHistory);
++  const oldObservation = { ...pending, observedAt: '2020-01-01T00:00:00Z', currentChannelId: 'yttv:fox', guide: [secondChannel], playback: { ...pending.playback, currentTime: 100 } };
++  await send({ type: 'OBSERVE', observation: oldObservation }, originalSender);
++  assert.equal((await send({ type: 'GET_SNAPSHOT' })).currentChannelId, 'yttv:cbs');
+ });
+diff --git a/tests/domain.test.ts b/tests/domain.test.ts
+index 8a12b7f..f59568b 100644
+--- a/tests/domain.test.ts
++++ b/tests/domain.test.ts
+@@ -314,3 +314,10 @@ test('fresh FINAL retains pane/session and suggestions require fresh eligible re
+   assert.deepEqual(alternatives.map(event => event.id), [live.id]);
+   assert.equal(suggestLiveAlternatives(updated, [live], [guide(live, 'espn2', { available: false })], NOW).length, 0);
+ });
++
++test('keyboard import disables invalid/duplicate mappings deterministically and preserves old schema defaults', () => {
++  const prefs = sanitizePreferences({ keyboardMappings: { guide: ' X ', sports: 'x', mute: 'Ctrl+m', pane1: 'Tab', pane2: ' ', up: 'arrowup' } });
++  assert.equal(prefs.keyboardMappings.guide, 'x'); assert.equal(prefs.keyboardMappings.sports, '');
++  assert.equal(prefs.keyboardMappings.mute, ''); assert.equal(prefs.keyboardMappings.pane1, ''); assert.equal(prefs.keyboardMappings.pane2, '');
++  assert.equal(prefs.keyboardMappings.up, 'ArrowUp'); assert.equal(prefs.keyboardMappings.watch, 'w');
++});
+diff --git a/tests/yttv-adapter.test.ts b/tests/yttv-adapter.test.ts
+index f013e1e..9aad852 100644
+--- a/tests/yttv-adapter.test.ts
++++ b/tests/yttv-adapter.test.ts
+@@ -43,9 +43,77 @@ test('guide polling and hidden SPA rows do not renew volatile targets; new video
+   assert.equal(newVideo.muted, true); assert.equal(newVideo.defaultMuted, true);
+   adapter.dispose(); window.happyDOM.abort();
+ });
++
++test('fresh guide uses only its first current-program link when thumbnails have no target', () => {
++  const window = fixtureWindow();
++  try {
++    window.document.querySelector('ytu-endpoint.tenx-thumb')!.innerHTML = '<div></div>';
++    const airings = window.document.querySelector('.airings')!;
++    airings.innerHTML = '<a href="/watch?v=current">Current Show</a><a href="/watch?v=future">Later Show</a>';
++    assert.equal(parseGuide(window.document as unknown as Document)[0].target?.url, 'https://tv.youtube.com/watch?v=current');
++    airings.querySelector('a')!.setAttribute('href', '/browse/upcoming');
++    assert.equal(parseGuide(window.document as unknown as Document)[0].target, null, 'never select a later watch link');
++    airings.querySelector('a')!.setAttribute('href', 'https://googlevideo.com/media');
++    assert.equal(parseGuide(window.document as unknown as Document)[0].target, null);
++  } finally { window.happyDOM.abort(); }
++});
+ test('unknown channel dispatch fails explicitly without navigation', async () => {
+   const window = fixtureWindow(); const adapter = createDOMAdapter(window.document as unknown as Document);
+   adapter.getObservation(); const result = await adapter.navigateToChannel('yttv:unknown');
+   assert.equal(result.ok, false); if (!result.ok) assert.equal(result.code, 'TARGET_UNAVAILABLE');
+   assert.equal(window.location.pathname, '/live'); adapter.dispose(); window.happyDOM.abort();
+ });
++
++test('adapter rejects disposed, fixture, malformed and stale targets; no-player mute is unavailable', async () => {
++  const window = fixtureWindow(); const adapter = createDOMAdapter(window.document as unknown as Document);
++  const entry = parseGuide(window.document as unknown as Document)[0];
++  window.document.body.innerHTML = '';
++  const mute = await adapter.mute(); assert.equal(mute.ok, false);
++  adapter.seedGuide([{ ...entry, evidenceClass: 'FIXTURE' }]); assert.equal(adapter.getObservation().guide.length, 0);
++  adapter.seedGuide([entry]); assert.equal(adapter.getObservation().guide.length, 1);
++  adapter.dispose(); assert.equal((await adapter.navigateToChannel(entry.channel.id)).ok, false);
++  await window.happyDOM.abort();
++});
++
++test('document replacement retains unavailable guide rows and order without enabling invalid navigation', async () => {
++  const window = fixtureWindow();
++  const entry = parseGuide(window.document as unknown as Document)[0];
++  window.location.href = 'https://tv.youtube.com/watch?v=cbs';
++  window.document.body.innerHTML = '';
++  const adapter = createDOMAdapter(window.document as unknown as Document);
++  const unavailable = { ...entry, channel: { id: 'yttv:upcoming', name: 'Upcoming' }, available: false, target: null };
++  const malformed = { ...entry, channel: { id: 'yttv:malformed', name: 'Malformed' }, target: { ...entry.target!, channelId: 'yttv:malformed', verifiedAt: 'invalid' } };
++  const stale = { ...entry, channel: { id: 'yttv:stale', name: 'Stale' }, target: { ...entry.target!, channelId: 'yttv:stale', verifiedAt: new Date(Date.now() - 31 * 60_000).toISOString() } };
++  try {
++    adapter.seedGuide([entry, unavailable, malformed, stale, { ...entry, evidenceClass: 'FIXTURE' }]);
++    const guide = adapter.getObservation().guide;
++    assert.deepEqual(guide.map(item => item.channel.id), [entry.channel.id, 'yttv:upcoming', 'yttv:malformed', 'yttv:stale']);
++    assert.equal(guide[0].target?.url, entry.target?.url);
++    for (const item of guide.slice(1)) {
++      assert.equal(item.available, false); assert.equal(item.target, null);
++      const result = await adapter.navigateToChannel(item.channel.id);
++      assert.equal(result.ok, false); if (!result.ok) assert.equal(result.code, 'TARGET_UNAVAILABLE');
++    }
++    assert.equal(window.location.search, '?v=cbs');
++  } finally { adapter.dispose(); await window.happyDOM.abort(); }
++});
++
++test('restart metadata seed keeps observation age and cannot navigate; native Live alone reacquires targets', async () => {
++  const window = fixtureWindow();
++  const native = parseGuide(window.document as unknown as Document, new Date(Date.now() - 1000).toISOString())[0];
++  window.location.href = 'https://tv.youtube.com/watch?v=synthetic-test-only';
++  const adapter = createDOMAdapter(window.document as unknown as Document);
++  try {
++    // Deliberately inject an apparently fresh target beside the cached marker: still disabled.
++    adapter.seedGuide([{ ...native, metadataSource: 'CACHED' }]);
++    const cached = adapter.getObservation();
++    assert.equal(cached.guide[0].target, null); assert.equal(cached.guide[0].available, false);
++    assert.equal(cached.guide[0].observedAt, native.observedAt);
++    assert.equal((await adapter.navigateToChannel(native.channel.id)).ok, false);
++    assert.equal(window.location.search, '?v=synthetic-test-only');
++    window.location.href = 'https://tv.youtube.com/live';
++    const reacquired = adapter.getObservation();
++    assert(reacquired.guide[0].target); assert.equal(reacquired.guide[0].metadataSource, undefined);
++    assert.notEqual(reacquired.guide[0].observedAt, native.observedAt);
++  } finally { adapter.dispose(); await window.happyDOM.abort(); }
++});
+diff --git a/packages/storage/src/guide-cache.ts b/packages/storage/src/guide-cache.ts
+new file mode 100644
+index 0000000..86e1916
+--- /dev/null
++++ b/packages/storage/src/guide-cache.ts
+@@ -0,0 +1,64 @@
++import type { GuideEntry } from '../../core/src/index';
++import type { StorageBridge } from './index';
++
++export const GUIDE_CACHE_KEY = 'yttv-desktop.guide-metadata.v1';
++export const GUIDE_CACHE_MAX_ROWS = 500;
++export const GUIDE_CACHE_MAX_BYTES = 512_000;
++export const PROGRAM_METADATA_MAX_AGE_MS = 24 * 60 * 60_000;
++export interface GuideMetadataCache { schemaVersion: 1; observedAt: string; rows: GuideEntry[] }
++const safeText = (value: unknown, limit: number): value is string => typeof value === 'string' &&
++  Boolean(value.trim()) && value.length <= limit && !/[\x00-\x1f]|https?:\/\/|(?:token|credential|password|signature)=/i.test(value);
++const pastTimestamp = (value: unknown, now: number): value is string => typeof value === 'string' &&
++  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(value) <= now;
++/** Whitelist presentation only. Never deserialize targets or session authority. Old rows keep
++ * their identity/order; program text expires after one day without renewing observation age. */
++export function readGuideCache(raw: unknown, now = Date.now()): GuideMetadataCache | null {
++  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
++  const cache = raw as Record<string, unknown>;
++  if (cache.schemaVersion !== 1 || !pastTimestamp(cache.observedAt, now) || !Array.isArray(cache.rows) ||
++      !cache.rows.length || cache.rows.length > GUIDE_CACHE_MAX_ROWS) return null;
++  try { if (JSON.stringify(raw).length > GUIDE_CACHE_MAX_BYTES / 4) return null; } catch { return null; }
++  const ids = new Set<string>(); const rows: GuideEntry[] = [];
++  for (const value of cache.rows) {
++    if (!value || typeof value !== 'object') return null;
++    const row = value as GuideEntry;
++    if (!safeText(row.channel?.id, 200) || !safeText(row.channel?.name, 150) || ids.has(row.channel.id) ||
++        row.evidenceClass !== 'LIVE' || !pastTimestamp(row.observedAt, now) || Date.parse(row.observedAt) > Date.parse(cache.observedAt)) return null;
++    ids.add(row.channel.id);
++    const programFresh = now - Date.parse(row.observedAt) <= PROGRAM_METADATA_MAX_AGE_MS;
++    rows.push({ channel: { id: row.channel.id, name: row.channel.name },
++      programTitle: programFresh && safeText(row.programTitle, 300) ? row.programTitle : undefined,
++      nextProgramTitle: programFresh && safeText(row.nextProgramTitle, 300) ? row.nextProgramTitle : undefined,
++      observedAt: row.observedAt, evidenceClass: 'LIVE', metadataSource: 'CACHED', available: false, target: null });
++  }
++  return { schemaVersion: 1, observedAt: cache.observedAt, rows };
++}
++export function createGuideMetadataStore(bridge: StorageBridge, now = () => Date.now()) {
++  let cache: GuideMetadataCache | null = null;
++  let queue: Promise<void> = Promise.resolve();
++  return {
++    async load() { try { cache = readGuideCache(await bridge.get(GUIDE_CACHE_KEY), now()); } catch { cache = null; } return cache; },
++    get rows(): GuideEntry[] { return readGuideCache(cache, now())?.rows ?? []; },
++    async retain(entries: GuideEntry[]): Promise<void> {
++      // Seeded/cached Watch observations cannot renew metadata or acquire authority.
++      const applicable = entries.filter(row => row.metadataSource !== 'CACHED' && row.evidenceClass === 'LIVE');
++      if (!applicable.length) return;
++      const observedAt = applicable.reduce((at, row) => Date.parse(row.observedAt) > Date.parse(at) ? row.observedAt : at, applicable[0].observedAt);
++      const incoming = readGuideCache({ schemaVersion: 1, observedAt, rows: applicable }, now());
++      if (!incoming) return;
++      const merged = [...(cache?.rows ?? [])]; let changed = false;
++      for (const row of incoming.rows) {
++        const index = merged.findIndex(old => old.channel.id === row.channel.id);
++        if (index < 0) { if (merged.length < GUIDE_CACHE_MAX_ROWS) { merged.push(row); changed = true; } }
++        else if (Date.parse(row.observedAt) > Date.parse(merged[index].observedAt)) { merged[index] = row; changed = true; }
++      }
++      if (!changed) return;
++      cache = { schemaVersion: 1, observedAt: cache && Date.parse(cache.observedAt) > Date.parse(observedAt) ? cache.observedAt : observedAt, rows: merged };
++      const retained = cache;
++      // Capture each sanitized revision and serialize writes; a delayed old write cannot win.
++      const next = queue.catch(() => undefined).then(() => bridge.set(GUIDE_CACHE_KEY, retained));
++      queue = next;
++      try { await next; } catch { /* Cache is optional; playback/preferences and Live fallback survive. */ }
++    },
++  };
++}
+diff --git a/tests/guide-cache.test.ts b/tests/guide-cache.test.ts
+new file mode 100644
+index 0000000..9f1b56f
+--- /dev/null
++++ b/tests/guide-cache.test.ts
+@@ -0,0 +1,64 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { createGuideMetadataStore, readGuideCache, GUIDE_CACHE_MAX_ROWS, PROGRAM_METADATA_MAX_AGE_MS } from '../packages/storage/src/guide-cache';
++import type { GuideEntry } from '../packages/core/src/index';
++
++const now = Date.parse('2026-10-02T16:00:00Z');
++const row = (id = 'yttv:synthetic-a', age = 1000): GuideEntry => ({ channel: { id, name: 'Synthetic channel' },
++  programTitle: 'Synthetic program', nextProgramTitle: 'Synthetic next', evidenceClass: 'LIVE', observedAt: new Date(now - age).toISOString(),
++  available: true, target: { kind: 'navigation', channelId: id, url: 'https://tv.youtube.com/watch?v=synthetic-test-only', verifiedAt: new Date(now - age).toISOString(), evidenceClass: 'LIVE' } });
++const raw = (rows = [row()]): unknown => ({ schemaVersion: 1, observedAt: new Date(now).toISOString(), rows });
++
++test('metadata whitelist drops URLs, targets, credentials and session authority without renewing age', () => {
++  const cache = readGuideCache({ ...(raw() as object), token: 'private', tabId: 123, rows: [{ ...row(), sessionId: 'private', password: 'private' }] }, now)!;
++  assert.equal(cache.rows[0].observedAt, row().observedAt);
++  assert.equal(cache.rows[0].metadataSource, 'CACHED'); assert.equal(cache.rows[0].target, null); assert.equal(cache.rows[0].available, false);
++  assert.doesNotMatch(JSON.stringify(cache), /https:|synthetic-test-only|private|tabId|sessionId|password|verifiedAt/);
++  const reread = readGuideCache(cache, now + 10_000)!;
++  assert.equal(reread.observedAt, cache.observedAt); assert.equal(reread.rows[0].observedAt, cache.rows[0].observedAt);
++});
++
++test('stale program metadata expires while unavailable identity and observed order remain', () => {
++  const rows = [row('yttv:synthetic-a', PROGRAM_METADATA_MAX_AGE_MS + 1), { ...row('yttv:synthetic-b'), available: false, target: null }];
++  const cache = readGuideCache(raw(rows), now)!;
++  assert.deepEqual(cache.rows.map(r => r.channel.id), rows.map(r => r.channel.id));
++  assert.equal(cache.rows[0].programTitle, undefined); assert.equal(cache.rows[0].nextProgramTitle, undefined);
++  assert.equal(cache.rows[0].observedAt, rows[0].observedAt); assert.equal(cache.rows[1].programTitle, 'Synthetic program');
++});
++
++test('missing malformed future unsupported duplicate and oversized cache states fail closed', () => {
++  for (const value of [undefined, null, 'bad-json', [], {}, { ...(raw() as object), schemaVersion: 2 },
++    { ...(raw() as object), observedAt: new Date(now + 1).toISOString() }, raw([{ ...row(), observedAt: new Date(now + 1).toISOString() }]),
++    raw([{ ...row(), observedAt: 'bad-date' }]), raw([row(), row()]), raw(Array.from({ length: GUIDE_CACHE_MAX_ROWS + 1 }, (_, i) => row(`yttv:synthetic-${i}`))),
++    { ...(raw() as object), extra: 'x'.repeat(512_001) }, raw([{ ...row(), channel: { id: 'https://example.test/token=secret', name: 'bad' } }])]) {
++    assert.equal(readGuideCache(value, now), null);
++  }
++});
++
++test('failed storage read or write keeps metadata recovery optional and permits later fresh retention', async () => {
++  let reject = true; let stored: unknown;
++  const store = createGuideMetadataStore({ get: async () => { throw new Error('synthetic read failure'); }, set: async (_key, value) => { if (reject) throw new Error('synthetic write failure'); stored = value; } }, () => now);
++  assert.equal(await store.load(), null);
++  await store.retain([row()]); assert.equal(store.rows.length, 1);
++  reject = false; await store.retain([row('yttv:synthetic-a', 0)]);
++  assert.equal(readGuideCache(stored, now)!.rows[0].observedAt, row('yttv:synthetic-a', 0).observedAt);
++});
++
++test('serialized asynchronous writes cannot overwrite a newer guide and older observations are ignored', async () => {
++  let stored: unknown; let release!: () => void; let calls = 0;
++  const store = createGuideMetadataStore({ get: async () => undefined, set: async (_key, value) => { calls++; if (calls === 1) await new Promise<void>(resolve => { release = resolve; }); stored = value; } }, () => now);
++  await store.load();
++  const older = store.retain([row()]); await Promise.resolve(); await Promise.resolve();
++  const newer = store.retain([{ ...row('yttv:synthetic-a', 0), programTitle: 'New synthetic program' }, row('yttv:synthetic-b')]);
++  assert.equal(calls, 1); release(); await Promise.all([older, newer]);
++  await store.retain([row('yttv:synthetic-a', 5000)]);
++  assert.equal(readGuideCache(stored, now)!.rows[0].programTitle, 'New synthetic program'); assert.equal(calls, 2);
++  assert.deepEqual(store.rows.map(r => r.channel.id), ['yttv:synthetic-a', 'yttv:synthetic-b']);
++});
++
++test('cache reads cached Watch observations and fixture observations never write or renew metadata', async () => {
++  let writes = 0;
++  const store = createGuideMetadataStore({ get: async () => raw(), set: async () => { writes++; } }, () => now);
++  const loaded = await store.load(); await store.retain(store.rows); await store.retain([{ ...row(), evidenceClass: 'FIXTURE' }]);
++  assert.equal(writes, 0); assert.equal(store.rows[0].observedAt, loaded!.rows[0].observedAt);
++});
+diff --git a/tests/guide-recovery.test.ts b/tests/guide-recovery.test.ts
+new file mode 100644
+index 0000000..ea09e22
+--- /dev/null
++++ b/tests/guide-recovery.test.ts
+@@ -0,0 +1,74 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { build } from 'esbuild';
++import { runInNewContext } from 'node:vm';
++import { envelope, type Command } from '../apps/chrome-extension/src/adapter';
++import { defaultPreferences, PREFERENCES_KEY } from '../packages/storage/src/index';
++import { GUIDE_CACHE_KEY } from '../packages/storage/src/guide-cache';
++
++// VM-only bridge fixtures: no browser, real playback handle or real navigation is available.
++const worker = build({ entryPoints: ['apps/chrome-extension/src/background.ts'], bundle: true, write: false, format: 'iife', platform: 'browser' });
++const stamp = new Date(Date.now() - 1000).toISOString();
++const rows = ['a', 'unavailable', 'b'].map(id => ({ channel: { id: `yttv:synthetic-${id}`, name: `Synthetic ${id}` }, programTitle: 'Synthetic program', observedAt: stamp, evidenceClass: 'LIVE', available: false, target: null }));
++const prefs = { ...defaultPreferences(), favorites: [rows[0].channel.id], hiddenChannels: [rows[1].channel.id], channelOrder: rows.map(r => r.channel.id).reverse(), currentChannel: rows[0].channel.id, previousChannel: rows[2].channel.id, recentChannels: [rows[0].channel.id, rows[2].channel.id] };
++const watch = () => ({ guide: [], route: 'watch', observedAt: new Date().toISOString(), playback: { playing: true, muted: true, readyState: 4, currentTime: 10 } });
++async function harness(cache: unknown = { schemaVersion: 1, observedAt: stamp, rows }, failCache = false, failPrefs = false) {
++  const local: Record<string, unknown> = { [GUIDE_CACHE_KEY]: structuredClone(cache), [PREFERENCES_KEY]: structuredClone(prefs) };
++  const actions: unknown[] = []; let callback: any;
++  const sender = { id: 'synthetic-extension', url: 'https://tv.youtube.com/watch?v=synthetic-test-only', tab: { id: 1 } };
++  const chrome = {
++    storage: { local: { get: async (key: string) => { if ((failCache && key === GUIDE_CACHE_KEY) || (failPrefs && key === PREFERENCES_KEY)) throw new Error('Synthetic storage failure'); return { [key]: structuredClone(local[key]) }; }, set: async (value: object) => { if (failCache && GUIDE_CACHE_KEY in value) throw new Error('Synthetic cache write failure'); Object.assign(local, structuredClone(value)); } }, session: { get: async () => ({}), set: async () => {} } },
++    runtime: { id: 'synthetic-extension', getURL: () => 'chrome-extension://synthetic-extension/', sendMessage: async () => {}, onMessage: { addListener: (fn: any) => { callback = fn; } } },
++    tabs: { query: async () => [{ id: 1, url: sender.url, active: true }], get: async () => ({ id: 1, url: sender.url }), update: async (_id: number, value: unknown) => { actions.push(structuredClone(value)); }, sendMessage: async (_id: number, message: any) => message.type === 'GET_OBSERVATION' ? watch() : { ok: false, code: 'TARGET_UNAVAILABLE' }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
++  };
++  const restart = async () => { runInNewContext((await worker).outputFiles[0].text, { chrome, URL, setTimeout, clearTimeout, setInterval, clearInterval }); };
++  await restart();
++  const send = (command: Command): Promise<any> => new Promise(resolve => callback(envelope(command), sender, (value: unknown) => resolve(structuredClone(value))));
++  return { send, local, actions, restart };
++}
++
++test('fresh worker plus runtime reload and Watch initialization restores rows/preferences with disabled authority and unchanged history', async () => {
++  const h = await harness();
++  for (let i = 0; i < 2; i++) {
++    const snap = await h.send({ type: 'GET_SNAPSHOT' });
++    assert.deepEqual(snap.guide.map((r: any) => r.channel.id), rows.map(r => r.channel.id));
++    assert.deepEqual(snap.preferences, prefs); assert.equal(snap.currentConfirmed, false);
++    assert.equal(snap.capabilities.navigation, false); assert.equal(snap.guideObservedAt, stamp);
++    assert(snap.guide.every((r: any) => r.metadataSource === 'CACHED' && !r.available && r.target === null && r.observedAt === stamp));
++    await h.send({ type: 'OBSERVE', observation: { ...watch(), guide: snap.guide, guideObservedAt: stamp } as any });
++    assert.deepEqual((await h.send({ type: 'GET_SNAPSHOT' })).preferences, prefs);
++    assert.equal((await h.send({ type: 'PREVIOUS' })).code, 'TARGET_UNAVAILABLE');
++    assert.equal((await h.send({ type: 'CREATE_PANE', channelId: rows[0].channel.id })).code, 'TARGET_UNAVAILABLE');
++    assert.equal(h.actions.some((a: any) => a.url), false, 'restoration never navigates');
++    await h.restart();
++  }
++});
++
++test('native Live reacquisition enables only fresh validated targets and preserves missing/unavailable rows', async () => {
++  const h = await harness(); await h.send({ type: 'GET_SNAPSHOT' });
++  const fresh = new Date().toISOString();
++  const validated = { ...rows[0], observedAt: fresh, available: true, target: { kind: 'navigation', channelId: rows[0].channel.id, url: 'https://tv.youtube.com/watch?v=synthetic-test-only', verifiedAt: fresh, evidenceClass: 'LIVE' } };
++  await h.send({ type: 'OBSERVE', observation: { ...watch(), route: 'guide', guide: [validated, { ...rows[2], observedAt: fresh, target: { ...validated.target, channelId: rows[2].channel.id, url: 'https://media.invalid/synthetic' }, available: true }], guideObservedAt: fresh } as any });
++  const snap = await h.send({ type: 'GET_SNAPSHOT' });
++  assert.equal(snap.capabilities.navigation, true); assert.equal(snap.guide.length, 3);
++  assert(snap.guide[0].target); assert.equal(snap.guide[1].target, null); assert.equal(snap.guide[2].target, null);
++  assert.deepEqual(snap.preferences, prefs); assert.equal(snap.currentConfirmed, false);
++  assert.doesNotMatch(JSON.stringify(h.local[GUIDE_CACHE_KEY]), /https:|verifiedAt|tabId|windowId/);
++  await h.restart(); assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).capabilities.navigation, false);
++});
++
++test('missing or failed cache preserves preferences Watch playback and explicit same-tab Live recovery', async () => {
++  for (const h of [await harness(null), await harness({ schemaVersion: 2 }), await harness(null, true)]) {
++    const snap = await h.send({ type: 'GET_SNAPSHOT' });
++    assert.deepEqual(snap.preferences, prefs); assert.equal(snap.playback.playing, true); assert.equal(snap.capabilities.navigation, false);
++    assert.equal((await h.send({ type: 'OPEN_NATIVE_GUIDE' })).ok, true);
++    assert.deepEqual(h.actions.at(-1), { url: 'https://tv.youtube.com/live', muted: true });
++  }
++});
++
++test('failed preference read cannot overwrite retained preferences or block optional cached guide', async () => {
++  const h = await harness(undefined, false, true);
++  assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).guide.length, 3);
++  assert.equal((await h.send({ type: 'PREFERENCE', patch: { favorites: [] } })).ok, false);
++  assert.deepEqual(h.local[PREFERENCES_KEY], prefs);
++});

@@ -1,0 +1,9 @@
+# YouTube TV Desktop Client — next steps
+
+Updated 2026-10-02. **Loaded from PASS (owner report), exact installed v0.1.7 / 9d07499eeceaf524 / idaaiiafgopfpaojpnhaoefbefllioab PASS. Watch cached presentation, original age/order/preferences/history presentation and navigation guards PASS; explicit native Live target reacquisition and confirmed muted CBS navigation PASS.** Pre-refresh reload isolation/muted advancement PASS. Mute across the immediate refresh/Live boundaries is INCONCLUSIVE; actual worker/browser restart/disable-enable NOT RUN. Foundation PARTIAL; two-feed GATED. Earlier failed attempt retained, cause UNKNOWN; unchanged source/bundle retain recorded 66-test verification.
+
+Project `/Users/michaelfuscoletti/Desktop/yttv-desktop`. [Authoritative NEXT_TASK](yttv-desktop/NEXT_TASK.md), [R2 run](yttv-desktop/docs/evidence/runs/20261002-c1-q1-r2/run.md), [individual Watch results](yttv-desktop/docs/evidence/runs/20261002-c1-q1-r2/watch-runtime-recovery-comparison.json). This file is a pointer; ROADMAP owns sequencing and BACKLOG owns status.
+
+One bounded next task: **C1-Q1-R2-M1**, resolve immediate per-video refresh mute evidence on the same candidate before another lifecycle stage. Actual worker/browser/disable-enable each remain NOT RUN and require separate supported owner handoffs. Existing management automation block remains; preserve ID/storage, preferences, every bundle/evidence directory and unrelated tabs. No extra feed.
+
+[Status](yttv-desktop/docs/BETA_STATUS.md), [roadmap](yttv-desktop/docs/ROADMAP.md), [backlog](yttv-desktop/docs/BACKLOG.md), [acceptance](yttv-desktop/docs/ACCEPTANCE_AND_TEST_PLAN.md). R1 scoped U04 PASS retained; full foundation/beta/owner/U01–U18/three-game acceptance open; timing/resources INCONCLUSIVE; two-feed GATED. All real playback muted; stop at stated safety conditions. No provider/higher-count/audio/composition/platform/purchase/capture/bypass/remote/publication expansion.

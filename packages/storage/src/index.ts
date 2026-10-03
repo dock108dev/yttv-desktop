@@ -1,11 +1,35 @@
 import { normalizeText, type GuideEntry, type PlaybackTarget } from '../../core/src/index.js';
 
-export type KeyboardAction = 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
+export type KeyboardAction = 'watch' | 'search' | 'help' | 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
   'pane2' | 'pane3' | 'pane4' | 'expand' | 'restore' | 'up' | 'down' | 'left' | 'right';
 export const DEFAULT_KEYBOARD_MAPPINGS: Record<KeyboardAction, string> = {
   guide: 'g', sports: 's', quadbox: 'q', previous: 'p', mute: 'm', pane1: '1', pane2: '2', pane3: '3', pane4: '4',
   expand: 'Enter', restore: 'Escape', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight',
+  watch: 'w', search: '/', help: '?',
 };
+export const KEYBOARD_LABELS: Record<KeyboardAction, string> = {
+  watch: 'Watch', guide: 'Guide', sports: 'Sports', quadbox: 'QuadBox', previous: 'Previous channel', mute: 'Mute all',
+  pane1: 'Focus window 1', pane2: 'Focus window 2', pane3: 'Focus window 3', pane4: 'Focus window 4',
+  expand: 'Activate row / expand window', restore: 'Cancel / restore layout', up: 'Previous guide row', down: 'Next guide row',
+  left: 'First row control', right: 'Last row control', search: 'Search', help: 'Show shortcuts',
+};
+/** Only unmodified keys: browser chords, Tab, space and function keys retain native ownership. */
+export function normalizeKeyboardKey(value: string): string | null {
+  const key = value.trim();
+  if (!key) return '';
+  const named = ['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].find(item => item.toLowerCase() === key.toLowerCase());
+  return named ?? (/^[!-~]$/.test(key) ? key.toLowerCase() : null);
+}
+export function validateKeyboardMappings(mappings: Record<KeyboardAction, string>): string | null {
+  const used = new Set<string>();
+  for (const action of Object.keys(DEFAULT_KEYBOARD_MAPPINGS) as KeyboardAction[]) {
+    const key = normalizeKeyboardKey(mappings[action]);
+    if (key === null) return `${KEYBOARD_LABELS[action]}: use one printable key, Enter, Escape or an arrow key.`;
+    if (key && used.has(key)) return `The key ${key} is assigned more than once. Use a different key or leave it blank.`;
+    if (key) used.add(key);
+  }
+  return null;
+}
 export interface SavedQuadPane { id: string; eventId: string | null; channelId: string | null; target: PlaybackTarget | null }
 export interface SavedQuadLayout { id: string; name: string; panes: SavedQuadPane[]; selectedPaneId: string | null }
 export interface Preferences {
@@ -13,7 +37,7 @@ export interface Preferences {
   currentChannel: string | null; previousChannel: string | null; favoriteTeams: string[]; favoriteLeagues: string[];
   keyboardMappings: Record<KeyboardAction, string>; quadLayouts: SavedQuadLayout[]; lastQuad: SavedQuadLayout | null;
   ui: { denseGuide: boolean; theme: 'dark' | 'light' | 'system'; lastSurface: 'WATCH' | 'GUIDE' | 'SPORTS' | 'QUADBOX' };
-  /** User-requested overnight policy: real sessions stay muted even when focus changes. */
+  /** Legacy schema field retained for compatibility; the expired hold conveys no audio authority. */
   nightMuteLock: boolean;
 }
 export const PREFERENCES_KEY = 'yttv-desktop.preferences.v1';
@@ -22,7 +46,7 @@ export function defaultPreferences(): Preferences {
   return {
     schemaVersion: 1, favorites: [], hiddenChannels: [], channelOrder: [], recentChannels: [], currentChannel: null,
     previousChannel: null, favoriteTeams: [], favoriteLeagues: [], keyboardMappings: { ...DEFAULT_KEYBOARD_MAPPINGS },
-    quadLayouts: [], lastQuad: null, ui: { denseGuide: true, theme: 'dark', lastSurface: 'GUIDE' }, nightMuteLock: true,
+    quadLayouts: [], lastQuad: null, ui: { denseGuide: true, theme: 'dark', lastSurface: 'GUIDE' }, nightMuteLock: false,
   };
 }
 export const DEFAULT_PREFERENCES = defaultPreferences();
@@ -55,8 +79,8 @@ export function sanitizePreferences(value: unknown): Preferences {
   for (const action of Object.keys(mappings) as KeyboardAction[]) {
     const proposed = typeof keyboard[action] === 'string' && (keyboard[action] as string).length <= 24 ? (keyboard[action] as string).trim() : mappings[action];
     // Empty disables a key. Duplicate custom keys cannot trigger multiple actions.
-    const normalized = proposed.toLowerCase();
-    mappings[action] = normalized && used.has(normalized) ? '' : proposed;
+    const normalized = normalizeKeyboardKey(proposed) ?? '';
+    mappings[action] = normalized && used.has(normalized) ? '' : normalized;
     if (normalized) used.add(normalized);
   }
   const ui = object(input.ui);
@@ -70,7 +94,7 @@ export function sanitizePreferences(value: unknown): Preferences {
     ui: { denseGuide: typeof ui.denseGuide === 'boolean' ? ui.denseGuide : defaults.ui.denseGuide,
       theme: ['dark', 'light', 'system'].includes(String(ui.theme)) ? ui.theme as Preferences['ui']['theme'] : defaults.ui.theme,
       lastSurface: ['WATCH', 'GUIDE', 'SPORTS', 'QUADBOX'].includes(String(ui.lastSurface)) ? ui.lastSurface as Preferences['ui']['lastSurface'] : defaults.ui.lastSurface },
-    nightMuteLock: typeof input.nightMuteLock === 'boolean' ? input.nightMuteLock : true,
+    nightMuteLock: false, // The temporary overnight hold is retired; this field conveys no audio authority.
   };
 }
 /** Call only after the adapter confirms the new channel; attempts and repeated observations are ignored. */

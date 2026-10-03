@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts packages/ui/src/*.test.ts",
     "preview": "node scripts/preview.mjs",
+    "sports:relay": "node --env-file=.local/sports-provider.env --import tsx scripts/sports-relay.ts",
+    "build:sports-candidate": "node scripts/build.mjs --sports-candidate",
     "verify": "npm run typecheck && npm test && npm run build && npm run docs:check"
   },
   "dependencies": {

@@ -1,0 +1,34 @@
+{
+  "drawerExpanded": "false",
+  "hosts": 1,
+  "identity": null,
+  "method": "read-only supported DOM",
+  "notice": "Guide navigation needs a fresh native Live observation.Saved channels and programs are last observed metadata. Watch/Add remain unavailable; current playback and preferences are preserved.Open native Live",
+  "observedAt": "2026-10-02T23:48:11.633Z",
+  "visiblePlayers": [
+    {
+      "currentTime": 0,
+      "height": 118.71875,
+      "muted": false,
+      "paused": true,
+      "readyState": 0,
+      "width": 193.5
+    },
+    {
+      "currentTime": 0,
+      "height": 118.71875,
+      "muted": false,
+      "paused": true,
+      "readyState": 0,
+      "width": 193.5
+    },
+    {
+      "currentTime": 46977.909751,
+      "height": 277,
+      "muted": false,
+      "paused": false,
+      "readyState": 4,
+      "width": 493
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allVideosMuted": true,
+  "at": "2026-10-02T23:02:43.991Z",
+  "clip": {
+    "height": 92.796875,
+    "width": 438,
+    "x": 38,
+    "y": 73
+  },
+  "extensionState": "refresh-required",
+  "hostCount": 1,
+  "notice": "Desktop extension updated. Refresh this YouTube TV page to reconnect. Your underlying playback remains muted.",
+  "noticeCount": 1,
+  "player": {
+    "currentTime": 47644.714808,
+    "muted": true,
+    "paused": false,
+    "readyState": 4
+  },
+  "route": "watch",
+  "workspaceCount": 0
+}

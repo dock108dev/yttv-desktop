@@ -15,13 +15,14 @@ export interface PlaybackTarget {
   kind: 'navigation'; channelId: string; url: string; verifiedAt: string; evidenceClass: EvidenceClass;
 }
 export interface GuideEntry {
+  metadataSource?: 'OBSERVED' | 'CACHED';
   channel: ChannelRef; programTitle?: string; nextProgramTitle?: string;
   programStart?: string; programEnd?: string; league?: string; teamIds?: string[];
   available: boolean; target: PlaybackTarget | null; observedAt: string; evidenceClass: EvidenceClass;
 }
 export interface SportsEvent {
   id: string; league: string; homeTeam: Team; awayTeam: Team;
-  scheduledStart: string; scheduledEnd: string | null;
+  scheduledStart: string | null; scheduledEnd: string | null;
   status: EventStatus; statusDetail: string | null; score: Score | null; period: string | null; clock: string | null;
   broadcastNetworks: BroadcastCandidate[]; originalChannel: ChannelRef | null; currentChannel: ChannelRef | null;
   yttvTarget: PlaybackTarget | null; providerEventId: string; source: string;

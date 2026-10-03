@@ -1,0 +1,18 @@
+{
+  "recordedAt": "2026-10-03T00:17:52.756256+00:00",
+  "candidate": "v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab",
+  "singleFeed": "PASS",
+  "twoFeedManagedWindows": "PASS",
+  "durationSeconds": 923.059,
+  "docsCheck": {
+    "result": "PASS",
+    "markdownFiles": 45,
+    "localLinks": 300,
+    "errors": []
+  },
+  "gitDiffCheck": "PASS",
+  "sourceChangesInInstalledContinuation": false,
+  "verification": "Retained 68-test verify; 26 source inputs, 8 test files, 9 bundle files match candidate",
+  "canonicalTrackersUpdated": "Once at installed viewing closeout",
+  "betaAcceptance": "PARTIAL; grouped release checks remain"
+}

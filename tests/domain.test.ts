@@ -29,7 +29,7 @@ function guide(event: SportsEvent, id = 'fixture:yes', overrides: Partial<GuideE
   const network = event.broadcastNetworks[0]!;
   return { channel: { id, name: network.name, networkId: network.networkId }, available: true, target: target(id),
     observedAt: iso(), evidenceClass: 'FIXTURE', programTitle: `${event.awayTeam.name} at ${event.homeTeam.name}`,
-    programStart: event.scheduledStart, programEnd: event.scheduledEnd ?? undefined, league: event.league,
+    programStart: event.scheduledStart ?? undefined, programEnd: event.scheduledEnd ?? undefined, league: event.league,
     teamIds: [event.homeTeam.id, event.awayTeam.id], ...overrides };
 }
 function pane(id: string, event = fixtures()[0]!, session = `session-${id}`): QuadPane {
@@ -246,7 +246,7 @@ test('saved layouts exclude sessions and all volatile navigation handles, and re
   assert.ok(prefs.lastQuad?.panes.every(pane => pane.target === null));
   const restored = restoreSavedQuadLayout(prefs.lastQuad);
   assert.equal(restored.panes.length, 2); assert.ok(restored.panes.every(pane => !pane.playbackSession && !pane.playbackTarget && pane.availability === 'REVALIDATION_REQUIRED'));
-  assert.equal(restored.nightMuteLock, true);
+  assert.equal(restored.nightMuteLock, false);
 });
 test('keyboard custom bindings cannot trigger multiple actions from one key', () => {
   const prefs = sanitizePreferences({ keyboardMappings: { guide: 'x', sports: 'X', quadbox: '' } });
@@ -313,4 +313,11 @@ test('fresh FINAL retains pane/session and suggestions require fresh eligible re
   const alternatives = suggestLiveAlternatives(updated, [live, delayed, stale], [guide(live, 'espn2'), guide(delayed, 'espn')], NOW);
   assert.deepEqual(alternatives.map(event => event.id), [live.id]);
   assert.equal(suggestLiveAlternatives(updated, [live], [guide(live, 'espn2', { available: false })], NOW).length, 0);
+});
+
+test('keyboard import disables invalid/duplicate mappings deterministically and preserves old schema defaults', () => {
+  const prefs = sanitizePreferences({ keyboardMappings: { guide: ' X ', sports: 'x', mute: 'Ctrl+m', pane1: 'Tab', pane2: ' ', up: 'arrowup' } });
+  assert.equal(prefs.keyboardMappings.guide, 'x'); assert.equal(prefs.keyboardMappings.sports, '');
+  assert.equal(prefs.keyboardMappings.mute, ''); assert.equal(prefs.keyboardMappings.pane1, ''); assert.equal(prefs.keyboardMappings.pane2, '');
+  assert.equal(prefs.keyboardMappings.up, 'ArrowUp'); assert.equal(prefs.keyboardMappings.watch, 'w');
 });

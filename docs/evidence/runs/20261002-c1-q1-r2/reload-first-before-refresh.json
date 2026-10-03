@@ -1,0 +1,16 @@
+{
+  "allVideosMuted": true,
+  "at": "2026-10-02T19:54:08.306Z",
+  "drawerHidden": false,
+  "extensionState": null,
+  "hostCount": 1,
+  "noticeCount": 0,
+  "player": {
+    "currentTime": 50053.322787,
+    "muted": true,
+    "paused": false,
+    "readyState": 4
+  },
+  "route": "guide",
+  "workspaceCount": 1
+}

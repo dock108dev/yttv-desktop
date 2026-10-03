@@ -8,7 +8,7 @@ export interface QuadPane {
   id: string; eventId: string | null; resolvedChannel: ChannelRef | null; playbackTarget: PlaybackTarget | null;
   playbackSession: string | null; lastKnownEvent: SportsEvent | null;
   availability: 'READY' | 'UNAVAILABLE' | 'REVALIDATION_REQUIRED'; muted: boolean;
-  audioState?: 'CONFIRMED_MUTED' | 'CONFIRMED_AUDIBLE' | 'UNKNOWN';
+  audioState?: 'CONFIRMED_MUTED' | 'CONFIRMED_ENABLED' | 'UNKNOWN';
 }
 export interface QuadState {
   panes: QuadPane[]; selectedPaneId: string | null; audioFocusId: string | null;
@@ -17,7 +17,7 @@ export interface QuadState {
 }
 export function createQuadState(options: { maxPanes?: 2 | 3 | 4; nightMuteLock?: boolean } = {}): QuadState {
   return { panes: [], selectedPaneId: null, audioFocusId: null, layout: 'GRID', expandedPaneId: null, previousLayout: null,
-    maxPanes: options.maxPanes ?? 4, nightMuteLock: options.nightMuteLock ?? true, audioError: null };
+    maxPanes: options.maxPanes ?? 4, nightMuteLock: options.nightMuteLock ?? false, audioError: null };
 }
 function validPane(pane: QuadPane): QuadPane {
   if (!pane.id || (pane.lastKnownEvent && pane.eventId !== pane.lastKnownEvent.id) ||
@@ -89,7 +89,7 @@ export async function transferAudioFocus(state: QuadState, paneId: string, port:
     return { ...allMuted, panes: allMuted.panes.map(pane => pane.id === paneId ? { ...pane, audioState: compensated ? 'CONFIRMED_MUTED' : 'UNKNOWN' } : pane),
       audioError: compensated ? 'Audio focus failed; all panes requested muted.' : 'Audio focus and fallback mute failed; selected session audio is unknown.' };
   }
-  return { ...allMuted, audioError: null, audioFocusId: paneId, panes: allMuted.panes.map(pane => pane.id === paneId ? { ...pane, muted: false, audioState: 'CONFIRMED_AUDIBLE' } : pane) };
+  return { ...allMuted, audioError: null, audioFocusId: paneId, panes: allMuted.panes.map(pane => pane.id === paneId ? { ...pane, muted: false, audioState: 'CONFIRMED_ENABLED' } : pane) };
 }
 /** Serialize rapid clicks so independent handoffs cannot leave two sessions audible. */
 export function createAudioFocusController(port: AudioPort) {

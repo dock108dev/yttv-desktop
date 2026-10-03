@@ -8,17 +8,9 @@ const HOST_ID = 'yttv-desktop-local-beta';
 let adapter: DOMAdapter | undefined;
 let host: HTMLElement | undefined;
 const lifecycle = createExtensionLifecycle();
-// Protect early playback before the UI or the rest of the page is ready.
-const forceMute = (event: Event) => {
-  if (event.target instanceof HTMLVideoElement && !event.target.muted) { event.target.muted = true; event.target.defaultMuted = true; }
-};
 function start() {
   if (host || document.getElementById(HOST_ID)) return;
   host = document.createElement('div'); host.id = HOST_ID;
-  // A repeated injection must not add a second adapter, UI or mute-event listener set.
-  document.addEventListener('play', forceMute, true);
-  document.addEventListener('playing', forceMute, true);
-  document.addEventListener('volumechange', forceMute, true);
   host.style.cssText = 'position:fixed;right:16px;top:72px;z-index:2147483600;font-family:system-ui,sans-serif;';
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
@@ -46,16 +38,17 @@ function start() {
     toggle.setAttribute('aria-label', 'Desktop updated. Refresh the YouTube TV page to reconnect');
     const notice = document.createElement('p'); notice.setAttribute('role', 'status');
     notice.style.cssText = 'margin:0;padding:24px;color:#ecf3ff;font:14px/1.6 system-ui;';
-    notice.textContent = 'Desktop extension updated. Refresh this YouTube TV page to reconnect. Your underlying playback remains muted.';
+    notice.textContent = 'Desktop extension updated. Refresh this YouTube TV page to reconnect. Your underlying playback remains available.';
     drawer.replaceChildren(notice);
   });
-  adapter = createDOMAdapter(document, { ignoreElement: host, nightMuteLock: true });
+  adapter = createDOMAdapter(document, { ignoreElement: host });
   lifecycle.addCleanup(() => adapter?.dispose());
   const runtimeListener = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (value: unknown) => void) => {
     if (!lifecycle.active) return false;
     if (!isMessage(message)) return false;
     if (message.type === 'GET_OBSERVATION') { void lifecycle.guard(() => sendResponse(adapter?.getObservation())); return false; }
     if (message.type === 'NAVIGATE') { void lifecycle.guard(() => adapter!.navigateToChannel(message.channelId)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
+    if (message.type === 'PLAYER_AUDIO') { void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'MUTE') { void lifecycle.guard(() => adapter!.mute()).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'TOGGLE_DESKTOP') { toggleDrawer(); void lifecycle.guard(() => sendResponse({ ok: true })); return false; }
     return false;
@@ -67,7 +60,7 @@ function start() {
   if (lifecycle.active) {
     adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation }))); });
     const bridge = createClientBridge(lifecycle);
-    if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
+    if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false, extensionId: chrome.runtime.id }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
   }
   // New managed watch pages have never rendered the guide themselves. Bootstrap only the
   // background's still-volatile, freshly observed guide; no playback target is persisted.
@@ -88,7 +81,4 @@ else {
 }
 window.addEventListener('pagehide', () => {
   lifecycle.dispose();
-  document.removeEventListener('play', forceMute, true);
-  document.removeEventListener('playing', forceMute, true);
-  document.removeEventListener('volumechange', forceMute, true);
 }, { once: true });
