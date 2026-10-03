@@ -1,21 +1,70 @@
+import { CURRENT_MANAGED_FEED_LIMIT } from '../../../packages/quadbox/src/policy';
 import { sportsListings, listingPlayable } from '../../../packages/sports-engine/src/guide';
-import { createAudioFocusController, createQuadState, type QuadState } from '../../../packages/quadbox/src/index';
+import { createAudioFocusController, createAudioState, type AudioState } from '../../../packages/quadbox/src/index';
 import { guidePrograms, isPlaybackTarget, type GuideEntry } from '../../../packages/core/src/index';
-import { defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
+import { createPreferencesStore, defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
 import { createGuideMetadataStore } from '../../../packages/storage/src/guide-cache';
 import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
 import type { ActionResult, DesktopSnapshot, UIManagedPane } from '../../../packages/ui/src/types';
-import { envelope, isMessage, type Command } from './adapter';
-import { createSportsClient, SPORTS_PERMISSION } from './sports';
-import { resolveEvent } from '../../../packages/event-resolver/src/index';
+import { envelope, isMessage, validCommand, type Command } from './adapter';
+import { createFailureDiagnostics } from './diagnostics';
 
-const SPORTS_SESSION_KEY = 'yttv-desktop.nba-metadata.v1';
-const sports = createSportsClient({ permitted: () => chrome.runtime.getManifest?.().host_permissions?.includes(SPORTS_PERMISSION) ?? false });
+const failures = createFailureDiagnostics();
+let preferencePersistence: 'saved' | 'unavailable' = 'saved';
+let managedSessionReadable = true;
+async function readSession(key: string): Promise<Record<string, unknown>> {
+  try { return await chrome.storage.session.get(key); }
+  catch {
+    if (key === SESSION_KEY) managedSessionReadable = false;
+    failures.record('SESSION_READ_FAILED'); return {};
+  }
+}
+
 
 const SESSION_KEY = 'yttv-desktop.managed-windows.v1';
+const VOLUME_KEY = 'yttv-desktop.player-volume.v1';
+const AUDIO_LOG_KEY = 'yttv-desktop.audio-log.v1';
+const workerStartedAt = new Date().toISOString();
+type VolumeChoice = { volume: number; playerKey: string; appliedAt?: string };
+const volumeChoices = new Map<number, VolumeChoice>();
+const volumeRecoveryStatus = new Map<number, string>();
+type VolumeAttempt = { choice: VolumeChoice; playerKey: string; documentId?: string; count: number; lastAt: number; error?: string; failure?: string };
+const volumeAttempts = new Map<number, VolumeAttempt>();
+const nativeVolumePending = new Map<number, { playerKey: string; documentId?: string; epoch: number }>();
+const volumeEpochs = new Map<number, number>();
+let volumeDiagnostics: NonNullable<DesktopSnapshot['volumeDiagnostics']> = [];
+const volumeWarning = 'Saved player volume could not be restored. Set the selected volume or use the native player.';
+function invalidateVolume(tabId: number) {
+  volumeEpochs.set(tabId, (volumeEpochs.get(tabId) ?? 0) + 1);
+  nativeVolumePending.delete(tabId); volumeAttempts.delete(tabId); volumeRecoveryStatus.delete(tabId);
+}
+function volumeFailure(reply: any): string {
+  const known = ['PLAYER_CHANGED', 'PLAYER_LOADING', 'CONTROL_UNAVAILABLE', 'CONTROL_READBACK_MISSING', 'NATIVE_REFUSED', 'PLAYER_READBACK_MISMATCH'];
+  return known.includes(reply?.audioFailure ?? reply?.code) ? (reply.audioFailure ?? reply.code) : 'UNCONFIRMED_REPLY';
+}
+function logVolume(tabId: number, volume: number, result: string, failure?: string) {
+  const observation = observations.get(tabId);
+  volumeDiagnostics.push({ at: new Date().toISOString(), source: sourceId(tabId) === 'main' ? 'main' : 'added', volume,
+    route: observation?.route ?? 'other', readyState: observation?.playback.readyState ?? null, result, failure });
+  volumeDiagnostics = volumeDiagnostics.slice(-16);
+}
+const playerIdentities = new Map<number, { playerKey: string; documentId?: string }>();
+let audioDiagnostics: NonNullable<DesktopSnapshot['audioDiagnostics']> = [];
+let audioLogQueue: Promise<unknown> = Promise.resolve();
 const DRAWER_KEY = 'yttv-desktop.open-drawers.v1';
-const MAX_TOTAL_WATCH_SESSIONS = 2;
+
 type Bounds = { left?: number; top?: number; width?: number; height?: number; state?: string };
+function restoredBounds(raw: unknown): Bounds | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const row = raw as Record<string, unknown>; const result: Bounds = {};
+  for (const key of ['left', 'top', 'width', 'height'] as const) {
+    if (row[key] === undefined) continue;
+    if (typeof row[key] !== 'number' || !Number.isFinite(row[key]) || (['width', 'height'].includes(key) && row[key] <= 0)) return undefined;
+    result[key] = row[key];
+  }
+  if (typeof row.state === 'string' && ['normal', 'maximized', 'minimized', 'fullscreen'].includes(row.state)) result.state = row.state;
+  return result;
+}
 type Pane = UIManagedPane & { windowId: number; tabId: number; savedBounds?: Bounds };
 const guideMetadata = createGuideMetadataStore({
   get: async key => (await chrome.storage.local.get(key))[key],
@@ -47,28 +96,48 @@ const isYTTV = (url?: string) => { try { return new URL(url ?? '').origin === 'h
 const isWatch = (url?: string) => { try { return isYTTV(url) && new URL(url!).pathname.startsWith('/watch'); } catch { return false; } };
 const init = (async () => {
   try {
-    const stored = await chrome.storage.local.get(PREFERENCES_KEY);
-    preferences = sanitizePreferences(stored[PREFERENCES_KEY]);
-  } catch { preferencesReadable = false; }
+    preferences = await createPreferencesStore({
+      get: async key => (await chrome.storage.local.get(key))[key],
+      set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
+    }).load();
+  } catch { preferencesReadable = false; preferencePersistence = 'unavailable'; failures.record('PREFERENCES_READ_FAILED'); }
   await guideMetadata.load();
-  sports.restore((await chrome.storage.session.get(SPORTS_SESSION_KEY).catch(() => ({} as Record<string, unknown>)))[SPORTS_SESSION_KEY]);
 
-  const storedDrawers = (await chrome.storage.session.get(DRAWER_KEY).catch(() => ({} as Record<string, unknown>)))[DRAWER_KEY];
+  const storedDrawers = (await readSession(DRAWER_KEY))[DRAWER_KEY];
   if (Array.isArray(storedDrawers)) {
     for (const tabId of storedDrawers.slice(0, 1000)) if (Number.isInteger(tabId) && tabId > 0) openDrawers.add(tabId);
   }
-  const session = (await chrome.storage.session.get(SESSION_KEY).catch(() => ({} as Record<string, unknown>)))[SESSION_KEY] as Record<string, unknown> | undefined;
+  const priorLog = (await readSession(AUDIO_LOG_KEY))[AUDIO_LOG_KEY];
+  // Stored diagnostics are untrusted input too. Arbitrary old fields/text never enter snapshots.
+  if (Array.isArray(priorLog)) audioDiagnostics = priorLog.slice(-16).filter(row => row &&
+    typeof row.at === 'string' && row.at.length <= 40 && Number.isFinite(Date.parse(row.at)) &&
+    typeof row.workerStartedAt === 'string' && row.workerStartedAt.length <= 40 && Number.isFinite(Date.parse(row.workerStartedAt)) &&
+    typeof row.muted === 'boolean' && Number.isInteger(row.feeds) && row.feeds >= 0 && row.feeds <= 4 &&
+    ['main', 'added'].includes(row.source) && ['main', 'added', 'none'].includes(row.authority) &&
+    ['requested', 'confirmed', 'failed'].includes(row.result)).map(row => ({ at: row.at, workerStartedAt: row.workerStartedAt,
+      source: row.source, cause: 'restored audio request', muted: row.muted, feeds: row.feeds, authority: row.authority, result: row.result }));
+  const choices = (await readSession(VOLUME_KEY))[VOLUME_KEY];
+  if (Array.isArray(choices)) for (const item of choices.slice(0, 100)) {
+    if (!Number.isInteger(item?.tabId) || !Number.isFinite(item?.volume) || item.volume < 0 || item.volume > 1 || !validId(item?.playerKey)) continue;
+    try { if (isYTTV((await chrome.tabs.get(item.tabId)).url)) volumeChoices.set(item.tabId, { volume: item.volume, playerKey: item.playerKey, appliedAt: typeof item.appliedAt === 'string' ? item.appliedAt : undefined }); } catch { /* closed */ }
+  }
+  const session = (await readSession(SESSION_KEY))[SESSION_KEY] as Record<string, unknown> | undefined;
   const restoredEvent = session?.mainEvent as typeof mainEvent;
   if (restoredEvent && validId(restoredEvent.eventId) && validId(restoredEvent.channelId)) mainEvent = restoredEvent;
   if (session && Array.isArray(session.panes)) {
     for (const raw of session.panes.slice(0, 3)) {
       if (!raw || typeof raw !== 'object') continue;
       const pane = raw as Pane;
-      if (!validId(pane.id) || !validId(pane.channelId) || !Number.isInteger(pane.tabId) || !Number.isInteger(pane.windowId)) continue;
+      if (!validId(pane.id) || pane.id === 'main' || !validId(pane.channelId) || !Number.isInteger(pane.tabId) || !Number.isInteger(pane.windowId) ||
+          pane.tabId === session.mainTabId || panes.some(old => old.id === pane.id || old.tabId === pane.tabId)) continue;
       try {
         const tab = await chrome.tabs.get(pane.tabId);
         if (isYTTV(tab.url) && tab.windowId === pane.windowId) {
-          panes.push({ ...pane, muted: true }); await chrome.tabs.update(pane.tabId, { muted: true });
+          panes.push({ id: pane.id, channelId: pane.channelId, channelName: typeof pane.channelName === 'string' ? pane.channelName.slice(0, 150) : 'Added feed',
+            eventId: validId(pane.eventId) ? pane.eventId : undefined, tabId: pane.tabId, windowId: pane.windowId, muted: null,
+            savedBounds: restoredBounds(pane.savedBounds), status: 'Restored window; playback not yet confirmed' });
+          try { await setTabMuted(pane.tabId, true, 'worker restore added layout'); }
+          catch { failures.record('RESTORE_AUDIO_FAILED'); audioError = 'Restored feed mute could not be confirmed. Use native mute or close the added feed.'; }
         }
       } catch { /* A closed session is not restored or silently recreated. */ }
     }
@@ -76,10 +145,14 @@ const init = (async () => {
     if (Number.isInteger(session.mainTabId)) {
       try { const tab = await chrome.tabs.get(session.mainTabId as number); if (isYTTV(tab.url) && !panes.some(p => p.tabId === tab.id)) mainTabId = tab.id; } catch { /* closed */ }
     }
-    if (panes.length && mainTabId) await chrome.tabs.update(mainTabId, { muted: true }).catch(() => undefined);
+    if (panes.length && mainTabId) await setTabMuted(mainTabId, true, 'worker restore multiple feeds').catch(() => {
+      failures.record('RESTORE_AUDIO_FAILED'); audioError = 'Restored main mute could not be confirmed. Use native mute or close the added feed.';
+    });
     if (typeof session.expandedPaneId === 'string' && panes.some(pane => pane.id === session.expandedPaneId)) expandedPaneId = session.expandedPaneId;
   }
 })();
+// Keep initialization rejection observable even before the first command arrives.
+void init.catch(() => failures.record('COMMAND_FAILED'));
 
 function controlledIds(): number[] { return [...new Set([...(mainTabId ? [mainTabId] : []), ...panes.map(p => p.tabId)])]; }
 function sourceId(tabId: number): string | undefined { return tabId === mainTabId ? 'main' : panes.find(p => p.tabId === tabId)?.id; }
@@ -101,9 +174,65 @@ async function mainPane(): Promise<Pane | null> {
   } catch { return null; }
 }
 async function controlledPanes(): Promise<Pane[]> { const main = await mainPane(); return [...(main ? [main] : []), ...panes]; }
-async function muteSource(tabId: number) {
+async function setTabMuted(tabId: number, muted: boolean, cause: string, url?: string) {
+  const row = { at: new Date().toISOString(), workerStartedAt, source: tabId === mainTabId ? 'main' : 'added', cause, muted, feeds: controlledIds().length,
+    authority: audioFocusId === 'main' ? 'main' : audioFocusId ? 'added' : 'none', result: 'requested' };
+  audioDiagnostics.push(row); audioDiagnostics = audioDiagnostics.slice(-16);
+  const persist = () => { const rows = structuredClone(audioDiagnostics); audioLogQueue = audioLogQueue.catch(() => undefined).then(() => chrome.storage.session.set({ [AUDIO_LOG_KEY]: rows })); void audioLogQueue.catch(() => failures.record('AUDIO_LOG_WRITE_FAILED')); };
+  try { const result = await chrome.tabs.update(tabId, { muted, ...(url ? { url } : {}) }); row.result = 'confirmed'; persist(); return result; }
+  catch (error) { row.result = 'failed'; persist(); throw error; }
+}
+async function saveVolumeChoices() {
+  await chrome.storage.session.set({ [VOLUME_KEY]: [...volumeChoices].map(([tabId, choice]) => ({ tabId, ...choice })) });
+}
+async function reconcileVolume(tabId: number, playerKey: string, documentId?: string) {
+  const identity = playerIdentities.get(tabId); const observation = observations.get(tabId); const choice = volumeChoices.get(tabId);
+  if (nativeVolumePending.has(tabId)) return;
+  if (!choice || identity?.playerKey !== playerKey || identity.documentId !== documentId || !controlledIds().includes(tabId)) return;
+  if (observation?.route !== 'watch' || (observation.playback.readyState ?? 0) < 2 || observation.playback.volume == null) {
+    volumeRecoveryStatus.set(tabId, 'Waiting for ready watch player'); return;
+  }
+  if (choice.playerKey === playerKey) {
+    // A later native volume change on this same player becomes the user's current choice.
+    if ((!choice.appliedAt || Date.parse(observation.observedAt) > Date.parse(choice.appliedAt)) && choice.volume !== observation.playback.volume) {
+      volumeChoices.set(tabId, { ...choice, volume: observation.playback.volume });
+      invalidateVolume(tabId); volumeRecoveryStatus.set(tabId, 'Native choice retained'); await saveVolumeChoices();
+    }
+    return;
+  }
+  let attempt = volumeAttempts.get(tabId);
+  if (!attempt || attempt.choice !== choice || attempt.playerKey !== playerKey || attempt.documentId !== documentId) {
+    attempt = { choice, playerKey, documentId, count: 0, lastAt: 0 }; volumeAttempts.set(tabId, attempt);
+  }
+  // Retry only on later ready observations, twice at most. Persistent refusal keeps the native fallback.
+  const now = Date.parse(observation.observedAt);
+  if (attempt.count >= 3 || (attempt.count && now - attempt.lastAt < 10_000)) return;
+  attempt.count++; attempt.lastAt = now;
+  const epoch = volumeEpochs.get(tabId) ?? 0;
+  const current = () => volumeChoices.get(tabId) === choice && volumeAttempts.get(tabId) === attempt && (volumeEpochs.get(tabId) ?? 0) === epoch &&
+    playerIdentities.get(tabId)?.playerKey === playerKey && playerIdentities.get(tabId)?.documentId === documentId && controlledIds().includes(tabId) &&
+    observations.get(tabId)?.route === 'watch' && (observations.get(tabId)?.playback.readyState ?? 0) >= 2;
+  volumeRecoveryStatus.set(tabId, 'Checking ready replacement'); logVolume(tabId, choice.volume, 'requested');
+  let reply: any;
+  try { reply = await chrome.tabs.sendMessage(tabId, envelope({ type: 'PLAYER_AUDIO', volume: choice.volume, playerKey }), documentId ? { documentId } : undefined); }
+  catch { reply = { audioFailure: 'MESSAGE_UNAVAILABLE' }; }
+  if (!current()) { logVolume(tabId, choice.volume, 'superseded'); return; }
+  if (reply?.ok && Math.abs((reply.value?.volume ?? -1) - choice.volume) <= .001) {
+    attempt.error = undefined; attempt.failure = undefined;
+    volumeRecoveryStatus.set(tabId, 'Restored on ready replacement'); logVolume(tabId, choice.volume, 'confirmed');
+    volumeChoices.set(tabId, { ...choice, playerKey, appliedAt: new Date().toISOString() });
+    const latest = observations.get(tabId); if (latest) latest.playback.volume = reply.value.volume;
+    await saveVolumeChoices();
+  } else {
+    attempt.error = volumeWarning; attempt.failure = reply?.audioFailure === 'MESSAGE_UNAVAILABLE' ? 'MESSAGE_UNAVAILABLE' : volumeFailure(reply);
+    volumeRecoveryStatus.set(tabId, attempt.count >= 3 ? 'Recovery unavailable; use native volume' : 'Replacement refused or unavailable');
+    logVolume(tabId, choice.volume, 'refused', attempt.failure);
+  }
+  await notify();
+}
+async function muteSource(tabId: number, cause: string) {
   const tab = await chrome.tabs.get(tabId); if (!isYTTV(tab.url)) throw new Error('Controlled source left YouTube TV');
-  await chrome.tabs.update(tabId, { muted: true }); await readTabAudio(tabId);
+  await setTabMuted(tabId, true, cause); await readTabAudio(tabId);
   if (tabAudio.get(tabId)?.tabMuted !== true) throw new Error('Browser mute readback failed');
   // A muted tab is sufficient isolation even while its player is loading/unavailable.
   try { const reply = await chrome.tabs.sendMessage(tabId, envelope({ type: 'PLAYER_AUDIO', muted: true }));
@@ -112,19 +241,19 @@ async function muteSource(tabId: number) {
 }
 const audioController = createAudioFocusController({ async setMuted(sessionId, muted) {
   const tabId = Number(sessionId); if (!controlledIds().includes(tabId)) throw new Error('Uncontrolled source');
-  if (muted) return muteSource(tabId);
+  if (muted) return muteSource(tabId, 'audio handoff isolate');
   const tab = await chrome.tabs.get(tabId); if (!isYTTV(tab.url)) throw new Error('Source left YouTube TV');
   const reply = await chrome.tabs.sendMessage(tabId, envelope({ type: 'PLAYER_AUDIO', muted: false }));
   if (!reply?.ok || reply.value?.muted !== false) throw new Error('Player unmute unconfirmed');
   const prior = observations.get(tabId); if (prior) prior.playback = { ...prior.playback, ...reply.value };
-  await chrome.tabs.update(tabId, { muted: false }); await readTabAudio(tabId);
+  await setTabMuted(tabId, false, 'explicit select audio'); await readTabAudio(tabId);
   if (tabAudio.get(tabId)?.tabMuted !== false) throw new Error('Tab/site mute remains active');
 }});
 async function muteAll(preserveError = false): Promise<ActionResult> {
   audioFocusId = undefined;
   if (!preserveError) audioError = undefined;
   let failed = false;
-  for (const tabId of controlledIds()) { try { await muteSource(tabId); } catch { failed = true; } }
+  for (const tabId of controlledIds()) { try { await muteSource(tabId, preserveError ? 'handoff failure isolation' : 'explicit Mute all'); } catch { failed = true; } }
   if (failed) audioError = 'Some controlled sources could not confirm browser mute. Audio state is unknown; use native mute or close the added feed.';
   await notify();
   return failed ? fail('MUTE_FAILED', audioError!) : ok('Browser mute confirmed for the designated main and added feed only.');
@@ -136,14 +265,18 @@ async function saveDrawers() {
   drawerWriteQueue = next; await next;
 }
 
-async function savePreferences() {
+async function savePreferences(value: Preferences = preferences) {
   if (!preferencesReadable) throw new Error('Preferences storage could not be read; existing values preserved.');
-  const clean = sanitizePreferences(preferences);
+  const clean = sanitizePreferences(value);
   const next = preferenceWriteQueue.catch(() => undefined).then(() => chrome.storage.local.set({ [PREFERENCES_KEY]: clean }));
-  preferenceWriteQueue = next; await next;
+  preferenceWriteQueue = next;
+  try { await next; preferencePersistence = 'saved'; }
+  catch { preferencePersistence = 'unavailable'; failures.record('PREFERENCES_WRITE_FAILED'); throw new Error('Preferences were not saved.'); }
 }
 async function saveControlIdentity() {
-  await chrome.storage.session.set({ [SESSION_KEY]: { panes, mainTabId, mainEvent, activePaneId, expandedPaneId } });
+  if (!managedSessionReadable) throw new Error('Managed sessions could not be read; existing records preserved.');
+  try { await chrome.storage.session.set({ [SESSION_KEY]: { panes, mainTabId, mainEvent, activePaneId, expandedPaneId } }); }
+  catch { failures.record('SESSION_WRITE_FAILED'); throw new Error('Managed session state was not saved.'); }
 }
 async function saveSessions() {
   await saveControlIdentity();
@@ -153,7 +286,9 @@ async function saveSessions() {
 }
 async function notify() {
   await chrome.runtime.sendMessage(envelope({ type: 'STATE_CHANGED' })).catch(() => undefined);
-  const tabs = await chrome.tabs.query({ url: 'https://tv.youtube.com/*' });
+  let tabs: chrome.tabs.Tab[];
+  try { tabs = await chrome.tabs.query({ url: 'https://tv.youtube.com/*' }); }
+  catch { failures.record('NOTIFY_FAILED'); return; }
   await Promise.all(tabs.map(tab => tab.id ? chrome.tabs.sendMessage(tab.id, envelope({ type: 'STATE_CHANGED' })).catch(() => undefined) : Promise.resolve()));
 }
 function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
@@ -166,7 +301,10 @@ function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
     league: entry.league === 'NBA' && /\bNBA\b/i.test(entry.programTitle ?? '') ? 'NBA' : undefined,
     metadataSource: entry.metadataSource === 'CACHED' ? 'CACHED' : 'OBSERVED',
     available: Boolean(entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry)),
-    target: entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry) ? entry.target : null,
+    target: entry.metadataSource !== 'CACHED' && isPlaybackTarget(entry.target) && freshLiveTarget(entry) ? {
+      kind: 'navigation', channelId: entry.target.channelId, url: entry.target.url,
+      verifiedAt: entry.target.verifiedAt, evidenceClass: entry.target.evidenceClass,
+    } : null,
     observedAt: entry.observedAt, evidenceClass: 'LIVE',
   }));
   return { guide, guideObservedAt: raw.guideObservedAt,
@@ -206,7 +344,7 @@ async function observe(tabId: number, raw: AdapterObservation) {
     pane.status = observation.currentChannelId === pane.channelId && advancing ? 'Player observed advancing' : 'Navigation requested; playback not confirmed';
   }
   if (!handoffRunning && panes.length && controlledIds().includes(tabId) && sourceId(tabId) !== audioFocusId && tabAudio.get(tabId)?.tabMuted === false) {
-    await chrome.tabs.update(tabId, { muted: true }).catch(() => { audioError = 'Inactive feed tab mute failed; audio state is unknown. Use Mute all.'; });
+    await setTabMuted(tabId, true, 'observation inactive feed').catch(() => { audioError = 'Inactive feed tab mute failed; audio state is unknown. Use Mute all.'; });
     await readTabAudio(tabId);
   }
   await notify();
@@ -244,55 +382,26 @@ async function snapshot(requestingTabId?: number): Promise<DesktopSnapshot> {
   for (const pane of panes) await readTabAudio(pane.tabId);
   const observation = tabId ? observations.get(tabId) : undefined; const guide = guideFor(tabId);
   return { mode: 'extension', connection: observation ? 'connected' : 'waiting',
+    failureDiagnostics: failures.snapshot(), preferencePersistence, guideCacheDiagnostics: guideMetadata.diagnostics,
     guideObservedAt: guide.length ? new Date(Math.max(...guide.map(row => Date.parse(row.observedAt)))).toISOString() : undefined,
     currentConfirmed: Boolean(tabId && confirmedTabs.has(tabId) && observation?.currentChannelId === preferences.currentChannel),
     statusMessage: guide.length && !guide.some(entry => entry.target) ? 'Saved guide metadata · last observed, not current. Open native Live to validate navigation; playback stays unchanged.' : guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Audio labels describe player and tab routing; listening is a separate check.' : 'Open the native YouTube TV Live guide to observe channel navigation targets. Normal playback remains available.',
     currentChannelId: preferences.currentChannel ?? undefined, currentProgram: observation?.currentChannelId === preferences.currentChannel ? observation.currentProgram : undefined,
-    playback: { playing: observation?.playback.playing ?? null, ...audioReadback(tabId) }, guide, preferences, sports: sports.snapshot(),
-    panes: [...(tabId ? [await mainPane()] : []), ...panes].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, ...audioReadback(pane.tabId) })), activePaneId, expandedPaneId, audioFocusId, audioError,
-    capabilities: { navigation: guide.some(entry => Boolean(entry.target)), guide: guide.length > 0, managedWindows: true, audio: observation?.playback.muted !== null && observation?.playback.muted !== undefined }, observedAt: observation?.observedAt };
+    playback: { playing: observation?.playback.playing ?? null, ...audioReadback(tabId) }, guide, preferences,
+    panes: [...(tabId ? [await mainPane()] : []), ...panes].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, ...audioReadback(pane.tabId) })), activePaneId, expandedPaneId, audioFocusId, audioError: [audioError, ...controlledIds().map(id => observations.get(id)?.route === 'watch' ? volumeAttempts.get(id)?.error : undefined)].filter(Boolean).join(' ') || undefined, audioDiagnostics, volumeDiagnostics,
+    volumeRecovery: { savedVolume: volumeChoices.get(tabId!)?.volume ?? null, playerTracked: playerIdentities.has(tabId!), documentBound: Boolean(playerIdentities.get(tabId!)?.documentId), attempts: volumeAttempts.get(tabId!)?.count ?? 0, failure: volumeAttempts.get(tabId!)?.failure, status: volumeRecoveryStatus.get(tabId!) ?? 'No recovery request in this worker' },
+    capabilities: { navigation: guide.some(entry => Boolean(entry.target)), guide: guide.length > 0, managedWindows: managedSessionReadable, audio: managedSessionReadable && observation?.playback.muted !== null && observation?.playback.muted !== undefined }, observedAt: observation?.observedAt };
 }
-async function navigate(channelId: string, requestingTabId?: number, eventId?: string): Promise<ActionResult> {
+async function navigate(channelId: string, requestingTabId?: number): Promise<ActionResult> {
   if (!validId(channelId)) return fail('INVALID_CHANNEL', 'A channel identifier is required.');
   const tabId = await chooseTab(requestingTabId);
   if (!tabId) return fail('TARGET_UNAVAILABLE', 'Open YouTube TV in Chrome and its native Live guide first.');
   if (!guideFor(tabId).some(entry => entry.channel.id === channelId && freshLiveTarget(entry))) return fail('TARGET_UNAVAILABLE', 'Refresh the native Live guide; this channel target is unavailable or stale.');
-  if (eventId && !eventMapsTo(eventId, channelId)) return fail('EVENT_UNMAPPED', 'Sports or guide state changed before navigation; refresh the event mapping.');
   try {
     const result = await chrome.tabs.sendMessage(tabId, envelope({ type: 'NAVIGATE', channelId }));
     if (result?.ok && result.value) { await observe(tabId, result.value); return ok('Channel confirmed on the original player.'); }
     return fail(result?.code ?? 'UNKNOWN', result?.reason ?? 'The original player did not confirm this channel.');
   } catch { return fail('NAVIGATION_PENDING', 'A page navigation was requested. Wait for its new player observation; a dispatched request is not confirmed playback.'); }
-}
-async function refreshSports(): Promise<ActionResult> {
-  const value = await sports.refresh();
-  if (value.state !== 'PERMISSION_REQUIRED') await chrome.storage.session.set({ [SPORTS_SESSION_KEY]: value });
-  await notify();
-  return value.state === 'READY' ? ok('NBA metadata refreshed. Provider update time and latency remain unknown.') :
-    fail(value.state, value.state === 'PERMISSION_REQUIRED' ? 'NBA relay permission awaits owner approval; installed playback is preserved.' : 'NBA metadata unavailable; retained games are preserved. Check the local relay and authorized project key.');
-}
-function eventMapsTo(eventId: string, channelId: string): boolean {
-  const state = sports.snapshot(); const event = state.events.find(candidate => candidate.id === eventId);
-  const guide = guideFor(mainTabId);
-  if (state.state !== 'READY' || !event || resolveEvent(event, guide).channel?.id !== channelId) return false;
-  return !state.events.some(other => other.id !== eventId && resolveEvent(other, guide).channel?.id === channelId);
-}
-async function eventAction(eventId: string, add: boolean, requestingTabId?: number): Promise<ActionResult> {
-  if (!validId(eventId)) return fail('INVALID_EVENT', 'A real provider event identifier is required.');
-  const tabId = await chooseTab(requestingTabId);
-  const state = sports.snapshot(); const event = state.events.find(candidate => candidate.id === eventId);
-  if (state.state !== 'READY' || !event) return fail('SPORTS_UNAVAILABLE', 'Refresh NBA metadata before Watch/Add.');
-  const guide = guideFor(tabId); const resolution = resolveEvent(event, guide);
-  if (resolution.state !== 'CONFIRMED' || !resolution.channel || !resolution.target) return fail('EVENT_UNMAPPED', resolution.reasons.join(' '));
-  // Another tracked matchup resolving to this airing is an event ambiguity too.
-  if (state.events.some(other => other.id !== eventId && resolveEvent(other, guide).channel?.id === resolution.channel!.id)) return fail('EVENT_AMBIGUOUS', 'More than one provider event matches this airing.');
-  if (add) return createPane(resolution.channel.id, eventId);
-  const previousEvent = mainEvent;
-  mainEvent = { eventId, channelId: resolution.channel.id };
-  const result = await navigate(resolution.channel.id, requestingTabId, eventId);
-  if (!result.ok && result.code !== 'NAVIGATION_PENDING') mainEvent = previousEvent;
-  await saveControlIdentity();
-  return result;
 }
 function targetFor(channelId: string): GuideEntry | undefined { return guideFor(mainTabId).find(entry => entry.channel.id === channelId && entry.available && entry.target); }
 async function requirePane(paneId: string): Promise<Pane | null> {
@@ -300,14 +409,12 @@ async function requirePane(paneId: string): Promise<Pane | null> {
   try { const tab = await chrome.tabs.get(pane.tabId); if (isYTTV(tab.url) && tab.windowId === pane.windowId) return pane; } catch { /* closed */ }
   panes = panes.filter(item => item.id !== paneId); await saveSessions(); return null;
 }
-async function createPane(channelId: string, eventId?: string): Promise<ActionResult> {
-  if (!validId(channelId) || (eventId !== undefined && !validId(eventId))) return fail('INVALID_INPUT', 'A valid channel and optional event identifier are required.');
+async function createPane(channelId: string): Promise<ActionResult> {
+  if (!validId(channelId)) return fail('INVALID_INPUT', 'A valid channel identifier is required.');
   await chooseTab();
-  if (eventId && !eventMapsTo(eventId, channelId)) return fail('EVENT_UNMAPPED', 'This event has no fresh unambiguous mapping to the requested channel.');
   const entry = targetFor(channelId); if (!entry?.target) return fail('TARGET_UNAVAILABLE', 'Refresh the native Live guide; this target is unavailable or stale.');
   const watchTabs = (await chrome.tabs.query({ url: 'https://tv.youtube.com/*' })).filter(tab => isWatch(tab.url));
-  if (watchTabs.length >= MAX_TOTAL_WATCH_SESSIONS || panes.length >= 1) return fail('SESSION_BOUND', 'This viewing milestone permits the designated main feed plus one managed feed only. Other active playback also consumes account capacity.');
-  if (eventId && (!eventMapsTo(eventId, channelId) || targetFor(channelId)?.target?.url !== entry.target.url)) return fail('EVENT_UNMAPPED', 'Event mapping changed before managed-feed creation.');
+  if (watchTabs.length >= CURRENT_MANAGED_FEED_LIMIT || panes.length >= CURRENT_MANAGED_FEED_LIMIT - 1) return fail('SESSION_BOUND', 'This viewing milestone permits the designated main feed plus one managed feed only. Other active playback also consumes account capacity.');
   let newWindow: chrome.windows.Window | undefined;
   try {
     // Silence BEFORE the navigation can load or play. Do not create the watch URL directly.
@@ -316,38 +423,46 @@ async function createPane(channelId: string, eventId?: string): Promise<ActionRe
     newWindow = created;
     const tabId = created.tabs?.[0]?.id;
     if (!tabId) throw new Error('Missing managed tab identity');
-    await chrome.tabs.update(tabId, { muted: true });
-    await chrome.tabs.update(tabId, { url: entry.target.url, muted: true });
+    await setTabMuted(tabId, true, 'create blank feed');
+    await setTabMuted(tabId, true, 'create navigate feed', entry.target.url);
     const pane: Pane = { id: `pane-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, channelId, channelName: entry.channel.name,
-      eventId, tabId, windowId: created.id, muted: true, status: 'Navigation requested; playback not confirmed' };
+      tabId, windowId: created.id, muted: true, status: 'Navigation requested; playback not confirmed' };
     await readTabAudio(mainTabId!);
     if (!audioFocusId && audioReadback(mainTabId).muted === false) audioFocusId = 'main';
     panes.push(pane); if (!activePaneId) activePaneId = 'main'; await saveSessions(); await notify();
     return ok('Created a separate muted browser window. Playback remains unconfirmed until its player is observed.');
   } catch {
-    if (newWindow?.id) panes = panes.filter(p => p.windowId !== newWindow!.id);
-    if (newWindow?.id) await chrome.windows.remove(newWindow.id).catch(() => undefined);
+    if (newWindow?.id) {
+      try { await chrome.windows.remove(newWindow.id); panes = panes.filter(p => p.windowId !== newWindow!.id); }
+      catch {
+        failures.record('WINDOW_CLEANUP_FAILED');
+        const tabId = newWindow.tabs?.[0]?.id;
+        if (tabId && !panes.some(p => p.tabId === tabId)) panes.push({ id: `cleanup-${tabId}`, tabId, windowId: newWindow.id,
+          channelId, channelName: entry.channel.name, muted: null, status: 'Creation failed; close this added window', error: 'Automatic cleanup failed.' });
+        audioError = 'Added window cleanup failed; use native mute and close that window.';
+        return fail('WINDOW_CLEANUP_FAILED', audioError);
+      }
+    }
     return fail('WINDOW_FAILED', 'The managed browser window could not be created safely; the existing player was preserved.');
   }
 }
-async function replacePane(paneId: string, channelId: string, eventId?: string): Promise<ActionResult> {
+async function replacePane(paneId: string, channelId: string): Promise<ActionResult> {
   const pane = await requirePane(paneId); const entry = targetFor(channelId);
-  if (!pane || !entry?.target || (eventId !== undefined && !validId(eventId))) return fail('TARGET_UNAVAILABLE', 'The pane or fresh channel target is unavailable.');
-  if (eventId && !eventMapsTo(eventId, channelId)) return fail('EVENT_UNMAPPED', 'This event has no fresh unambiguous mapping to the requested channel.');
-  await muteSource(pane.tabId);
+  if (!pane || !entry?.target) return fail('TARGET_UNAVAILABLE', 'The pane or fresh channel target is unavailable.');
+  await muteSource(pane.tabId, 'replace feed isolation');
   if (audioFocusId === paneId) audioFocusId = undefined;
   observations.delete(pane.tabId); confirmedTabs.delete(pane.tabId);
-  await chrome.tabs.update(pane.tabId, { url: entry.target.url, muted: true });
-  Object.assign(pane, { channelId, channelName: entry.channel.name, eventId, muted: true, status: 'Replacement requested; playback not confirmed' });
+  await setTabMuted(pane.tabId, true, 'replace navigate feed', entry.target.url);
+  Object.assign(pane, { channelId, channelName: entry.channel.name, eventId: undefined, muted: true, status: 'Replacement requested; playback not confirmed' });
   await saveSessions(); await notify(); return ok('Only this feed was replaced, starting muted. Select it to enable audio.');
 }
 async function selectPane(paneId: string): Promise<ActionResult> {
   const pane = await requirePane(paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'This controlled player was closed.');
   handoffRunning = true;
   try {
-    const state: QuadState = { ...createQuadState({ maxPanes: 2, nightMuteLock: false }), panes: (await controlledPanes()).map(item => ({
-      id: item.id, resolvedChannel: { id: item.channelId, name: item.channelName }, playbackTarget: null, eventId: null,
-      playbackSession: String(item.tabId), lastKnownEvent: null, availability: 'READY', muted: audioReadback(item.tabId).muted !== false,
+    const state: AudioState = { ...createAudioState(), panes: (await controlledPanes()).map(item => ({
+      id: item.id,
+      playbackSession: String(item.tabId), availability: 'READY', muted: audioReadback(item.tabId).muted !== false,
     })) };
     const result = await audioController.focus(state, paneId);
     audioFocusId = result.audioFocusId ?? undefined; audioError = result.audioError ?? undefined;
@@ -383,7 +498,7 @@ async function restoreLayout(): Promise<ActionResult> {
 async function removePane(paneId: string): Promise<ActionResult> {
   if (paneId === 'main') return fail('MAIN_PRESERVED', 'The designated main player stays open.');
   const pane = await requirePane(paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'This managed window was already closed.');
-  await muteSource(pane.tabId); if (audioFocusId === paneId) audioFocusId = undefined;
+  await muteSource(pane.tabId, 'close added feed'); if (audioFocusId === paneId) audioFocusId = undefined;
   await chrome.tabs.remove(pane.tabId); panes = panes.filter(item => item.id !== paneId);
   if (activePaneId === paneId) activePaneId = 'main'; if (expandedPaneId === paneId) expandedPaneId = undefined;
   await saveSessions(); await notify(); return ok('Closed only the selected managed test tab.');
@@ -391,8 +506,15 @@ async function removePane(paneId: string): Promise<ActionResult> {
 async function handle(command: Command, sender: chrome.runtime.MessageSender): Promise<unknown> {
   await init;
   const contentSender = sender.id === chrome.runtime.id && sender.tab?.id && isYTTV(sender.url ?? sender.tab.url);
-  const extensionSender = sender.id === chrome.runtime.id && (!sender.url || sender.url.startsWith(chrome.runtime.getURL('')));
-  if (!contentSender && !extensionSender) return fail('INVALID_SENDER', 'This request is outside the local extension boundary.');
+  const extensionSender = sender.id === chrome.runtime.id && Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
+  if (!contentSender && !extensionSender) { failures.record('INVALID_SENDER'); return fail('INVALID_SENDER', 'This request is outside the local extension boundary.'); }
+  if (['REFRESH_SPORTS', 'WATCH_EVENT', 'ADD_EVENT'].includes(command.type) ||
+      (['CREATE_PANE', 'REPLACE_PANE'].includes(command.type) && 'eventId' in command))
+    return fail('UNSUPPORTED_PATH', 'Provider event playback was removed. Use Guide or guide-based Sports programs.');
+  if (!validCommand(command)) { failures.record('INVALID_COMMAND'); return fail('INVALID_COMMAND', 'Invalid or oversized extension command.'); }
+  if (!managedSessionReadable && (['CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'SELECT_PANE'].includes(command.type) ||
+      (command.type === 'AUDIO' && command.muted === false)))
+    return fail('STORAGE_UNAVAILABLE', 'Managed sessions could not be recovered. Use native mute and existing windows; audio enable and new feeds remain unavailable.');
   switch (command.type) {
     case 'GET_DRAWER_STATE': return contentSender ? { opened: openDrawers.has(sender.tab!.id!) } : fail('INVALID_SENDER', 'Drawer state belongs to the requesting YouTube TV tab.');
     case 'SET_DRAWER_STATE': {
@@ -400,11 +522,41 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       if (command.opened) openDrawers.add(sender.tab!.id!); else openDrawers.delete(sender.tab!.id!);
       await saveDrawers(); return ok();
     }
-    case 'OBSERVE': if (contentSender) await observe(sender.tab!.id!, command.observation); return ok();
+    case 'NATIVE_VOLUME_INPUT': {
+      if (!contentSender || !validId(command.playerKey)) return fail('INVALID_SENDER', 'Native volume belongs to its current content player.');
+      const tabId = sender.tab!.id!; const identity = playerIdentities.get(tabId);
+      if (!controlledIds().includes(tabId) || identity?.playerKey !== command.playerKey || identity.documentId !== sender.documentId) return fail('SUPERSEDED', 'Native player changed.');
+      if (!command.observation) {
+        if (observations.get(tabId)?.route !== 'watch' || (observations.get(tabId)?.playback.readyState ?? 0) < 2) return fail('PLAYER_LOADING', 'Wait for the native watch player.');
+        invalidateVolume(tabId);
+        nativeVolumePending.set(tabId, { ...identity, epoch: volumeEpochs.get(tabId)! });
+        volumeRecoveryStatus.set(tabId, 'Waiting for native volume choice'); return ok();
+      }
+      const pending = nativeVolumePending.get(tabId); const clean = cleanObservation(command.observation);
+      if (!pending || pending.epoch !== volumeEpochs.get(tabId)) return fail('SUPERSEDED', 'A newer choice replaced native settlement.');
+      if (!clean || clean.route !== 'watch' || (clean.playback.readyState ?? 0) < 2 || clean.playback.volume == null) { volumeRecoveryStatus.set(tabId, 'Native choice unconfirmed; use native volume'); return fail('SUPERSEDED', 'Native volume not confirmed on the current watch player.'); }
+      nativeVolumePending.delete(tabId);
+      volumeChoices.set(tabId, { volume: clean.playback.volume, playerKey: command.playerKey, appliedAt: clean.observedAt });
+      volumeRecoveryStatus.set(tabId, 'Native choice retained'); await observe(tabId, clean); await saveVolumeChoices(); await notify(); return ok();
+    }
+    case 'OBSERVE': {
+      if (contentSender) {
+        const tabId = sender.tab!.id!;
+        const clean = cleanObservation(command.observation); if (!clean) return fail('INVALID_OBSERVATION', 'Player observation unavailable.');
+        const prior = observations.get(tabId);
+        if (prior && Date.parse(clean.observedAt) < Date.parse(prior.observedAt)) return ok();
+        const identity = validId(command.playerKey) ? { playerKey: command.playerKey!, documentId: validId(sender.documentId) ? sender.documentId : undefined } : undefined;
+        if (identity) {
+          const priorIdentity = playerIdentities.get(tabId);
+          if (priorIdentity?.playerKey !== identity.playerKey || priorIdentity.documentId !== identity.documentId) invalidateVolume(tabId);
+          playerIdentities.set(tabId, identity);
+        }
+        await observe(tabId, clean);
+        if (identity) await runManaged(() => reconcileVolume(tabId, identity.playerKey, identity.documentId));
+      }
+      return ok();
+    }
     case 'GET_SNAPSHOT': return snapshot(contentSender ? sender.tab!.id : undefined);
-    case 'REFRESH_SPORTS': return refreshSports();
-    case 'WATCH_EVENT': return runManaged(() => eventAction(command.eventId, false, contentSender ? sender.tab!.id : undefined));
-    case 'ADD_EVENT': return runManaged(() => eventAction(command.eventId, true, contentSender ? sender.tab!.id : undefined));
     case 'FOCUS_MAIN': {
       const pane = await mainPane(); if (!pane) return fail('PANE_UNAVAILABLE', 'Original player unavailable.');
       await chrome.tabs.update(pane.tabId, { active: true }); await chrome.windows.update(pane.windowId, { focused: true });
@@ -424,10 +576,17 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     }
     case 'PREVIOUS': return preferences.previousChannel ? navigate(preferences.previousChannel, contentSender ? sender.tab!.id : undefined) : fail('NO_PREVIOUS', 'No confirmed previous channel yet.');
     case 'PREFERENCE': {
-      // Current/previous/recents are confirmed-playback state, not editable preferences.
-      const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent, nightMuteLock: _mute, ...patch } = command.patch ?? {};
-      preferences = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
-      await savePreferences(); await notify(); return ok('Local preferences saved.');
+      return runManaged(async () => {
+        if (!preferencesReadable) return fail('STORAGE_UNAVAILABLE', 'Preferences could not be read; existing values preserved.');
+        // Current/previous/recents are confirmed-playback state, not editable preferences.
+        const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent, nightMuteLock: _mute, ...patch } = command.patch ?? {};
+        const candidate = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
+        try { await savePreferences(candidate); }
+        catch { return fail('STORAGE_UNAVAILABLE', 'Preferences were not saved. Retry when local storage is available.'); }
+        // Do not show an uncommitted patch or roll back unrelated observations received during the write.
+        preferences = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
+        await notify(); return ok('Local preferences saved.');
+      });
     }
     case 'WATCH_PROGRAM':
     case 'ADD_PROGRAM': {
@@ -438,34 +597,62 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       };
       return runManaged(act);
     }
-    case 'CREATE_PANE': return runManaged(() => createPane(command.channelId, command.eventId));
-    case 'REPLACE_PANE': return runManaged(() => replacePane(command.paneId, command.channelId, command.eventId));
+    case 'CREATE_PANE': return runManaged(() => createPane(command.channelId));
+    case 'REPLACE_PANE': return runManaged(() => replacePane(command.paneId, command.channelId));
     case 'SELECT_PANE': return runManaged(() => selectPane(command.paneId));
     case 'EXPAND_PANE': return runManaged(() => expandPane(command.paneId));
     case 'RESTORE_LAYOUT': return runManaged(restoreLayout);
     case 'REMOVE_PANE': return runManaged(() => removePane(command.paneId));
     case 'MUTE': return runManaged(() => muteAll());
-    case 'AUDIO': return runManaged(async () => {
+    case 'AUDIO': {
+      const targetId = activePaneId && activePaneId !== 'main' ? panes.find(p => p.id === activePaneId)?.tabId : mainTabId;
+      const validVolume = typeof command.volume === 'number' && Number.isFinite(command.volume) && command.volume >= 0 && command.volume <= 1;
+      // Receipt of a newer choice cancels an in-flight recovery before the managed queue reaches it.
+      if (targetId && validVolume) invalidateVolume(targetId);
+      const requestEpoch = targetId ? volumeEpochs.get(targetId) ?? 0 : 0;
+      return runManaged(async () => {
       if ((command.muted !== undefined && typeof command.muted !== 'boolean') || (command.volume !== undefined && (!Number.isFinite(command.volume) || command.volume < 0 || command.volume > 1))) return fail('INVALID_AUDIO', 'Invalid audio choice.');
       const pane = await requirePane(activePaneId ?? 'main'); if (!pane) return fail('PANE_UNAVAILABLE', 'Open the original player first.');
       try {
         if (command.volume !== undefined) {
-          const reply = await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'PLAYER_AUDIO', volume: command.volume }));
-          if (!reply?.ok || Math.abs((reply.value?.volume ?? -1) - command.volume) > .001) throw new Error('volume');
+          if (pane.tabId !== targetId || (volumeEpochs.get(pane.tabId) ?? 0) !== requestEpoch) return fail('SUPERSEDED', 'A later choice replaced this request.');
+          const identity = playerIdentities.get(pane.tabId);
+          const reply = await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'PLAYER_AUDIO', volume: command.volume, playerKey: identity?.playerKey }), identity?.documentId ? { documentId: identity.documentId } : undefined);
+          if (pane.tabId !== targetId || (volumeEpochs.get(pane.tabId) ?? 0) !== requestEpoch || !controlledIds().includes(pane.tabId)) return fail('SUPERSEDED', 'A later choice or player replaced this request.');
+          if (!reply?.ok || Math.abs((reply.value?.volume ?? -1) - command.volume) > .001) throw new Error(volumeFailure(reply));
           const prior = observations.get(pane.tabId); if (prior) prior.playback.volume = reply.value.volume;
+          volumeChoices.set(pane.tabId, { volume: reply.value.volume, playerKey: identity?.playerKey ?? 'awaiting-player', appliedAt: new Date().toISOString() });
+          volumeRecoveryStatus.set(pane.tabId, identity ? 'Explicit choice retained' : 'Choice retained; waiting for player identity');
+          await saveVolumeChoices();
         }
-        if (command.muted === true) { await muteSource(pane.tabId); if (audioFocusId === pane.id) audioFocusId = undefined; }
+        if (command.muted === true) { await muteSource(pane.tabId, 'explicit selected mute'); if (audioFocusId === pane.id) audioFocusId = undefined; }
         if (command.muted === false) return selectPane(pane.id);
         await notify(); return ok('Player audio choice read back; system volume unchanged.');
-      } catch { audioError = 'Player audio operation failed; use the original player or retry.'; await notify(); return fail('AUDIO_FAILED', audioError); }
-    });
+      } catch (error) {
+        const reason = 'Player audio operation failed; use the original player or retry.';
+        if (command.volume !== undefined) {
+          if (pane.tabId === targetId && (volumeEpochs.get(pane.tabId) ?? 0) === requestEpoch && controlledIds().includes(pane.tabId)) {
+            const choice = volumeChoices.get(pane.tabId) ?? { volume: command.volume, playerKey: 'unconfirmed' };
+            const identity = playerIdentities.get(pane.tabId);
+            volumeAttempts.set(pane.tabId, { choice, playerKey: identity?.playerKey ?? 'unconfirmed', documentId: identity?.documentId, count: 0, lastAt: 0, error: reason });
+            volumeRecoveryStatus.set(pane.tabId, 'Explicit volume unavailable; use native volume');
+            logVolume(pane.tabId, command.volume, 'refused', volumeFailure({ audioFailure: error instanceof Error ? error.message : undefined }));
+          }
+        } else audioError = reason;
+        await notify(); return fail('AUDIO_FAILED', reason);
+      }
+    }); }
+
     case 'REFRESH': await refreshObservations(); await notify(); return ok('Refreshed observable player and guide state.');
     default: return fail('UNSUPPORTED', 'This operation is unavailable.');
   }
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isMessage(message) || ['STATE_CHANGED', 'GET_OBSERVATION', 'TOGGLE_DESKTOP', 'PLAYER_AUDIO'].includes(message.type)) return false;
-  void handle(message, sender).then(sendResponse, () => sendResponse(fail('UNKNOWN', 'The extension operation failed; underlying YouTube TV playback is preserved.')));
+  void handle(message, sender).then(sendResponse, () => {
+    failures.record('COMMAND_FAILED');
+    sendResponse(fail('UNKNOWN', 'The extension operation did not complete. Browser changes may already have occurred; inspect current state before retrying. Use the original player as fallback.'));
+  }).catch(() => failures.record('COMMAND_FAILED'));
   return true;
 });
 chrome.tabs.onRemoved.addListener(tabId => {
@@ -473,13 +660,19 @@ chrome.tabs.onRemoved.addListener(tabId => {
   if (audioFocusId === removedSourceId) audioFocusId = undefined;
   if (activePaneId === removedSourceId) activePaneId = 'main';
   if (expandedPaneId === removedSourceId) expandedPaneId = undefined;
+  invalidateVolume(tabId); volumeChoices.delete(tabId); playerIdentities.delete(tabId);
   observations.delete(tabId); tabAudio.delete(tabId); confirmedTabs.delete(tabId); if (mainTabId === tabId) mainTabId = undefined;
-  void init.then(async () => { if (openDrawers.delete(tabId)) await saveDrawers(); });
   const removed = panes.some(pane => pane.tabId === tabId); panes = panes.filter(pane => pane.tabId !== tabId);
-  if (removed) void init.then(saveSessions).then(notify);
+  void init.then(() => runManaged(async () => {
+    // Independent cleanup writes must all be attempted even if one storage area fails.
+    const results = await Promise.allSettled([saveVolumeChoices(),
+      openDrawers.delete(tabId) ? saveDrawers() : Promise.resolve(), removed ? saveSessions() : Promise.resolve()]);
+    if (results.some(result => result.status === 'rejected')) failures.record('TAB_CLOSE_FAILED');
+    if (removed) await notify();
+  })).catch(() => failures.record('TAB_CLOSE_FAILED'));
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
-  if (change.url) { observations.delete(tabId); confirmedTabs.delete(tabId); }
+  if (change.url) { invalidateVolume(tabId); playerIdentities.delete(tabId); observations.delete(tabId); confirmedTabs.delete(tabId); }
   if (isYTTV(tab.url) && controlledIds().includes(tabId) && panes.length && !handoffRunning && sourceId(tabId) !== audioFocusId && change.mutedInfo?.muted === false)
-    void chrome.tabs.update(tabId, { muted: true }).catch(() => { audioError = 'Inactive feed mute failed; use Mute all and inspect audio readback.'; });
+    void setTabMuted(tabId, true, 'tab update inactive feed').catch(() => { audioError = 'Inactive feed mute failed; use Mute all and inspect audio readback.'; });
 });

@@ -1,53 +1,53 @@
-# Local development workflow
+# Development and repository maintenance
 
-Updated 2026-10-02. TypeScript, React, esbuild and a pinned npm lockfile support the local Chrome client. Safari/native remain placeholders. Local build is distinct from live playback or release qualification.
+The current implementation is a restricted Chrome MV3 client with TypeScript, React and esbuild. Safari/macOS and event-resolver workspaces are non-executable future boundaries. [Architecture](ARCHITECTURE.md) identifies authoritative modules; Mixed-service playback, automatic layouts and four-feed operation are not implemented.
 
-## Build and tests
+## Setup and source checks
+
+Use Node22 from [.nvmrc](../.nvmrc), Python3.14 and the root npm lockfile. Run from the repository root:
 
 ```sh
-cd /Users/michaelfuscoletti/Desktop/yttv-desktop
 npm ci
-npm run typecheck
-npm test
-npm run build
-npm run docs:check
-npm run preview
+npm run verify:source
 ```
 
-`dist/chrome-extension` contains the MV3 bundle. The build fails if host access expands beyond `https://tv.youtube.com/*` or the permission list differs from storage. The preview server binds only 127.0.0.1:4173 and serves the explicit fixture demo; it has no backend/auth/protected playback. Tests use synthetic fixtures and fake audio ports; they do not qualify real playback or provider correctness.
+`verify:source` runs typecheck, offline tests, the in-memory production build/exact permission audit and portable documentation check. It does not replace `dist/chrome-extension`. Typecheck rejects unused locals/parameters. Tests use synthetic repositories, DOM/player fixtures and mocked Chrome; HTTP tests use temporary loopback servers. They do not access an owner account or provider.
 
-## Approved local Chrome installation
+The current build/tests/preview need no environment variables, API keys or backend. [.env.example](../.env.example) is informational. There is no existing formatter/linter command, hosted deployment or signing workflow.
 
-The user approved loading this local extension with tv.youtube.com access, tab controls and local preferences. Open chrome://extensions, enable developer mode if needed, choose Load unpacked and select `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`. Use Reload after rebuilding. Refresh only test-created YouTube TV tabs so the content script runs. Open the native Live guide to observe channel candidates, then use the Desktop drawer. Normal YTTV account/player controls stay on the page.
+Individual commands:
 
-No cookies, credentials, webRequest, capture, broad tabs permission or all-sites access is requested. Public ordinary watch-page hrefs are volatile in-memory navigation targets, not protected media URLs. Saved layouts retain channel/event IDs; fresh targets must be revalidated.
+| Command | Effect |
+| --- | --- |
+| `npm run typecheck` | Strict TypeScript checks, including unused locals/parameters |
+| `npm test` | Current offline test suite |
+| `npm run build -- --check` | Compile all three browser entry points in memory; audit storage and tv.youtube.com access |
+| `npm run docs:check -- --repository-only` | Portable repository docs/workspace check |
+| `npm run docs:check` | Repository-local docs/workspace check |
+| `npm run build` | Write a complete bundle and identity to `dist/chrome-extension` |
+| `npm run verify` | Typecheck/tests, then **write the bundle**, then check local docs |
+| `npm run preview` | Serve existing fixture assets on127.0.0.1:4173 |
 
-The overnight hold is retired. Installed v0.1.8/a87877ca8e207785 implements normal audio controls and serialized real main-plus-one routing;68-test verification retained. [C1-Q2](evidence/runs/20261002-c1-q2/run.md) single-feed audio and15m23s720p managed-window trial PASS after owner-confirmed existing-entry reload. Never reinstall/duplicate/reset storage. Player/tab readback differs from heard sound; site mute remains UNKNOWN. Saved layouts never restore audio authority.
+## Build, fixture preview and installation
 
-## Scope and fallbacks
+`npm run build` and `npm run verify` write `dist/chrome-extension`; source checks print the current input fingerprint without writing a bundle. `npm run preview` serves the existing bundle, so build before previewing changed source. If retaining an installed bundle, build and preview in a separate source copy. Build identity does not inspect installed Chrome.
 
-The local client provides a dense observed guide and guide-based Sports program discovery/search/guarded Watch/Add, with a separate fixture lab. Sports fixture actions cannot resolve against live guide evidence. The multi-view fallback controls the original main player plus one separately muted-on-create browser window; it does not render protected streams inside the controller. The total watch-session cap is conservative and does not establish the account allowance. Four sessions are disabled pending verified allowance and reliability.
+The build rejects unknown flags and any permissions beyond storage/tv.youtube.com before writing. Preview serves only demo HTML/panel JS/CSS with the [local HTTP protections](SECURITY.md); it cannot authenticate, acquire provider data or play protected video. Port conflict produces a clear local error; stop the other fixture process or retry after it exits.
 
-## Evidence and source of truth
+To install, open `chrome://extensions`, enable Developer mode and use **Load unpacked** to choose `dist/chrome-extension` in your checkout. For an existing entry, use **Reload** rather than removing/reinstalling; refresh the relevant YouTube TV tab so it receives the new content script. Retaining the same entry preserves its extension ID and local settings. Loading is separate from building and does not prove playback capability. [Usage](../START_HERE.md) explains controls and recovery.
 
-[NEXT_TASK](../NEXT_TASK.md) owns the active task; [ROADMAP](ROADMAP.md) phase sequencing; [BACKLOG](BACKLOG.md) task state. [Run records](evidence/runs/README.md) list checks actually performed, limitations and environment. Do not infer beta readiness from a successful build or fixture test. Preserve failed runs and qualify repaired revisions separately.
+## Pull-request CI
 
-Current work is local; preserve the existing GitHub origin. No remote operations, push, publication, purchases or provider accounts are included in the active task. Ignore dependencies, dist, secrets, browser profiles and raw protected/private evidence. Do not log account identifiers, tokens or protected content. Do not modify siblings.
+[CI workflow](../.github/workflows/ci.yml) runs the stable **Repository checks** job on PRs, main pushes and manual dispatch. One Ubuntu24.04 job uses Node22/Python3.14, locked `npm ci`, typecheck, tests, the in-memory build and portable docs check. npm caches downloads; installation is clean each run. No extra platform matrix is asserted by this offline gate.
 
-## Current identified disk candidate
+SHA-pinned Actions, read-only contents permission, disabled checkout credential persistence, no secrets,15-minute timeout and superseded-run cancellation bound the job. Seven-day `ci-diagnostics` logs are retained after success/failure unless cancelled. Weekly [Dependabot](../.github/dependabot.yml) covers npm and Actions without automatic merging. Existing GitHub-managed CodeQL supplies **Analyze (python)** and **Analyze (javascript-typescript)**. Local checks do not establish a hosted result; inspect the jobs on the PR being reviewed.
 
-Installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**, [C1-Q2 inventory](evidence/runs/20261002-c1-q2/candidate.json),68-test verify retained with unchanged hashes. Practical single-feed audio and reduced two-feed viewing PASS; full release/beta checks remain grouped.
+## Repository hygiene and evidence
 
-C1-Q1-R1 identifies installed v0.1.6 with source-input build ID a4fb694fb9dd7388; [inventory](evidence/runs/20261002-c1-q1-r1/candidate-016.json). Shortcuts displays runtime version/build and, in installed content, extension ID. Existing installation updates use **Reload on the existing entry**, preserving ID/preferences, followed by refresh of the designated test tab only. Current task does not use Remove/Load unpacked/clear storage. Owner performs extension management per NEXT_TASK. A version/build shown in the loopback fixture preview identifies preview files only. `build-identity.json` records exact input hashes; it does not inspect installed Chrome.
+[Ignore rules](../.gitignore) exclude dependencies/builds/caches, credentials, local configuration, browser profiles, `.local` reviews and generated diagnostics. Authored source/assets, the lockfile, required tests/fixtures and concise Markdown run notes remain source inputs. Generated run artifacts and the historical setup inventory are local-only; missing artifact links are disclosed rather than treated as live proof. Do not delete local evidence, retained bundles or rollback candidates to tidy Git.
 
-## Current Sports development
+Documentation checking uses repository files only and records known historical artifact references; other external filesystem dependencies, broken repository links/anchors and missing required docs/workspaces fail. `.local` is excluded from scans/inventories. [Regression tests](../tests/docs-check.test.ts) exercise these boundaries with disposable repositories.
 
-Follow [S2-G1](../NEXT_TASK.md). Build guide-based discovery/search/Watch/Add with the standard existing-permission candidate. Input is existing authenticated guide metadata; the product flow operates without private configuration or an external service. Keep guide classification separate from independent score/state events. Prepare the complete candidate before the owner same-entry reload.
+The worker keeps session lifecycle, audio and command ordering together in `background.ts`; `index.tsx` renders bridge snapshots. Shared navigation/feed/audio policies live in their packages. Changes to these boundaries need ordering/state coverage. Legacy saved identifiers remain readable and inert; changing them requires an explicit schema migration.
 
-Earlier source-specific commands/candidates are historical artifacts, not the current activation route. See the [retained run](evidence/runs/20261002-s2-l1/run.md).
-
-## S2-G1 prepared viewing loop
-
-[Implementation/evidence](evidence/runs/20261002-s2-g1/run.md): **v0.1.10 / f24fa0471866e729**, **83-test normal verification PASS** with existing permissions. Native-guide Sports discovery/search/current-next/cache/guarded Watch/Add implemented; no external setup. Installed identity and live qualification **NOT RUN** blocked by the unavailable browser admin-policy check after owner-reported same-entry reload. Last-confirmed installed018 and completed C1-Q2 viewing evidence remain valid in their scope. [One reload handoff](evidence/runs/20261002-s2-g1/reload-handoff.md). Broader release gates above remain grouped open.
-
-Current S2-G1 state: browser access RECOVERED; installed010/f24fa0471866e729/same ID VERIFIED. Stopped at cached legacy Upcoming/episodic matchup presentation regression; repaired **011/343f238d6223baf3, 84-test normal verification PASS**. One owner repair reload pending, then fresh real qualification. [Canonical next task](../NEXT_TASK.md). Earlier browser denials retained historically; no provider setup or new permissions.
+Working plans and status live in [NEXT_TASK](../NEXT_TASK.md), [BACKLOG](BACKLOG.md) and [ROADMAP](ROADMAP.md). Historical build identities/results live in [run records](evidence/runs/README.md); they are not setup prerequisites.

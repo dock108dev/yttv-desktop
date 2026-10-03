@@ -1,14 +1,27 @@
-# Start here
+# Using the Chrome client
 
-Updated 2026-10-02. The user expanded documentation setup into an overnight local Chrome implementation. The requested account was already signed in, and normal muted playback was observed. The [run record](docs/evidence/runs/20261002-local-beta/auth-baseline.md) states exactly what that establishes.
+Build and load the extension as described in [Development](docs/DEVELOPMENT.md). Open YouTube TV and use its normal sign-in and player controls. The extension does not manage authentication or subscriptions.
 
-1. Read [Development](docs/DEVELOPMENT.md) for local build, load and fixture-preview instructions.
-2. Read [NEXT_TASK](NEXT_TASK.md) for the active bounded qualification and stop conditions.
-3. Read [PRODUCT](docs/PRODUCT.md) and [acceptance](docs/ACCEPTANCE_AND_TEST_PLAN.md) for the complete 18 criteria. A fixture Sports screen or managed-window fallback does not satisfy full live Sports/QuadBox acceptance.
-4. Consult [Phase 0](docs/PHASE0_FEASIBILITY.md), [backlog](docs/BACKLOG.md), [decision log](docs/DECISIONS.md) and [sources](docs/SOURCES.md).
+## Guide and Sports
 
-The temporary overnight hold is retired. Prepared018 provides normal selected-player audio and scoped Mute all; new/replaced managed feeds start muted. Installed verification awaits the existing-extension owner reload. Native YouTube TV controls remain accessible beneath the enhancement. If the extension fails, close its drawer or disable it and use normal playback.
+Click **Desktop** to open the drawer. Open the native **Live** guide to observe channel/program listings, then choose **Guide** to search, filter favorites/recents or customize stars/order/hide. **Show hidden channels** reveals hidden entries; **Use native order** resets ordering only.
 
-Sports fixtures are illustrative; no production provider has been connected. Four-stream feasibility, audible audio handoff, Safari, Windows and native macOS remain separate unqualified gates. The Chrome core MVP spans guide/navigation, Sports/resolver and conditional QuadBox; Phase 1 single playback alone is an interim milestone.
+**Sports** searches team, competition and program text present in your guide. Current/next/upcoming labels describe listings, not confirmed game state. No live scores, overtime or final status are supplied. The separately labeled Fixture Lab is illustrative and cannot Watch/Add.
 
-The [Desktop tracker](../yttv_next_steps.md) points back here; the [documentation index](docs/README.md) lists the planning documents.
+Fresh eligible **Watch** actions navigate the original player. **Previous** uses confirmed channel history. Pending actions do not mean playback was confirmed. **Add** opens one muted managed window alongside main; two feeds total is the supported software limit. **QuadBox** controls these separate windows, including selection, replacement, expand/restore and closing the extra. It is not a composed protected-video player.
+
+**Original player** closes the drawer; **Desktop** reopens it. Native captions, quality, seeking, Library/DVR and account controls remain available.
+
+## Audio and shortcuts
+
+The selected-player slider changes volume. Player mute and Chrome tab mute are separate; site mute is unknown to the app. Selecting a feed transfers audio and focus together, after muting managed feeds; **Mute all** mutes main and the extra. New windows start muted. Saved layouts and closing an extra do not automatically restore audible main playback. When native volume cannot be confirmed, use the original slider. Readback alone does not prove heard sound.
+
+Focus the workspace or a guide row for `w` Watch, `g` Guide, `s` Sports, `q` window controls, `/` search and `p` Previous. Arrows move row focus; Tab reaches controls; Enter activates eligible rows. Editable fields, native controls and browser chords retain their keys. **?** opens editable bindings; duplicates are rejected, blank disables a binding, and Escape closes the dialog.
+
+## Recovery and data
+
+Cached or last-observed guide text cannot authorize navigation. **Open native Live** or **Refresh guide** reacquires targets in the main tab. This can replace a paused program; returning to the same channel does not restore its program/position. Prefer the original player when exact paused content must be preserved.
+
+Close the drawer and use native controls when enhanced controls fail. Do not clear storage or reinstall to recover metadata. Settings/history/layout intent are stored locally for the extension ID. Update an existing installation with Reload on its existing entry to retain those records. [Failure recovery](docs/ERROR_HANDLING.md) explains storage and cleanup failures.
+
+Four feeds, automatic layouts, monitor selection, mixed services and independent Sports state are unsupported. [Development](docs/DEVELOPMENT.md) and [architecture](docs/ARCHITECTURE.md) describe current code; [retained readiness evidence](docs/evidence/runs/20261002-c1-rg2/run.md) qualifies its own installed build only.

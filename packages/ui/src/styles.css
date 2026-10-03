@@ -350,3 +350,141 @@ h1 { font-size: clamp(24px, 2.7vw, 33px); margin: 0; letter-spacing: -1.25px; li
 .audio-controls label { display: flex; align-items: center; gap: 8px; }
 .audio-controls input { width: 110px; }
 .audio-controls small { color: #899bab; }
+
+/* Keep primary controls readable; disclose secondary information without shrinking tap targets. */
+.desktop-app { font-size: 16px; }
+.main-content { padding: 18px 24px 24px; }
+.topbar { position: sticky; top: 0; z-index: 3; background: #101319; padding: 8px 24px; }
+.page-heading { margin-bottom: 12px; }
+h1 { font-size: 26px; letter-spacing: -.5px; }
+.heading-actions { padding-top: 0; }
+.button, .button.compact { font-size: 14px; min-height: 44px; padding: 10px 12px; line-height: 1.2; }
+.icon-button, .favorite-toggle { min-width: 36px; width: 36px; min-height: 36px; height: 36px; }
+.connection, .nav-item, .guide-program-cell>span, .channel-name>span, .guide-schedule-cell, .guide-footer, .quad-footer, .app-footer, .quiet-label { font-size: 14px; letter-spacing: 0; color: #aab6c7; }
+.nav-item { min-height: 44px; }
+.rail-version { display: none; }
+.audio-controls { padding: 10px 12px; margin-bottom: 14px; gap: 6px; font-size: 14px; }
+.audio-summary { justify-content: space-between; }
+.audio-controls small { font-size: 14px; color: #aab6c7; }
+.audio-controls p { margin: 6px 0; }
+.secondary-details { font-size: 14px; color: #b7c3d2; margin: 4px 0; }
+.secondary-details summary { cursor: pointer; width: fit-content; min-height: 36px; padding: 6px 0; }
+.secondary-details summary:focus-visible { outline: 2px solid #b9e7a7; outline-offset: 3px; }
+.secondary-details p { margin: 6px 0; }
+.guide-toolbar, .sports-toolbar { margin-bottom: 12px; gap: 12px; }
+.segmented button, .league-tabs button { min-height: 44px; font-size: 14px; padding: 8px 10px; }
+.segmented button span { font-size: 14px; }
+.search-box { min-height: 44px; width: 320px; }
+.search-box input { height: 42px; font-size: 16px; }
+.search-box input::placeholder { color: #aab6c7; }
+.search-hint { display: none; }
+.guide-table-head { font-size: 14px; letter-spacing: 0; color: #aab6c7; }
+.guide-row { min-height: 76px; }
+.guide-program-cell strong, .channel-name strong { font-size: 16px; white-space: normal; overflow: visible; }
+.guide-program-cell>span { white-space: normal; overflow: visible; }
+.channel-name>span:not(.current-label) { color: #aab6c7; }
+.guide-row-actions .button { font-size: 14px; min-width: 74px; }
+.channel-logo { font-size: 12px; }
+.sports-disclosure, .quad-disclosure { padding: 10px 12px; margin-bottom: 12px; }
+.sports-disclosure strong, .quad-disclosure strong { font-size: 16px; }
+.sports-disclosure p, .quad-disclosure p { font-size: 14px; margin-top: 4px; color: #b7c3d2; }
+.fixture-badge { font-size: 12px; letter-spacing: 0; }
+.sports-disclosure>.fixture-badge { display: none; }
+.sports-section-title { margin: 16px 0 10px; }
+.section-title h2 { font-size: 18px; }
+.sports-card { padding: 12px; }
+.sports-card h3 { margin: 6px 0; font-size: 18px; }
+.sports-card p { margin: 6px 0; font-size: 14px; }
+.sports-card-top { margin-bottom: 8px; font-size: 14px; gap: 12px; }
+.sports-card-actions { padding-top: 10px; }
+.listing-age { color: #bcc6d2; }
+.mapping-unavailable { color: #dfc99a; }
+.demo-tools { margin-top: 18px; }
+.empty-state { min-height: 180px; padding: 24px 16px; }
+.empty-state p, .empty-inline p { font-size: 16px; line-height: 1.5; }
+.empty-inline { min-height: 130px; padding: 16px; }
+.empty-inline strong { font-size: 16px; }
+.watch-context { min-height: 0; padding: 18px; gap: 18px; }
+.watch-context h2 { font-size: 26px; margin: 8px 0 12px; }
+.watch-channel>div strong, .quick-channel strong { font-size: 16px; }
+.watch-channel>div span, .quick-channel small, .section-kicker, .text-button, .player-preserved p, .player-preserved strong { font-size: 14px; letter-spacing: 0; }
+.watch-columns { margin-top: 16px; gap: 16px; }
+.content-card { padding: 16px; }
+.quick-channel small { white-space: normal; overflow: visible; }
+.player-preserved { padding: 12px; min-height: 0; }
+.pane-window-surface { min-height: 0; padding: 14px; align-items: flex-start; text-align: left; }
+.pane-window-surface strong, .pane-header strong { font-size: 16px; }
+.pane-window-surface>span:last-child, .pane-header>div span, .muted-tag, .pane-error { font-size: 14px; color: #b7c3d2; }
+.pane-header { flex-wrap: wrap; padding: 10px 12px; }
+.pane-header strong { white-space: normal; }
+.pane-actions { flex-wrap: wrap; }
+.add-pane { min-height: 160px; padding: 16px; }
+.add-pane strong { font-size: 16px; }.add-pane>span:last-child { font-size: 14px; }
+.connection-help { margin: 0 0 14px; padding: 12px; }
+.connection-help strong { font-size: 16px; }.connection-help p { font-size: 14px; }
+.shortcuts-modal { width: min(580px,100%); padding: 20px; }
+.shortcuts-modal>p, .shortcut-grid>label { font-size: 16px; line-height: 1.5; }
+.shortcut-grid { padding: 12px 0; gap: 12px; }
+.shortcut-grid input { min-height: 44px; }
+@container (max-width: 800px) {
+  .main-content { padding: 16px; }.watch-context { padding: 16px; }
+  .page-heading { flex-wrap: wrap; }.heading-actions { padding-top: 0; }
+  .guide-table-head, .guide-row { grid-template-columns: minmax(120px,1fr) minmax(100px,1.4fr) 116px; padding: 8px 12px; }
+  .sports-grid { grid-template-columns: 1fr; }
+}
+@container (max-width: 580px) {
+  .rail { padding: 6px 10px; gap: 6px; }.brand { width: 28px; }.brand-mark { font-size: 20px; }
+  .nav-item { font-size: 14px; padding: 6px; min-height: 44px; }.nav-item>svg { display: none; }
+  .rail-bottom { width: 36px; }.rail-bottom .nav-item { padding: 6px; }
+  .topbar { padding: 8px 12px; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .topbar-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .main-content { padding: 12px; }.page-heading { margin-bottom: 10px; }
+  .guide-table-head { display: none; }
+  .guide-row { grid-template-columns: minmax(0,1fr) auto; padding: 10px; gap: 6px 8px; }
+  .guide-channel-cell { grid-column: 1; grid-row: 1; gap: 6px; flex-wrap: nowrap; }
+  .guide-channel-cell .channel-logo { display: none; }
+  .guide-program-cell { grid-column: 1 / -1; grid-row: 2; }
+  .guide-program-cell strong { display: block; -webkit-line-clamp: unset; font-size: 16px; }
+  .guide-program-cell>span { font-size: 14px; }
+  .guide-row-actions { grid-column: 2; grid-row: 1; flex-wrap: nowrap; }
+  .guide-row-actions .button { min-width: 72px; font-size: 14px; min-height: 44px; padding: 8px; }
+  .guide-row-actions .icon-button { width: 36px; height: 36px; }
+  .channel-name strong { font-size: 16px; }.channel-name>span.current-label { font-size: 14px; }
+  .channel-name>span:not(.current-label) { display: none; }
+  .audio-controls label { flex: 1; flex-wrap: wrap; }
+  .audio-controls input { width: min(160px,100%); }
+  .sports-card, .sports-disclosure, .quad-disclosure { padding: 12px; }
+  .sports-card-top { margin-bottom: 8px; }
+  .league-tabs button { font-size: 14px; }.section-title h2 { font-size: 18px; }
+  .watch-context h2 { font-size: 24px; }.quick-channel strong { font-size: 16px; }.quick-channel small { font-size: 14px; }
+  .quick-channels { grid-template-columns: 1fr; }
+  .app-footer { padding: 12px; font-size: 14px; }
+  .shortcuts-modal { padding: 16px; }.shortcut-grid { grid-template-columns: 1fr; }
+}
+/* Keep controls and their summary together at widths with room to compare. */
+.guide-schedule-cell>span, .guide-schedule-cell>span.schedule-unknown { font-size: 14px; color: #aab6c7; }
+@media (min-width: 801px) {
+  .audio-controls { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+  .audio-controls .audio-summary { justify-content: flex-start; }
+  .audio-controls .secondary-details { grid-column: 1 / -1; grid-row: 2; }
+
+}
+
+.heading-actions .button { font-size: 14px; min-height: 44px; padding: 10px 12px; }
+.pane-audio-details { padding: 0 12px; }
+@container (max-width: 380px) { .rail { flex-wrap: wrap; } .rail nav { flex: 1; } .nav-item { padding: 6px 4px; } }
+.nav-item { white-space: normal; overflow-wrap: anywhere; }
+@container (max-width: 800px) {
+  .brand-caption { display: none; }
+  .guide-channel-cell .channel-logo { display: none; }
+  .channel-name { min-width: 0; }
+}
+.rail { width: max-content; min-width: 90px; }
+.nav-item { white-space: nowrap; overflow-wrap: normal; }
+@container (max-width: 580px) {
+  .rail { width: 100%; min-width: 0; }
+  .rail nav { flex-wrap: wrap; }
+  .rail nav .nav-item { width: auto; flex: 1; }
+}
+
+.quad-toolbar, .quad-toolbar .quiet-label { font-size: 14px; letter-spacing: 0; }

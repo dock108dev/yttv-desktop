@@ -1,5 +1,3 @@
-# storage
+# Local persistence
 
-Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
-
-[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.
+`src/index.ts` owns version1 preference/history/layout sanitation, ordering and serialized storage writes. Failed writes preserve prior visible choices; invalid serialized records are not silently reset. Legacy identifiers remain readable but grant no navigation/audio authority. `src/guide-cache.ts` stores sanitized listing metadata without watch targets, with bounded optional retries/counters. [Domain tests](../../tests/domain.test.ts) and [guide-cache tests](../../tests/guide-cache.test.ts) cover synthetic records; [failure recovery](../../docs/ERROR_HANDLING.md) describes limits.

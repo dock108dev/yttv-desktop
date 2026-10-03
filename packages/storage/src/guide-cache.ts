@@ -37,8 +37,11 @@ export function readGuideCache(raw: unknown, now = Date.now()): GuideMetadataCac
 export function createGuideMetadataStore(bridge: StorageBridge, now = () => Date.now()) {
   let cache: GuideMetadataCache | null = null;
   let queue: Promise<void> = Promise.resolve();
+  let writeFailed = false;
+  const failures = { reads: 0, writes: 0 };
   return {
-    async load() { try { cache = readGuideCache(await bridge.get(GUIDE_CACHE_KEY), now()); } catch { cache = null; } return cache; },
+    get diagnostics() { return { ...failures, persistence: writeFailed ? 'unavailable' : 'available' }; },
+    async load() { try { cache = readGuideCache(await bridge.get(GUIDE_CACHE_KEY), now()); } catch { cache = null; failures.reads++; } return cache; },
     get rows(): GuideEntry[] { return readGuideCache(cache, now())?.rows ?? []; },
     async retain(entries: GuideEntry[]): Promise<void> {
       // Seeded/cached Watch observations cannot renew metadata or acquire authority.
@@ -53,13 +56,14 @@ export function createGuideMetadataStore(bridge: StorageBridge, now = () => Date
         if (index < 0) { if (merged.length < GUIDE_CACHE_MAX_ROWS) { merged.push(row); changed = true; } }
         else if (Date.parse(row.observedAt) > Date.parse(merged[index].observedAt)) { merged[index] = row; changed = true; }
       }
-      if (!changed) return;
+      if (!changed && !writeFailed) return;
       cache = { schemaVersion: 1, observedAt: cache && Date.parse(cache.observedAt) > Date.parse(observedAt) ? cache.observedAt : observedAt, rows: merged };
       const retained = cache;
       // Capture each sanitized revision and serialize writes; a delayed old write cannot win.
       const next = queue.catch(() => undefined).then(() => bridge.set(GUIDE_CACHE_KEY, retained));
       queue = next;
-      try { await next; } catch { /* Cache is optional; playback/preferences and Live fallback survive. */ }
+      try { await next; writeFailed = false; }
+      catch { writeFailed = true; failures.writes++; /* Optional memory cache survives; retry on a fresh observation. */ }
     },
   };
 }

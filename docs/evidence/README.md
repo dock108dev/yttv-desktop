@@ -1,10 +1,10 @@
-# Phase 0 evidence
+# Evidence records
 
 ## Git storage
 
 Git retains evidence templates, the run index and Markdown run summaries. Screenshots, copied extension/rollback bundles, machine-readable observations, patches, logs and prior-document snapshots under `runs/` stay local and are ignored. Keep each run summary concise, with candidate identity, checks, outcome and limitations. Links to local artifacts are useful on the machine that collected them; those artifacts are unavailable in a fresh checkout. Preserve existing local artifacts when removing them from Git tracking. The documentation check reports missing local artifact references separately from broken documentation links.
 
-**No experiment has run.** These templates prepare future evidence; they are not results. See [Phase 0 plan](../PHASE0_FEASIBILITY.md) and [next task](../../NEXT_TASK.md).
+[Run records](runs/README.md) contain observed results at their own revision and scope. Templates are explicitly NOT RUN until completed for an actual experiment.
 
 | Template | Use |
 | --- | --- |
@@ -13,7 +13,7 @@ Git retains evidence templates, the run index and Markdown run summaries. Screen
 | [Mapping case](templates/mapping-case.md) | Event/provider/guide/entitlement/target provenance, expected versus observed and confidence |
 | [Decision](templates/decision.md) | Full/dual/managed-window/defer choice with evidence and untested scope |
 
-Copy only when starting the corresponding requested task to `runs/<UTC-date>-<task-id>/`. Never backfill a live record from a fixture. Record experiment revision using git rev-parse HEAD and note any uncommitted changes. A task with absent prerequisites ends BLOCKED before account/playback access.
+Copy when recording an experiment to `runs/<UTC-date>-<task-id>/`. Never backfill a live record from a fixture. Record experiment revision using git rev-parse HEAD and note any uncommitted changes. Record absent prerequisites explicitly; do not infer a live result from a fixture.
 
 Evidence classes: DOCUMENTATION (official page/design), FIXTURE (synthetic), REPLAY (historical or provider simulated timing), LIVE (current authorized actual stream/provider observation), DEVICE (observed browser/hardware behavior), OWNER (explicit usefulness/acceptance verdict). A record can reference multiple classes while describing each separately. “Manual” is a method, not a live-evidence guarantee.
 

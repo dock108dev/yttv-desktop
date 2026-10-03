@@ -1,21 +1,9 @@
-# UI
+# Shared UI
 
-Status: implemented shared React interface for the local Chrome build. Interface and simulated-DOM evidence do not establish live playback, licensed sports coverage or a complete beta.
+`src/index.tsx` exports `DesktopApp` and `mountDesktop(element, bridge, options)`. The [asynchronous bridge](src/types.ts) supplies observations, preferences and confirmed action results. Components do not inspect service DOM or protected media. The interface mounts in a content drawer or extension page.
 
-`src/index.tsx` exports `DesktopApp` and `mountDesktop(element, bridge, options)`. The asynchronous [bridge contract](src/types.ts) receives observations and confirmed action results from the Chrome app. Components never inspect YouTube TV DOM, credentials or protected video. The same interface mounts inside an isolated content-script drawer or a standalone extension page.
+Guide provides search, favorites/order/hide and confirmed recent/previous history. Sports searches guide programs with freshness guards; a separate Fixture Lab is illustrative and cannot Watch/Add. QuadBox controls two total separate original player windows. Selecting a feed transfers audio/focus; new windows start muted. `src/demo.ts` provides a labeled preview with separate local preference storage and disabled playback actions.
 
-The four surfaces provide current-player context, a compact guide with local favorites/order/hide settings and confirmed recent/previous history, a disclosed Sports fixture lab, and managed-window controls. The original player remains in its browser window; the interface contains no proxy or fake video player. `src/demo.ts` provides a clearly labeled local preview with separate preference storage and disabled real playback actions.
+Keyboard handling respects editable fields, native controls, browser chords and Shadow DOM composed paths. Narrow drawers use horizontal navigation and wrapping rows; larger pages use a navigation rail. Primary controls keep44px height; secondary audio/listing/build details are disclosed separately while current blockers remain visible.
 
-Night mode is locked to mute. Window selection changes focus only. No interface control or shortcut enables audio. Sports cards recompute freshness every 30 seconds and label stale snapshots as unavailable with last-known state. Illustrative fixtures cannot establish real channel mapping or enable Watch/Add.
-
-Keyboard bindings are scoped to the workspace, including Shadow DOM composed paths, and exclude editable fields and original player controls. Buttons retain their native Enter behavior. Narrow 440px content drawers use horizontal navigation and dense responsive rows; larger pages use a navigation rail.
-
-Run the focused interface behavior harness from the repository root:
-
-```sh
-node --import tsx --test packages/ui/src/behavior.test.ts
-```
-
-The harness uses bundled local source and simulated DOM. It checks fixture disclosure/disabled playback, preference updates, keyboard isolation and the managed-window/mute boundary. It is distinct from visual browser inspection, real YouTube TV navigation and concurrent-playback qualification.
-
-See [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [acceptance](../../docs/ACCEPTANCE_AND_TEST_PLAN.md) and [next task](../../NEXT_TASK.md) for remaining release gates.
+Run `node --import tsx --test packages/ui/src/behavior.test.ts` from the repository root. The harness checks bridge actions, fixture disclosure, keyboard isolation and disabled/cached states in simulated DOM. It is not installed playback or visual/accessibility qualification. See [architecture](../../docs/ARCHITECTURE.md).

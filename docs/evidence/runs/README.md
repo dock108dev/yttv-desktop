@@ -18,6 +18,28 @@ Completed viewing scope: [C1-Q2](20261002-c1-q2/run.md), installed018/a87877ca8e
 
 [S2-L1 NBA preparation](20261002-s2-l1/run.md): source decision and local adapter/metadata relay/provider UI/search/event routing verified, 79 tests PASS. Standard019/9ed7cd8afadd5013 retains existing permissions; separate019/57058bd9d522e2bd requests exact loopback metadata access and is uninstalled. Owner Free key absent, zero provider requests; actual NBA/mapped Watch/Add NOT RUN. Installed018 identity freshly observed with original CBS playback/audio preserved. [Single combined owner handoff](20261002-s2-l1/permission-review.md).
 
-[S2-G1 guide Sports](20261002-s2-g1/run.md): candidate010/f24fa0471866e729, 83-test normal verification PASS, standard permissions only. Native program classification/search/current-next/cache/exact guarded Watch/Add implemented. Owner reload reported complete; real qualification blocked by unavailable browser admin-policy check; installed identity UNOBSERVED.018 rollback preserved, C1-Q2 long viewing evidence reused within its scope.
+[S2-G1 guide Sports](20261002-s2-g1/run.md): Installed **v0.1.12 / 2f3e74113bfb36dc / idaaiiafgopfpaojpnhaoefbefllioab** verified. **85-test normal verification PASS; real discovery/search and eligible Watch/main + Add/one managed feed PASS.** Cached61-card read-only guard and native recovery PASS; original CBS restored at720p with player/tab enabled100%, added feed closed, favorites/history/shortcut choices retained. No API key, setup, service or new permissions. One later main-tab refresh showed tab mute; restored with the existing control, cause/lifecycle preservation remains OPEN. No explicit replay was listed; Replay and unloaded-guide behavior have local tests only. C1-Q2 long dual-viewing evidence reused; independent scores/state/overrun and broader release checks remain grouped open.
 
-Current S2-G1 state: browser access RECOVERED; installed010/f24fa0471866e729/same ID VERIFIED. Stopped at cached legacy Upcoming/episodic matchup presentation regression; repaired **011/343f238d6223baf3, 84-test normal verification PASS**. One owner repair reload pending, then fresh real qualification. [Canonical next task](../../../NEXT_TASK.md). Earlier browser denials retained historically; no provider setup or new permissions.
+
+[C1-RG1 reliability](20261002-c1-rg1/run.md):013/5ee077ef405da7c7 prepared;90-test normal verify PASS; proven volume loss repaired, historical tab-mute cause UNKNOWN; one owner same-entry reload/muted runtime pending. Audio handoff deferred at owner request.
+
+
+[C1-RG1 follow-up](20261002-c1-rg1/run.md):013 real volume refresh FAIL retained;014/b2f251ab60b11eba local PASS91; concrete repair reload and muted runtime pending. Native site mute preserved; real audio handoff deferred.
+
+[C1-RG1 native-volume repair](20261002-c1-rg1/run.md): installed014 volume FAIL retained;015/01571356996c1b5b local PASS93; native choice/readback repair awaits owner same-entry reload and muted qualification.
+
+## C1-RG1 shared-DOM016 follow-up
+
+Current C1-RG1: **016/b14cebe3d8ca6cff prepared,93-test normal verification PASS; installed qualification PENDING shared-DOM native-volume repair reload.**013/014 volume retention FAILED;015 correctly refused the native control and saved no false choice. The observed custom slider exposes value through shared DOM attributes;015 assumed a numeric custom property.016 uses its value attribute/change event and requires native aria/player readback, preserving player mute even on refusal. A faithful absent-custom-property regression fails retained015 and passes016. Actual rendered variant support remains the runtime gate. Historical tab-mute caller UNKNOWN; sole-main ordinary refresh retained deliberate tab mute. Chrome site/tab mute preserved, CBS paused100%, no extra; initial Fire Country rolled to Boston Blue. Real audio handoff deferred by owner request. C1-RG1/full beta PARTIAL. [Evidence](20261002-c1-rg1/run.md).
+
+## Installed016 affected continuation closeout
+
+Current C1-RG1: **installed016/b14cebe3d8ca6cff/same ID confirmed; affected muted continuation finished.** Paused90% and80% native/observed-player readbacks and ordinary refresh retention PASS;100% restored through the supported Desktop/native control. Cached Sports guards, native recovery, muted TNT Watch/Previous CBS and one muted Add/Close PASS. Guide→CBS with an extra feed emitted a recovery warning; later diagnostic/native/player readbacks showed Restored/100%, but the warning remained until Mute all. Further volume tests stopped; initial refusal cause UNKNOWN, and navigation-volume acceptance remains PARTIAL. Source unchanged; recorded93-test normal verification retained, original index/data/permissions/rollback preserved. CBS News New York 11pm paused/player+tab muted100%, native site mute active, no extra; earlier paused program/position differs. Historical tab-mute caller UNKNOWN; no audio enable/transfer. Full C1-RG1/beta acceptance remains PARTIAL; no routine reload pending. [Evidence](20261002-c1-rg1/run.md).
+
+C1-RG1 navigation closeout:017/50a15df68eb2c3db,102 tests PASS, installed qualification pending one owner same-entry reload. [Run](20261002-c1-rg1/run.md).
+
+Installed C1-RG1 navigation closeout017/50a15df68eb2c3db: scoped feedback and90/80 navigation-volume PASS;102 local tests; captured program/position not restored,100% restored and mute active. [Verdict](20261002-c1-rg1/017-runtime-verdict.json).
+
+## C1-RG2 consolidated readiness / everyday use — complete2026-10-03 EDT
+
+[Run](20261002-c1-rg2/run.md), [exact acceptance ledger](20261002-c1-rg2/acceptance-ledger.md), [one remaining release ledger](20261002-c1-rg2/release-checks.md). Installed017/50a15df68eb2c3db/same ID;54 unchanged hashes/recorded102-test verification retained. Safe controls passed; captured paused Comics Unleashed4:36/100%/mute preserved.9 bounded surface timings and11 paused Chrome aggregate samples are limited performance context. No repair/reload/test extra. Usable main-plus-one handoff COMPLETE; full MVP/beta OPEN.

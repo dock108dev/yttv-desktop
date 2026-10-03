@@ -1,13 +1,11 @@
 # YouTube TV adapter
 
-`src/index.ts` isolates ordinary DOM guide and player observations. It reads current/next titles, channel labels, supported navigation links and standard HTML video state; it never reads credentials, cookies, internal application globals, protected media URLs, decrypted streams or DRM details.
+`src/index.ts` isolates ordinary DOM guide/player observations and native audio controls. It never reads credentials, cookies, internal application globals, protected media URLs, decrypted streams or DRM details.
 
-`createDOMAdapter(document)` provides `getObservation`, `subscribe`, `navigateToChannel`, `mute`, `seedGuide` and `dispose`. Commands return explicit capability results. A requested navigation becomes confirmed only when the expected visible channel and a progressing player are observed; a click or dispatched URL alone is not success. Unknown channel identity is left unknown.
+`createDOMAdapter(document)` returns `getObservation`, `subscribe`, `navigateToChannel`, `seedGuide`, `setAudio`, `mute` and `dispose`. Navigation confirms only after the expected channel and an advancing player are observed. Missing/unknown/stale targets and absent/loading players return explicit capability failures.
 
-The API currently does not implement authenticated embedded playback, stream composition/capture, program-specific navigation, play/pause/volume controls, or unmute. Browser session management lives in the Chrome bridge and exposes the separate muted-window fallback. The wider proposed adapter API remains a roadmap item rather than an implemented capability claim.
+`setAudio({ muted, volume })` supports player mute and volume. The volume path uses the ordinary native slider/change contract, validates native/player readback and preserves mute during volume changes. `mute()` is a convenience mute operation. Browser tab mute and managed-window lifecycle belong to the Chrome worker. Native play/pause, seek, captions and quality remain service controls; the adapter has no play/pause or protected-video composition API.
 
-The guide uses normalized channel names for stable IDs because multiple feeds may share a browse identifier. Targets are ordinary observed `tv.youtube.com/watch` pages with allowlisted navigation parameters. They are volatile, timestamped and expire after 30 minutes. Polling identical or hidden guide rows does not renew their timestamps. Newly created watch pages can bootstrap the background’s fresh volatile guide; hard reloads and worker suspension may require reopening the native Live guide.
+Channel IDs use normalized names because feeds can share browse identifiers. Watch targets are observed tv.youtube.com pages with allowlisted parameters and30-minute freshness. Polling identical or hidden rows does not renew them; cached metadata cannot navigate. Hard reload/worker suspension can require reopening native Live. Disposal cancels pending navigation/observers without taking over the original player.
 
-All video creation, playback and volume changes enforce the user’s overnight mute policy. Mutation observers exclude the injected UI and dispose on page exit. Adapter failure leaves the host player available.
-
-Run `npm test` from the repository root for the focused DOM/URL and simulated Chrome API tests. Live authentication, protected playback, entitlements, simultaneous sessions and performance require separate observed evidence.
+[Adapter tests](../../tests/yttv-adapter.test.ts) use synthetic DOM/player state. [Architecture](../../docs/ARCHITECTURE.md) describes shared target validation; real playback/entitlements remain separate evidence.

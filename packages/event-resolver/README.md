@@ -1,5 +1,3 @@
-# event-resolver
+# Event resolver placeholder
 
-Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
-
-[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.
+This workspace has no executable implementation. Current Sports uses guide classification and fresh target eligibility. Independent event-to-channel resolution is unsupported and would require a defined source/evidence contract. See [architecture](../../docs/ARCHITECTURE.md).

@@ -45,12 +45,7 @@ export interface SportsEvent {
   fetchedAt: string; sourceUpdatedAt: string | null; freshness: Freshness; evidenceClass: EvidenceClass;
 }
 export type Event = SportsEvent;
-export interface SportsProvider {
-  readonly id: string; readonly evidenceClass: EvidenceClass; readonly disclosure: string;
-  getEvents(date: string): Promise<SportsEvent[]>;
-  getEvent(id: string): Promise<SportsEvent>;
-  getLiveEvents(): Promise<SportsEvent[]>;
-}
+
 export type CapabilityErrorCode = 'UNSUPPORTED' | 'NOT_AUTHENTICATED' | 'NOT_ENTITLED' |
   'TARGET_UNAVAILABLE' | 'DOM_CHANGED' | 'TIMEOUT' | 'UNKNOWN';
 export type CapabilityResult<T> = { ok: true; value: T; observedAt: string } |
@@ -97,12 +92,16 @@ export function isPlaybackTarget(value: unknown): value is PlaybackTarget {
   if (target.kind !== 'navigation' || typeof target.channelId !== 'string' || !target.channelId ||
       typeof target.url !== 'string' || target.url.length > 8192 || timestamp(target.verifiedAt) === null ||
       !['LIVE', 'FIXTURE', 'REPLAY'].includes(String(target.evidenceClass))) return false;
+  return watchNavigationUrl(target.url) !== null;
+}
+/** Canonical ordinary watch-page handle policy; no credentials, media endpoints or arbitrary parameters. */
+export function watchNavigationUrl(value: string, base = 'https://tv.youtube.com'): string | null {
   try {
-    const url = new URL(target.url);
-    // Deliberately reject arbitrary origins, credentials, fragment data, and media-like handles.
-    if (url.protocol !== 'https:' || url.hostname !== 'tv.youtube.com' || url.port || url.username || url.password || url.hash) return false;
-    if (!/^\/(?:watch(?:\/[^/?#]+)?|live)(?:\/)?$/.test(url.pathname)) return false;
-    if ([...url.searchParams.entries()].some(([key, value]) => !['v', 'channel', 'channelId', 'vp', 'vpp'].includes(key) || value.length > 4096)) return false;
-    return true;
-  } catch { return false; }
+    const url = new URL(value, base);
+    if (url.protocol !== 'https:' || url.hostname !== 'tv.youtube.com' || url.port || url.username || url.password || url.hash ||
+        !/^\/watch(?:\/[^/?#]+)?\/?$/.test(url.pathname)) return null;
+    if ([...url.searchParams.entries()].some(([key, value]) => !['v', 'channel', 'channelId', 'vp', 'vpp'].includes(key) || value.length > 4096)) return null;
+    if (url.pathname.replace(/\/$/, '') === '/watch' && !['v', 'channel', 'channelId'].some(key => url.searchParams.get(key))) return null;
+    return url.href.length <= 8192 ? url.href : null;
+  } catch { return null; }
 }

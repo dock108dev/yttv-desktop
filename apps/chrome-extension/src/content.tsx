@@ -1,8 +1,15 @@
 import { mountDesktop } from '../../../packages/ui/src/index';
 import { createClientBridge } from './bridge';
-import { createDOMAdapter, envelope, isMessage, type DOMAdapter } from './adapter';
+import { createDOMAdapter, envelope, isMessage, validCommand, type DOMAdapter } from './adapter';
 import uiCss from '../../../packages/ui/src/styles.css?inline';
 import { createExtensionLifecycle } from './runtime';
+import { activeVideo } from '../../../packages/yttv-adapter/src/index';
+const playerKeys = new WeakMap<HTMLVideoElement, string>();
+function playerKey() {
+  const player = activeVideo(document); if (!player) return undefined;
+  if (!playerKeys.has(player)) playerKeys.set(player, crypto.randomUUID());
+  return playerKeys.get(player);
+}
 
 const HOST_ID = 'yttv-desktop-local-beta';
 let adapter: DOMAdapter | undefined;
@@ -41,14 +48,35 @@ function start() {
     notice.textContent = 'Desktop extension updated. Refresh this YouTube TV page to reconnect. Your underlying playback remains available.';
     drawer.replaceChildren(notice);
   });
+  const renewPlayer = (event: Event) => { if (event.target instanceof HTMLVideoElement) playerKeys.set(event.target, crypto.randomUUID()); };
+  document.addEventListener('loadstart', renewPlayer, true);
+  lifecycle.addCleanup(() => document.removeEventListener('loadstart', renewPlayer, true));
   adapter = createDOMAdapter(document, { ignoreElement: host });
   lifecycle.addCleanup(() => adapter?.dispose());
+  // Trusted input on the ordinary native volume control cancels older recovery immediately.
+  // Read back after the site's own handler settles; do not treat our synthetic change as user intent.
+  let nativeVolumeTimer: ReturnType<typeof setTimeout> | undefined;
+  const nativeVolumeInput = (event: Event) => {
+    if (!event.isTrusted || !(event.target instanceof Element) || !event.target.closest('ytu-volume-slider')) return;
+    if (event instanceof KeyboardEvent && !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) return;
+    const key = playerKey(); if (!key) return;
+    void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'NATIVE_VOLUME_INPUT', playerKey: key })));
+    if (nativeVolumeTimer) clearTimeout(nativeVolumeTimer);
+    nativeVolumeTimer = setTimeout(() => {
+      if (playerKey() === key) void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'NATIVE_VOLUME_INPUT', playerKey: key, observation: adapter!.getObservation() })));
+    }, 350);
+  };
+  document.addEventListener('pointerup', nativeVolumeInput, true);
+  document.addEventListener('keydown', nativeVolumeInput, true);
+  lifecycle.addCleanup(() => { if (nativeVolumeTimer) clearTimeout(nativeVolumeTimer); document.removeEventListener('pointerup', nativeVolumeInput, true); document.removeEventListener('keydown', nativeVolumeInput, true); });
   const runtimeListener = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (value: unknown) => void) => {
     if (!lifecycle.active) return false;
-    if (!isMessage(message)) return false;
+    if (_sender.id !== chrome.runtime.id || !isMessage(message) || !validCommand(message)) return false;
     if (message.type === 'GET_OBSERVATION') { void lifecycle.guard(() => sendResponse(adapter?.getObservation())); return false; }
     if (message.type === 'NAVIGATE') { void lifecycle.guard(() => adapter!.navigateToChannel(message.channelId)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
-    if (message.type === 'PLAYER_AUDIO') { void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
+    if (message.type === 'PLAYER_AUDIO') {
+      if (message.playerKey && message.playerKey !== playerKey()) { sendResponse({ ok: false, code: 'PLAYER_CHANGED', audioFailure: 'PLAYER_CHANGED' }); return false; }
+      void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'MUTE') { void lifecycle.guard(() => adapter!.mute()).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'TOGGLE_DESKTOP') { toggleDrawer(); void lifecycle.guard(() => sendResponse({ ok: true })); return false; }
     return false;
@@ -58,7 +86,7 @@ function start() {
     lifecycle.addCleanup(() => chrome.runtime.onMessage.removeListener(runtimeListener));
   });
   if (lifecycle.active) {
-    adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation }))); });
+    adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation, playerKey: playerKey() }))); });
     const bridge = createClientBridge(lifecycle);
     if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false, extensionId: chrome.runtime.id }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
   }

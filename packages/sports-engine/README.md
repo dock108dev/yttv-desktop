@@ -1,5 +1,3 @@
-# sports-engine
+# Sports discovery and fixtures
 
-Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
-
-[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.
+`src/guide.ts` classifies/searches authenticated guide program text; target eligibility delegates to the YouTube TV adapter. It does not infer live scores or game state. `src/index.ts` normalizes/searches explicit illustrative Fixture Lab events. No provider credentials, polling or external acquisition are part of current Sports. See [architecture](../../docs/ARCHITECTURE.md) and [guide tests](../../tests/guide-sports.test.ts).

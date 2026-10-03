@@ -62,3 +62,16 @@ test('cache reads cached Watch observations and fixture observations never write
   const loaded = await store.load(); await store.retain(store.rows); await store.retain([{ ...row(), evidenceClass: 'FIXTURE' }]);
   assert.equal(writes, 0); assert.equal(store.rows[0].observedAt, loaded!.rows[0].observedAt);
 });
+
+
+test('optional cache failure is counted and identical fresh input retries without renewing evidence', async () => {
+  let fail = true; let stored: unknown;
+  const store = createGuideMetadataStore({ get: async () => undefined, set: async (_key, value) => {
+    if (fail) throw new Error('private storage error'); stored = value;
+  } }, () => now);
+  await store.retain([row()]); assert.equal(store.diagnostics.writes, 1);
+  assert.equal(store.diagnostics.persistence, 'unavailable');
+  fail = false; await store.retain([row()]);
+  assert.equal(store.diagnostics.persistence, 'available');
+  assert.equal(readGuideCache(stored, now)!.observedAt, row().observedAt);
+});

@@ -1,5 +1,3 @@
-# quadbox
+# Managed feed policy and audio
 
-Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
-
-[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.
+`src/policy.ts` owns the current two-total managed-feed ceiling, independently of account allowance. `src/index.ts` serializes mute-all-before-enable-one audio handoff and compensates failures. The Chrome worker owns actual tab/window/session lifecycle; this package does not compose protected streams. [Policy/audio tests](../../tests/ssot.test.ts) use synthetic ports and do not prove audible output or service capacity. See [architecture](../../docs/ARCHITECTURE.md).

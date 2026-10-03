@@ -2,5 +2,5 @@
   "name": "@yttv/quadbox",
   "version": "0.0.0",
   "private": true,
-  "description": "Conditional event panes, session/audio focus, expand/restore/replace and final-event suggestions."
+  "description": "Current managed-feed limit and serialized audio handoff; Chrome worker owns browser window/session lifecycle."
 }

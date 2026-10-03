@@ -1,33 +1,32 @@
 # YouTube TV Desktop Client
 
-“YouTube TV provides the streams. We provide the desktop television experience.”
+A local Chrome extension for browsing the observed YouTube TV guide, finding Sports programs and controlling the original player plus one managed window. YouTube TV owns playback, sign-in and account controls. Guide-based Sports needs no API key; independent live scores are not supplied.
 
-A local Chrome candidate provides compact navigation, saved preferences, truthful cached guide recovery and a managed-window route. [Sports discovery from the existing YouTube TV guide](NEXT_TASK.md) is implemented on candidate010/f24fa0471866e729 (83-test verification PASS): browse/search available sports programs and use guarded Watch/Add without additional setup. Real qualification is blocked by unavailable browser policy access after owner-reported reload. [C1-Q2](docs/evidence/runs/20261002-c1-q2/run.md) passed practical single-feed audio and15m23s dual managed windows on last-observed installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**. Full beta acceptance remains PARTIAL.
+## Quickstart
 
-YouTube TV retains authentication, entitlements, protected playback, delivery, DVR, ads and account management. The temporary overnight mute hold is retired. Player and tab mute are read back separately; site mute is UNKNOWN, routing does not prove audible sound, and saved layouts never restore audio authority. Managed windows disclose separate original players. No protected media is extracted, proxied or captured.
-
-Read [Start here](START_HERE.md), then the authoritative [next task](NEXT_TASK.md). The [Desktop tracker](../yttv_next_steps.md) is a pointer. [Development](docs/DEVELOPMENT.md) describes build/load instructions and evidence limits.
-
-## Local build
+Requirements: Node22 ([.nvmrc](.nvmrc)), npm, Python3.14 and desktop Chrome for the extension.
 
 ```sh
-cd /Users/michaelfuscoletti/Desktop/yttv-desktop
 npm ci
-npm run typecheck
-npm test
+npm run verify:source
 npm run build
 npm run preview
 ```
 
-The build is in `dist/chrome-extension`. Chrome’s approved local extension uses only storage and tv.youtube.com host access. The fixture preview at http://127.0.0.1:4173 does not authenticate or play video. See the run record for which checks actually passed.
+Open `http://127.0.0.1:4173` for the illustrative interface. Preview cannot sign in or play video. To use the extension, load `dist/chrome-extension` through Chrome's **Load unpacked** control, then open YouTube TV normally. [Development](docs/DEVELOPMENT.md) covers build effects and updating an existing installation; [usage](START_HERE.md) explains Guide, Sports and audio controls.
+
+`verify:source` checks types, offline tests, compilation/permissions and docs without writing output. `build` replaces the bundle in `dist/chrome-extension`; keep a separate source copy when preserving an existing installed bundle. No environment variables or backend are needed.
+
+## Support and limits
+
+Current code supports YouTube TV only, with two total managed feeds and separate native player windows. Four-feed layouts, automatic tiling, monitor selection, Prime Video/Netflix and Safari/native clients are not implemented. Window count does not prove account concurrency allowance. Sports text comes from guide listings and does not confirm live game state.
+
+The retained installed-build evidence concerns **v0.1.17 / 50a15df68eb2c3db**; newer source changes are separately checked. Offline tests are not installed-playback or release qualification. See [readiness evidence](docs/evidence/runs/20261002-c1-rg2/run.md) for the observed scope.
 
 ## Documentation
 
-- [Product](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [backlog](docs/BACKLOG.md)
-- [Phase 0](docs/PHASE0_FEASIBILITY.md), [evidence](docs/evidence/README.md), [run records](docs/evidence/runs/README.md)
-- [Provider evaluation](docs/PROVIDER_EVALUATION.md), [risks](docs/RISKS_AND_OPEN_QUESTIONS.md), [acceptance](docs/ACCEPTANCE_AND_TEST_PLAN.md)
-- [Decision log](docs/DECISIONS.md), [official sources](docs/SOURCES.md), [initial setup verification](docs/SETUP_VERIFICATION.md)
+- [Development and CI](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md)
+- [Security](docs/SECURITY.md), [failure recovery](docs/ERROR_HANDLING.md)
+- [Documentation index](docs/README.md), [evidence](docs/evidence/README.md)
 
-Verified destination: `/Users/michaelfuscoletti/Desktop/yttv-desktop`, beside the other Desktop projects. Current local branch is main with an existing GitHub origin. The [handoff review](docs/evidence/runs/20261002-handoff-review/review.md) made no remote operations and selects installed Chrome foundation qualification next.
-
-Current S2-G1 state: browser access RECOVERED; installed010/f24fa0471866e729/same ID VERIFIED. Stopped at cached legacy Upcoming/episodic matchup presentation regression; repaired **011/343f238d6223baf3, 84-test normal verification PASS**. One owner repair reload pending, then fresh real qualification. [Canonical next task](NEXT_TASK.md). Earlier browser denials retained historically; no provider setup or new permissions.
+Protected streams and credentials are never extracted or proxied. Native account/player controls stay available; saved layouts grant no audio authority.

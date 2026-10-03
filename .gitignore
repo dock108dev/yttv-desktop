@@ -72,3 +72,5 @@ raw-captures/
 !/docs/evidence/runs/**/*.md
 /docs/evidence/runs/**/scratch/
 /docs/local-verification.json
+# Historical generated setup inventory remains locally available, not a source input.
+/docs/setup-validation.json

@@ -1,0 +1,5 @@
+# C1-RG1 — concrete repair014 reload
+
+013 was installed/identity-bound, but volume99% returned100% on ordinary refresh. Failure retained; C1-RG1 is PARTIAL.014 retains every successful volume choice rather than silently dropping it when optional document metadata is absent; player generation guard remains, document binding used where supported. Main volume recovery diagnostics make retention/readiness visible. No mute policy change.91-test normal verification PASS.
+
+Prepared **0.1.14 / b2f251ab60b11eba**, expected **idaaiiafgopfpaojpnhaoefbefllioab**. [Inventory](candidate-014.json), [run/failure](run.md), [012 rollback](rollback-012/build-identity.json). Reload existing entry once for this concrete repair; keep the same Loaded from `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`, ID/storage/permissions. No remove/reinstall/reset. Native Chrome site mute is active and must remain active. Then agent refreshes designated main, binds014, and rechecks affected muted paths. Real audio enable/handoff remains deferred.

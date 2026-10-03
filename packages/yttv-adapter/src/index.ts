@@ -1,18 +1,21 @@
-import { normalizeText, type CapabilityResult, type GuideEntry, type GuideProgram, type PlaybackTarget } from '../../core/src/index';
+import { isPlaybackTarget, watchNavigationUrl, normalizeText, type CapabilityResult, type GuideEntry, type GuideProgram, type PlaybackTarget } from '../../core/src/index';
 
 /** These selectors are observations of the ordinary public page, not protected player APIs. */
 export const SELECTORS = {
   guideRow: 'ytu-epg-row', network: 'ytu-endpoint.network',
   watchEndpoint: 'ytu-endpoint.tenx-thumb[aria-label]', airings: '.airings',
   program: 'main h1, main [role="heading"], [role="main"] h1, [role="main"] [role="heading"]',
+  volumeSlider: 'ytu-player-controls ytu-volume-slider tp-yt-paper-slider[role="slider"]',
 } as const;
 export const TARGET_MAX_AGE_MS = 30 * 60_000;
 export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
   const target = entry.target;
   if (/\bUpcoming:/i.test(entry.programTitle ?? '') || (entry.programs?.length && entry.programs[0].context !== 'CURRENT')) return false;
-  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
+  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !isPlaybackTarget(target)) return false;
   const age = now - Date.parse(target.verifiedAt);
-  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
+  const observedAge = now - Date.parse(entry.observedAt);
+  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS &&
+    Number.isFinite(observedAge) && observedAge >= 0 && observedAge <= TARGET_MAX_AGE_MS;
 }
 export interface PlaybackObservation {
   playing: boolean | null; muted: boolean | null; volume?: number | null; readyState: number | null;
@@ -27,18 +30,8 @@ export interface AdapterObservation {
 export function stableChannelId(name: string): string {
   return `yttv:${normalizeText(name).replace(/ /g, '-')}`;
 }
-export function navigationUrl(value: string, base = 'https://tv.youtube.com'): string | null {
-  try {
-    const url = new URL(value, base);
-    if (url.origin !== 'https://tv.youtube.com' || url.username || url.password || url.hash ||
-      !/^\/watch(?:\/[^/?#]+)?\/?$/.test(url.pathname)) return null;
-    // Only ordinary guide navigation parameters. Never accept arbitrary origins or media/CDN handles.
-    if ([...url.searchParams.keys()].some(key => !['v', 'vp', 'vpp', 'channel', 'channelId'].includes(key))) return null;
-    if (url.pathname.replace(/\/$/, '') === '/watch' && !['v', 'channel', 'channelId'].some(key => url.searchParams.get(key))) return null;
-    if (url.href.length > 8192) return null;
-    return url.href;
-  } catch { return null; }
-}
+/** Adapter entry point delegates URL policy to the shared domain validator. */
+export const navigationUrl = watchNavigationUrl;
 function text(node: Element | null): string { return node?.textContent?.trim().replace(/\s+/g, ' ').slice(0, 300) ?? ''; }
 function visible(node: Element): boolean {
   const rect = node.getBoundingClientRect();
@@ -169,21 +162,44 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
       guideObservedAt = guide.length ? new Date(Math.max(...guide.map(entry => Date.parse(entry.observedAt)))).toISOString() : undefined;
       notify();
     },
-    setAudio: async (change: { muted?: boolean; volume?: number }): Promise<CapabilityResult<PlaybackObservation>> => {
+    setAudio: async (change: { muted?: boolean; volume?: number }): Promise<CapabilityResult<PlaybackObservation> & { audioFailure?: string }> => {
       const player = activeVideo(document);
       if (disposed || !player) return { ok: false, capability: 'audio', code: 'TARGET_UNAVAILABLE', reason: 'No observable player is available. Use the original player.' };
       if ((change.muted !== undefined && typeof change.muted !== 'boolean') ||
           (change.volume !== undefined && (!Number.isFinite(change.volume) || change.volume < 0 || change.volume > 1)))
         return { ok: false, capability: 'audio', code: 'UNKNOWN', reason: 'Invalid player audio choice.' };
+      let audioFailure = 'PLAYER_READBACK_MISMATCH';
       try {
-        if (change.volume !== undefined) player.volume = change.volume;
+        if (change.volume !== undefined) {
+          const sliders = document.querySelectorAll<HTMLElement>(SELECTORS.volumeSlider);
+          if (sliders.length) {
+            const slider = sliders.length === 1 ? sliders[0] : undefined;
+            if (!slider || slider.getAttribute('min') !== '0' || slider.getAttribute('max') !== '100') { audioFailure = 'CONTROL_UNAVAILABLE'; throw new Error('Native volume control unavailable'); }
+            // The site's native choice can overwrite a direct video.volume write.
+            // Use the ordinary slider value/change contract and require player readback.
+            const muted = player.muted;
+            try {
+              // DOM attributes cross content-script isolation; custom component
+              // properties belong to the site's world and are not our control API.
+              slider.setAttribute('value', String(change.volume * 100));
+              slider.dispatchEvent(new document.defaultView!.Event('change', { bubbles: true, composed: true }));
+              await new Promise(resolve => setTimeout(resolve, 150));
+              const nativeValue = Number(slider.getAttribute('aria-valuenow'));
+              if (disposed || activeVideo(document) !== player) { audioFailure = 'PLAYER_CHANGED'; throw new Error('Player replaced'); }
+              if (player.readyState < 2) { audioFailure = 'PLAYER_LOADING'; throw new Error('Player loading'); }
+              if (!slider.isConnected) { audioFailure = 'CONTROL_UNAVAILABLE'; throw new Error('Control replaced'); }
+              if (!slider.hasAttribute('aria-valuenow') || !Number.isFinite(nativeValue)) { audioFailure = 'CONTROL_READBACK_MISSING'; throw new Error('Native readback unavailable'); }
+              if (Math.abs(player.volume - change.volume) > .001 || Math.abs(nativeValue - change.volume * 100) > .1) { audioFailure = 'NATIVE_REFUSED'; throw new Error('Native volume choice refused'); }
+            } finally { player.muted = muted; } // Volume alone carries no unmute choice, even on failure.
+          } else player.volume = change.volume;
+        }
         if (change.muted !== undefined) player.muted = change.muted;
         const playback = getObservation().playback;
         if ((change.muted !== undefined && playback.muted !== change.muted) ||
             (change.volume !== undefined && Math.abs((playback.volume ?? -1) - change.volume) > .001)) throw new Error('Readback mismatch');
         notify();
         return { ok: true, value: playback, observedAt: new Date().toISOString() };
-      } catch { return { ok: false, capability: 'audio', code: 'UNKNOWN', reason: 'Player audio readback did not confirm the choice.' }; }
+      } catch { return { ok: false, capability: 'audio', code: 'UNKNOWN', audioFailure, reason: 'Player audio readback did not confirm the choice. Use the native volume control.' }; }
     },
     mute: async (): Promise<CapabilityResult<boolean>> => {
       const player = activeVideo(document);

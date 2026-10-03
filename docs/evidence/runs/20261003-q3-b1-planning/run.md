@@ -1,0 +1,11 @@
+# Q3-B1 TV workspace beta planning
+
+Date2026-10-03 EDT. Evidence class OWNER_REQUIREMENTS / LOCAL_PLANNING / PRIMARY_DOCUMENTATION_REVIEW. Owner selected compact separate remote, automatically viewable windows, support up to four windows and a monitor/custom rectangular TV area. Active scope updated as one integrated milestone. Implementation/installed qualification NOT RUN.
+
+Read-only code review confirmed runtime total cap2 and one-extra guard, fixed440px injected drawer, action-popup-only panel entry and no tiling/display geometry planner. Domain state already supports2/3/4. Original main's window can contain unrelated owner tabs; auto-arrangement must enroll dedicated players reversibly. Focus currently invokes audio transfer and needs a focus-only seam for layout/remote actions.
+
+Two read-only agents reviewed implementation reuse/pitfalls and current primary platform/service contracts. Official references: [Chrome windows](https://developer.chrome.com/docs/extensions/reference/api/windows), [display information](https://developer.chrome.com/docs/extensions/reference/api/system/display), [optional permission](https://developer.chrome.com/docs/extensions/reference/api/permissions), [YouTube TV simultaneous devices](https://support.google.com/youtubetv/answer/7251139?hl=en), [4K Plus](https://support.google.com/youtubetv/answer/10383365?hl=en). APIs establish a route, not actual playback proof. Published device allowances do not settle how four browser players on one computer are counted.
+
+Canonical product/task/backlog/roadmap/status/acceptance/decision/README/Desktop pointer reconciled; prior planning retained under `prior-planning`. Original source, candidate, runtime, preferences, permissions, private files and old evidence unchanged. No live window/player action, provider request, display permission grant or extension reload. Current mute/paused preservation remain active; exact current017 proof retained in its recorded scope.
+
+Baseline comparison at closeout:54 files reviewed; nine current source/test inputs differ from retained017, while current dist bundle matches017. [Exact read-only comparison](baseline-input-review.json). These changes were not made or reverted by this planning task. Their current-source verification is not claimed; next engineering must preserve/reconcile them.

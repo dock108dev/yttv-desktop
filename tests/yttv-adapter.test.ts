@@ -152,6 +152,35 @@ test('explicit program metadata preserves duplicate event feeds and upcoming can
   } finally { await window.happyDOM.abort(); }
 });
 
+test('volume updates the native control choice before a later site sync, without enabling mute', async () => {
+  const window = fixtureWindow(); const video = window.document.querySelector('video')!;
+  window.document.body.insertAdjacentHTML('beforeend', '<ytu-player-controls><ytu-volume-slider><tp-yt-paper-slider role="slider" min="0" max="100"></tp-yt-paper-slider></ytu-volume-slider></ytu-player-controls>');
+  const slider = window.document.querySelector('tp-yt-paper-slider')!;
+  Object.defineProperty(video, 'readyState', { value: 4, configurable: true });
+  slider.setAttribute('value', '100'); slider.setAttribute('aria-valuenow', '100'); video.volume = 1; video.muted = true;
+  slider.addEventListener('change', () => { video.volume = Number(slider.getAttribute('value')) / 100; slider.setAttribute('aria-valuenow', slider.getAttribute('value')!); video.muted = false; });
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    const reply = await adapter.setAudio({ volume: .37 });
+    assert.equal(reply.ok, true); assert.equal(slider.getAttribute('value'), '37', 'custom properties are not shared across isolated worlds');
+    video.volume = Number(slider.getAttribute('value')) / 100; // Later site synchronization must keep the selected value.
+    assert.equal(video.volume, .37); assert.equal(video.muted, true);
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
+});
+
+test('a native control that refuses volume cannot produce a successful direct-video-only reply', async () => {
+  const window = fixtureWindow(); const video = window.document.querySelector('video')!;
+  window.document.body.insertAdjacentHTML('beforeend', '<ytu-player-controls><ytu-volume-slider><tp-yt-paper-slider role="slider" min="0" max="100"></tp-yt-paper-slider></ytu-volume-slider></ytu-player-controls>');
+  const slider = window.document.querySelector('tp-yt-paper-slider')! as any; slider.value = 100; slider.setAttribute('aria-valuenow', '100'); Object.defineProperty(video, 'readyState', { value: 4, configurable: true }); video.volume = 1; video.muted = true;
+  slider.addEventListener('change', () => { video.muted = false; });
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    const refusal = await adapter.setAudio({ volume: .37 }); assert.equal(refusal.ok, false); assert.equal(refusal.audioFailure, 'NATIVE_REFUSED');
+    assert.equal(video.volume, 1);
+    assert.equal(video.muted, true, 'refused volume cannot grant player audio');
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
+});
+
 test('future or ambiguous first airing never borrows a valid current thumbnail target', async () => {
   const window=fixtureWindow();
   try {
@@ -162,4 +191,17 @@ test('future or ambiguous first airing never borrows a valid current thumbnail t
     link.setAttribute('href','/watch?v=different-airing');
     assert.equal(parseGuide(window.document as unknown as Document)[0].target,null);
   } finally {await window.happyDOM.abort();}
+});
+
+
+test('replacement during native volume settlement reports player change without confirming the old request', async () => {
+  const window = fixtureWindow(); const video = window.document.querySelector('video')!;
+  video.muted = true;
+  window.document.body.insertAdjacentHTML('beforeend', '<ytu-player-controls><ytu-volume-slider><tp-yt-paper-slider role="slider" min="0" max="100" aria-valuenow="100"></tp-yt-paper-slider></ytu-volume-slider></ytu-player-controls>');
+  const slider = window.document.querySelector('tp-yt-paper-slider')!;
+  slider.addEventListener('change', () => video.remove());
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    const reply = await adapter.setAudio({ volume: .37 }); assert.equal(reply.ok, false); assert.equal(reply.audioFailure, 'PLAYER_CHANGED'); assert.equal(video.muted, true);
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
 });

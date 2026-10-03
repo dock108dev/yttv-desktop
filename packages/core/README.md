@@ -1,5 +1,3 @@
-# core
+# Shared domain contracts
 
-Status: shared TypeScript implementation, fixture/domain tests passed. Source is in `src/index.ts`. No credentials or protected media handled.
-
-[Domain tests](../../tests/domain.test.ts), [architecture](../../docs/ARCHITECTURE.md), [backlog](../../docs/BACKLOG.md), [next task](../../NEXT_TASK.md). Synthetic checks do not establish live provider/playback feasibility.
+`src/index.ts` defines guide, playback, capability and sports-event contracts. It sanitizes guide programs and validates ordinary watch-page navigation handles; no credentials or protected media are handled. [Domain tests](../../tests/domain.test.ts) cover synthetic contracts. [Architecture](../../docs/ARCHITECTURE.md) describes callers and authority.

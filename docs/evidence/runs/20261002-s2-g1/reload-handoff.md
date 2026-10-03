@@ -1,3 +1,5 @@
+> Historical prepared handoff. Owner completed this reload; current installed012 qualification is recorded in [run.md](run.md). No reload is pending.
+
 # S2-G1 — one prepared owner reload
 
 Candidate **v0.1.10 / f24fa0471866e729**, normal verification PASS (**83 tests**, typecheck/build/existing-permission audit/docs). Installed candidate identity is not yet observed.

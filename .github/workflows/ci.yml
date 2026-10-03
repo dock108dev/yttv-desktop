@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: Repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Prepare diagnostics
+        run: mkdir -p "$RUNNER_TEMP/yttv-ci"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/yttv-ci/install.log"
+      - name: Type check
+        run: npm run typecheck 2>&1 | tee "$RUNNER_TEMP/yttv-ci/typecheck.log"
+      - name: Offline unit tests
+        run: npm test 2>&1 | tee "$RUNNER_TEMP/yttv-ci/tests.log"
+      - name: Compile and audit permissions
+        run: npm run build -- --check 2>&1 | tee "$RUNNER_TEMP/yttv-ci/build.log"
+      - name: Portable documentation check
+        run: npm run docs:check -- --repository-only 2>&1 | tee "$RUNNER_TEMP/yttv-ci/docs.log"
+      - name: Retain diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-diagnostics
+          path: ${{ runner.temp }}/yttv-ci/*.log
+          retention-days: 7
+          if-no-files-found: ignore

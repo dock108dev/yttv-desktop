@@ -2,5 +2,5 @@
   "name": "@yttv/event-resolver",
   "version": "0.0.0",
   "private": true,
-  "description": "Event/network/channel/target mapping with confidence, provenance and explicit ambiguity/entitlement states."
+  "description": "Reserved package boundary for a future independently qualified event resolver; no runtime implementation."
 }

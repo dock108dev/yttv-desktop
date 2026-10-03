@@ -130,7 +130,11 @@ export function createPreferencesStore(bridge: StorageBridge) {
   return {
     async load(): Promise<Preferences> {
       const raw = await bridge.get(PREFERENCES_KEY);
-      if (typeof raw === 'string') { try { return sanitizePreferences(JSON.parse(raw)); } catch { return defaultPreferences(); } }
+      if (typeof raw === 'string') {
+        let parsed: unknown;
+        try { parsed = JSON.parse(raw); } catch { throw new Error('Stored preferences are unreadable; existing values preserved.'); }
+        return sanitizePreferences(parsed);
+      }
       return sanitizePreferences(raw);
     },
     save(preferences: Preferences): Promise<void> {

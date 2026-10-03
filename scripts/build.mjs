@@ -4,12 +4,16 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const sportsCandidate = process.argv.includes('--sports-candidate');
-const outdir = resolve(root, sportsCandidate ? 'dist/sports-permission-candidate' : 'dist/chrome-extension');
+if (process.argv.slice(2).some(arg => arg !== '--check')) throw new Error('Unsupported build option; use the standard build or --check.');
+const checkOnly = process.argv.includes('--check');
+const outdir = resolve(root, 'dist/chrome-extension');
 const manifest = JSON.parse(await readFile(resolve(root, 'apps/chrome-extension/manifest.json'), 'utf8'));
-if (sportsCandidate) manifest.host_permissions.push('http://127.0.0.1:4318/*');
+// Validate permissions before writing anything.
+if (JSON.stringify(manifest.permissions) !== JSON.stringify(['storage'])) throw new Error('Unexpected permission expansion');
+const expectedHosts = ['https://tv.youtube.com/*'];
+if (JSON.stringify(manifest.host_permissions) !== JSON.stringify(expectedHosts)) throw new Error('Unexpected host expansion');
 // Stable runtime identity for the actual inputs, including uncommitted repairs.
-const inputs = ['scripts/build.mjs', 'scripts/sports-relay.ts', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html'];
+const inputs = ['scripts/build.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html'];
 for (const folder of ['apps/chrome-extension/src', 'packages']) {
   for (const file of await readdir(resolve(root, folder), { recursive: true })) {
     if (/\.(ts|tsx|css)$/.test(file) && !file.includes('node_modules') && !file.endsWith('.test.ts')) inputs.push(`${folder}/${file}`);
@@ -31,23 +35,22 @@ const inlineCSS = {
     build.onLoad({ filter: /.*/, namespace: 'inline-css' }, async args => ({ contents: await readFile(args.path, 'utf8'), loader: 'text' }));
   },
 };
-await mkdir(outdir, { recursive: true });
+if (!checkOnly) await mkdir(outdir, { recursive: true });
 for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['panel', 'iife']]) {
   await build({
     absWorkingDir: root,
     entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' ? 'ts' : 'tsx'}`],
-    outfile: `${outdir}/${name}.js`, bundle: true, format,
+    outfile: `${outdir}/${name}.js`, bundle: true, format, write: !checkOnly,
     platform: 'browser', target: 'chrome120', minify: false,
     define: { 'process.env.NODE_ENV': '"production"', __YTTV_VERSION__: JSON.stringify(manifest.version), __YTTV_BUILD__: JSON.stringify(sourceFingerprint.slice(0, 16)) },
     sourcemap: false, legalComments: 'none', plugins: [inlineCSS],
   });
 }
-for (const file of ['panel.html', 'demo.html']) {
-  await copyFile(resolve(root, 'apps/chrome-extension', file), resolve(outdir, file));
+if (!checkOnly) {
+  for (const file of ['panel.html', 'demo.html']) {
+    await copyFile(resolve(root, 'apps/chrome-extension', file), resolve(outdir, file));
+  }
+  await writeFile(resolve(outdir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+  await writeFile(resolve(outdir, 'build-identity.json'), JSON.stringify({ version: manifest.version, sourceFingerprint, sourceInputs }, null, 2) + '\n');
 }
-await writeFile(resolve(outdir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-if (JSON.stringify(manifest.permissions) !== JSON.stringify(['storage'])) throw new Error('Unexpected permission expansion');
-const expectedHosts = sportsCandidate ? ['https://tv.youtube.com/*', 'http://127.0.0.1:4318/*'] : ['https://tv.youtube.com/*'];
-if (JSON.stringify(manifest.host_permissions) !== JSON.stringify(expectedHosts)) throw new Error('Unexpected host expansion');
-await writeFile(resolve(outdir, 'build-identity.json'), JSON.stringify({ version: manifest.version, sourceFingerprint, sourceInputs }, null, 2) + '\n');
-console.log(`Built ${outdir}; exact permission audit passed (${sportsCandidate ? 'UNAPPROVED sports candidate: storage + tv.youtube.com + 127.0.0.1' : 'storage + tv.youtube.com only'}).`);
+console.log(`${checkOnly ? 'Compiled in memory' : `Built ${outdir}`}; source ${sourceFingerprint}; exact permission audit passed (storage + tv.youtube.com only).`);

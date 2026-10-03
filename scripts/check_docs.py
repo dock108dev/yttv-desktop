@@ -55,6 +55,8 @@ def anchors(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--repository-only', action='store_true',
+                        help='Compatibility alias; all documentation checks are repository-local')
     parser.add_argument('--write-report', action='store_true',
                         help='Write setup-only SHA-256 inventory to docs/setup-validation.json')
     parser.add_argument('--report-path', default='docs/setup-validation.json',
@@ -70,9 +72,7 @@ def main():
         if not (ROOT / name).is_file():
             errors.append(f'Missing required file: {name}')
     tracker = ROOT.parent / 'yttv_next_steps.md'
-    if not tracker.is_file():
-        errors.append(f'Missing Desktop sibling tracker: {tracker}')
-    markdown = sorted(p for p in ROOT.rglob('*.md') if not any(part in {'node_modules', '.git', 'dist'} for part in p.relative_to(ROOT).parts)) + ([tracker] if tracker.is_file() else [])
+    markdown = sorted(p for p in ROOT.rglob('*.md') if not any(part in {'node_modules', '.git', 'dist', '.local', '__pycache__'} for part in p.relative_to(ROOT).parts))
     for path in markdown:
         data = path.read_text(encoding='utf-8')
         if not data.strip():
@@ -92,6 +92,13 @@ def main():
                 continue
             local_count += 1
             dest = (path.parent / unquote(parts.path)).resolve() if parts.path else path
+            # Retained records can reference a historical external pointer, never a setup dependency.
+            if dest == tracker:
+                missing_local_artifacts.append(f'{path.relative_to(ROOT)}: {target}')
+                continue
+            if not dest.is_relative_to(ROOT):
+                errors.append(f'External filesystem dependency: {path}: {target}')
+                continue
             pending_report = args.write_report and dest == report_path
             if not dest.exists() and not pending_report:
                 # .gitignore keeps Markdown run notes but excludes the run's
@@ -99,7 +106,7 @@ def main():
                 local_artifact = (
                     dest.is_relative_to(ROOT / 'docs/evidence/runs')
                     and dest.suffix != '.md'
-                ) or dest == ROOT / 'docs/local-verification.json'
+                ) or dest in {ROOT / 'docs/local-verification.json', ROOT / 'docs/setup-validation.json'} or dest.is_relative_to(ROOT / '.local')
                 if local_artifact:
                     missing_local_artifacts.append(f'{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path.name}: {target}')
                 else:
@@ -135,6 +142,7 @@ def main():
         if f'| U{number:02d} |' not in acceptance:
             errors.append(f'Missing explicit user acceptance criterion U{number:02d}')
     report = {
+        'mode': 'repository-only',
         'scope': 'This command validates docs/workspaces only; product and live tests are recorded separately',
         'checked_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
         'result': 'FAIL' if errors else 'PASS',
@@ -151,7 +159,7 @@ def main():
     if args.write_report and not errors:
         inventory = {}
         for path in sorted(ROOT.rglob('*')):
-            if not path.is_file() or any(part in {'.git', 'node_modules', 'dist', '__pycache__'} for part in path.relative_to(ROOT).parts):
+            if not path.is_file() or any(part in {'.git', 'node_modules', 'dist', '.local', '__pycache__'} for part in path.relative_to(ROOT).parts):
                 continue
             relative = path.relative_to(ROOT).as_posix()
             if relative in {'docs/setup-validation.json', 'docs/SETUP_VERIFICATION.md', args.report_path}:
@@ -159,7 +167,6 @@ def main():
             if '__pycache__' in path.parts:
                 continue
             inventory[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-        inventory['../yttv_next_steps.md'] = hashlib.sha256(tracker.read_bytes()).hexdigest()
         report['file_sha256'] = inventory
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(

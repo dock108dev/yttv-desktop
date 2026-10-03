@@ -1,5 +1,9 @@
 # Tests
 
-Run `npm test` for fixture/domain, guide/navigation boundaries and fake Chrome safety/recovery cases. Run `npm run typecheck` and `npm run build` separately; the build audits permissions. Domain tests cover state truthfulness, mapping ambiguity, confirmed history, persistence and mute-only/fake audio transitions. Adapter tests use synthetic DOM. Chrome tests use mocked APIs and a fresh service-worker context.
+`npm test` runs local fixture/unit, synthetic DOM and mocked Chrome cases; it has no live account/provider/player operations. Tests compile current source. `tests/ssot.test.ts` guards shared limits/navigation, unsupported commands/build options, inert saved schema and audio compensation/serialization. UI and worker tests protect guide program actions, cached/unavailable states, settings/history and keyboard isolation.
 
-See [acceptance](../docs/ACCEPTANCE_AND_TEST_PLAN.md), [fixture catalog](fixtures/README.md) and [run records](../docs/evidence/runs/README.md) for planned versus actual scope. Passing synthetic tests does not qualify real provider data, entitlement, DRM, playback, audible handoff or beta acceptance.
+Use `npm run typecheck` and `npm run build -- --check` for compilation/permission validation while the installed candidate remains frozen. `npm run build` writes output and is reserved for authorized candidate preparation.
+
+[Acceptance](../docs/ACCEPTANCE_AND_TEST_PLAN.md), [fixture catalog](fixtures/README.md), [module authority](../docs/ARCHITECTURE.md) and [run records](../docs/evidence/runs/README.md) distinguish local checks from actual playback and owner acceptance.
+
+`tests/docs-check.test.ts` uses Python3 and disposable synthetic repositories to protect portable CI documentation checks, default repository-local checking and broken-link/anchor failures. Use Python3.14 for the CI runtime.

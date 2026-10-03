@@ -1,7 +1,7 @@
 import {
   ACTIVE_STATUSES, HELD_STATUSES, TERMINAL_STATUSES, EVENT_STATUSES, DEFAULT_FRESHNESS_POLICY,
   freshnessOf, normalizeText, timestamp, isoNow,
-  type SportsEvent, type SportsProvider, type EventStatus, type FreshnessPolicy, type EvidenceClass, type Team,
+  type SportsEvent, type EventStatus, type FreshnessPolicy, type EvidenceClass, type Team,
 } from '../../core/src/index.js';
 
 export const FIXTURE_DISCLOSURE = 'Illustrative fixtures — not live scores, channel carriage, entitlement, or playback evidence.';
@@ -93,23 +93,6 @@ export function searchEvents(events: readonly SportsEvent[], query: string, opti
     return { event, index, matches: matches && (options.includeHistory !== false || visibility.group !== 'HISTORY'), rank };
   }).filter(result => result.matches).sort((a, b) => b.rank - a.rank || a.index - b.index).map(({ event }) => event);
 }
-/** Empty feeds/errors never erase or finalize a tracked event. A newer provider correction is accepted. */
-export function mergeEventSnapshots(previous: readonly SportsEvent[], incoming: readonly SportsEvent[]): SportsEvent[] {
-  const events = new Map(previous.map(event => [event.id, event]));
-  for (const next of incoming) {
-    const old = events.get(next.id);
-    if (!old) { events.set(next.id, next); continue; }
-    const oldFetched = timestamp(old.fetchedAt) ?? -Infinity; const nextFetched = timestamp(next.fetchedAt) ?? -Infinity;
-    const oldUpdated = timestamp(old.sourceUpdatedAt); const nextUpdated = timestamp(next.sourceUpdatedAt);
-    if (nextFetched < oldFetched || (oldUpdated !== null && nextUpdated !== null && nextUpdated < oldUpdated)) continue;
-    if (old.source !== next.source || old.evidenceClass !== next.evidenceClass) continue;
-    events.set(next.id, next);
-  }
-  return [...events.values()];
-}
-export class SportsProviderError extends Error {
-  constructor(public readonly code: 'NOT_FOUND' | 'UNAVAILABLE' | 'RATE_LIMITED', message: string) { super(message); this.name = 'SportsProviderError'; }
-}
 export function createIllustrativeFixtures(now: number | Date = Date.now()): SportsEvent[] {
   const time = now instanceof Date ? now.getTime() : now; const iso = (offset: number) => isoNow(time + offset);
   const event = (id: string, league: string, home: Team, away: Team, status: EventStatus, network: string, extras: Partial<SportsEvent>): SportsEvent => normalizeEvent({
@@ -131,53 +114,4 @@ export function createIllustrativeFixtures(now: number | Date = Date.now()): Spo
     event('nfl-unknown', 'NFL', { id: 'fixture:nyg', name: 'New York Giants', shortName: 'Giants' },
       { id: 'fixture:opponent-nfl', name: 'Illustrative Opponent' }, 'UNKNOWN', 'FOX', { score: null, statusDetail: 'Provider state unavailable', freshness: 'UNKNOWN' }),
   ];
-}
-export function createFixtureProvider(now: number | Date = Date.now()): SportsProvider {
-  const fixtures = createIllustrativeFixtures(now);
-  const clone = (event: SportsEvent): SportsEvent => structuredClone(event);
-  return {
-    id: 'illustrative-fixtures', evidenceClass: 'FIXTURE', disclosure: FIXTURE_DISCLOSURE,
-    async getEvents(date: string) {
-      const parsed = timestamp(`${date}T00:00:00Z`);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || parsed === null || isoNow(parsed).slice(0, 10) !== date) throw new SportsProviderError('UNAVAILABLE', 'Expected a valid UTC date in YYYY-MM-DD format.');
-      return fixtures.filter(event => event.scheduledStart?.slice(0, 10) === date).map(clone);
-    },
-    async getEvent(id: string) {
-      const event = fixtures.find(candidate => candidate.id === id || candidate.providerEventId === id);
-      if (!event) throw new SportsProviderError('NOT_FOUND', 'Illustrative event not found.');
-      return clone(event);
-    },
-    async getLiveEvents() { return fixtures.filter(event => ACTIVE_STATUSES.has(event.status) || HELD_STATUSES.has(event.status)).map(clone); },
-  };
-}
-export class SportsEngine {
-  private events: SportsEvent[] = [];
-  private lastError: 'UNAVAILABLE' | 'RATE_LIMITED' | null = null;
-  private trackedCursor = 0;
-  constructor(public readonly provider: SportsProvider, private readonly clock: () => number = Date.now) {}
-  snapshot(): { events: SportsEvent[]; error: 'UNAVAILABLE' | 'RATE_LIMITED' | null; evidenceClass: EvidenceClass; disclosure: string } {
-    return { events: structuredClone(this.events), error: this.lastError, evidenceClass: this.provider.evidenceClass, disclosure: this.provider.disclosure };
-  }
-  async refresh(date = isoNow(this.clock()).slice(0, 10)): Promise<ReturnType<SportsEngine['snapshot']>> {
-    try {
-      const scheduled = await this.provider.getEvents(date);
-      const live = await this.provider.getLiveEvents();
-      // Namespace and evidence-class disagreement is a provider failure, never silently promoted.
-      const incoming = [...scheduled, ...live];
-      if (incoming.some(event => event.source !== this.provider.id || event.evidenceClass !== this.provider.evidenceClass)) throw new SportsProviderError('UNAVAILABLE', 'Provider evidence identity mismatch.');
-      this.events = mergeEventSnapshots(this.events, incoming); this.lastError = null;
-      // One round-robin detail per refresh keeps missing held/active IDs alive across dates.
-      const missing = this.events.filter(event => !incoming.some(next => next.id === event.id) && !TERMINAL_STATUSES.has(event.status));
-      if (missing.length) {
-        const requested = missing[this.trackedCursor++ % missing.length].id;
-        const tracked = await this.provider.getEvent(requested);
-        if (tracked.id !== requested || tracked.source !== this.provider.id || tracked.evidenceClass !== this.provider.evidenceClass) throw new SportsProviderError('UNAVAILABLE', 'Tracked event identity mismatch.');
-        this.events = mergeEventSnapshots(this.events, [tracked]);
-      }
-    } catch (error) {
-      this.lastError = error instanceof SportsProviderError && error.code === 'RATE_LIMITED' ? 'RATE_LIMITED' : 'UNAVAILABLE';
-    }
-    return this.snapshot();
-  }
-  search(query: string, includeHistory = true): SportsEvent[] { return searchEvents(this.events, query, { now: this.clock(), includeHistory }); }
 }

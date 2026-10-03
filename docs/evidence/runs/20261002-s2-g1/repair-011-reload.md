@@ -1,3 +1,5 @@
+> Historical prepared handoff. Owner completed this reload; current installed012 qualification is recorded in [run.md](run.md). No reload is pending.
+
 # Prepared repair reload — S2-G1
 
 **v0.1.11 / 343f238d6223baf3**, 84-test normal verification PASS; existing storage + tv.youtube.com only. Fixes two observed010 cached label/classification defects; playback and managed-window code unchanged. [Run](run.md), [inventory](candidate-011.json), [failure image](cached-010-ui.png).

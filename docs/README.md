@@ -1,22 +1,18 @@
-# Documentation index
+# Documentation
 
-Current source of truth: [next task](../NEXT_TASK.md), [roadmap](ROADMAP.md), [backlog](BACKLOG.md).
+## Using and developing the current client
 
 | Document | Purpose |
 | --- | --- |
-| [Start here](../START_HERE.md) | Current readiness and reading order |
-| [Product brief](PRODUCT.md) | Complete supplied requirements, arranged by product behavior |
-| [Architecture](ARCHITECTURE.md) | Module boundaries, adapter contracts, event/resolver/state model |
-| [Roadmap](ROADMAP.md) | Gated delivery sequence and priority tension |
-| [Backlog](BACKLOG.md) | Bounded tasks, dependencies and evidence needed |
-| [Phase 0 feasibility](PHASE0_FEASIBILITY.md) | Playback, composition, navigation and mapping experiments |
-| [Evidence index](evidence/README.md) | Templates and evidence classes |
-| [Provider evaluation](PROVIDER_EVALUATION.md) | Vendor-neutral comparison and unresolved data rights/coverage |
-| [Acceptance and tests](ACCEPTANCE_AND_TEST_PLAN.md) | Explicit user criteria, proposed measurement budgets and planned verification |
-| [Risks and questions](RISKS_AND_OPEN_QUESTIONS.md) | Actual unknowns and decision owners |
-| [Decisions](DECISIONS.md) | Accepted planning decisions versus pending capability choices |
-| [Official sources](SOURCES.md) | Dated findings and limits of public documentation |
-| [Development](DEVELOPMENT.md) | Scaffold/workflow and offline documentation check |
-| [Setup verification](SETUP_VERIFICATION.md) | Checks performed, evidence and tests not run |
+| [Product behavior](PRODUCT.md) | Implemented capabilities and limits |
+| [Usage](../START_HERE.md) | Guide, Sports, managed windows, audio and recovery |
+| [Development](DEVELOPMENT.md) | Portable setup, scripts, build effects, installation and CI |
+| [Architecture](ARCHITECTURE.md) | Authoritative modules, data flow and persisted compatibility |
+| [Security](SECURITY.md) | Current permissions and trust boundaries |
+| [Error handling](ERROR_HANDLING.md) | Storage, cleanup, diagnostics and native fallbacks |
 
-Planning and evidence use plain Markdown to match sibling Desktop projects. No Page, cloud document, remote repo or deployment is part of this setup.
+## Engineering plans and retained records
+
+[NEXT_TASK](../NEXT_TASK.md), [roadmap](ROADMAP.md) and [backlog](BACKLOG.md) own work/status. [Requirements](planning/PRODUCT_REQUIREMENTS.md), [workspace proposal](TV_WORKSPACE_BETA.md), [mixed-service proposal](MULTI_SERVICE_BETA.md), [feasibility plan](PHASE0_FEASIBILITY.md), [provider evaluation](PROVIDER_EVALUATION.md), [risks](RISKS_AND_OPEN_QUESTIONS.md) and [acceptance plan](ACCEPTANCE_AND_TEST_PLAN.md) include proposed/unqualified behavior. They are not setup prerequisites or implemented API promises.
+
+[Decisions](DECISIONS.md), [source notes](SOURCES.md), [readiness tracker](BETA_STATUS.md), [initial setup record](SETUP_VERIFICATION.md) and [evidence records](evidence/README.md) retain revision-specific history. Read historical results at their recorded scope; current source checks do not promote them to new installed-build evidence.

@@ -5,10 +5,12 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["chrome", "node"],
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["apps/chrome-extension/src/**/*.ts", "apps/chrome-extension/src/**/*.tsx", "packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "tests/**/*.ts", "scripts/sports-relay.ts"]
+  "include": ["apps/chrome-extension/src/**/*.ts", "apps/chrome-extension/src/**/*.tsx", "packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "tests/**/*.ts"]
 }

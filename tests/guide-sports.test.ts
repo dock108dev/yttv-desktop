@@ -34,3 +34,12 @@ test('legacy cached guide text keeps embedded Upcoming context and rejects episo
   assert.equal(classifySports({title:"Weekend at Brandy's",detail:'TV-14 • S7 E3',context:'NEXT'}),null);
   assert.equal(classifySports({title:'Boston vs. Winnipeg · NHL',detail:'TV-PG',context:'CURRENT'})?.competition,'NHL');
 });
+
+test('observed guide show text distinguishes sports studio programming from news and pet countdowns', () => {
+  for (const title of ['PIX11 News at Ten', 'Canine Countdown 2023', 'Countdown', 'A Movie'])
+    assert.equal(classifySports({title,context:'NEXT'}),null,title);
+  for (const title of ['NFL RedZone Countdown', 'USA Sports Prerace', 'College Football Scoreboard', 'College Football Live', 'Inside College Football', 'Pro Football Weekly'])
+    assert.equal(classifySports({title,context:'NEXT'})?.kind,'Studio / analysis',title);
+  for (const title of ['St. Louis Blues at Dallas Stars', 'Upcoming: New York Jets at Chicago Bears', 'Dallas Wings at Golden State Valkyries'])
+    assert.equal(classifySports({title,context:'CURRENT'})?.kind,'Sports program',title);
+});

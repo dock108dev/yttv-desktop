@@ -1,12 +1,14 @@
+import { createFailureDiagnostics } from './diagnostics';
 /** Extension reloads invalidate old isolated worlds even while the host page survives. */
 export function isInvalidatedContext(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /extension context invalidated|extension context.*(?:invalid|unavailable)|context invalidated/i.test(message);
 }
 export function createExtensionLifecycle() {
+  const diagnostics = createFailureDiagnostics();
   let active = true; let invalidated = false;
   const cleanups = new Set<() => void>(); const invalidationListeners = new Set<() => void>();
-  const safely = (callback: () => void) => { try { callback(); } catch { /* Cleanup can itself encounter the dead extension context. */ } };
+  const safely = (callback: () => void) => { try { callback(); } catch { diagnostics.record('CLEANUP_FAILED'); } };
   const cleanup = () => { for (const callback of cleanups) safely(callback); cleanups.clear(); };
   const invalidate = () => {
     if (!active) return;
@@ -17,6 +19,7 @@ export function createExtensionLifecycle() {
   return {
     get active() { return active; },
     get invalidated() { return invalidated; },
+    diagnostics: diagnostics.snapshot,
     invalidate,
     async guard<T>(operation: () => T | Promise<T>): Promise<T | undefined> {
       if (!active) return undefined;
@@ -25,7 +28,8 @@ export function createExtensionLifecycle() {
         return active ? value : undefined;
       } catch (error) {
         // The operation is invoked INSIDE try: promise.catch alone cannot catch a synchronous API throw.
-        if (isInvalidatedContext(error)) invalidate();
+        if (isInvalidatedContext(error)) { diagnostics.record('CONTEXT_INVALIDATED'); invalidate(); }
+        else diagnostics.record('BRIDGE_FAILED');
         return undefined;
       }
     },

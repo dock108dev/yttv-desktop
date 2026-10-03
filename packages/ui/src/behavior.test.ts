@@ -4,7 +4,6 @@ import { build } from 'esbuild';
 import { Window } from 'happy-dom';
 import { resolve } from 'node:path';
 import { createDemoBridge } from './demo.js';
-import { unavailableSports, type LiveSportsSnapshot } from '../../sports-engine/src/live';
 
 // DOM harness only. These tests establish interface behavior, not live service capabilities.
 const bundlePromise = build({
@@ -14,7 +13,7 @@ const bundlePromise = build({
 });
 const pause = () => new Promise(resolvePause => setTimeout(resolvePause, 35));
 
-async function setup(mockNavigation = false, sports?: LiveSportsSnapshot, polling = false) {
+async function setup(mockNavigation = false, installed = false, polling = false) {
   const window = new Window({ url: 'http://127.0.0.1:4173/demo.html', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
   const sportsTimers: Array<() => void> = [];
   if (polling) {
@@ -30,13 +29,9 @@ async function setup(mockNavigation = false, sports?: LiveSportsSnapshot, pollin
   const api = (window as unknown as { DesktopTVUI: { mountDesktop: (root: unknown, bridge: unknown, options: unknown) => () => void } }).DesktopTVUI;
   const bridge = createDemoBridge();
   const navigated: string[] = [];
-  const eventIntents: string[] = [];
-  if (sports) {
+  if (installed) {
     const original = bridge.getSnapshot.bind(bridge);
-    bridge.getSnapshot = async () => ({ ...await original(), mode: 'extension', sports });
-    bridge.watchEvent = async id => { eventIntents.push(`watch:${id}`); return { ok: true }; };
-    bridge.addEvent = async id => { eventIntents.push(`add:${id}`); return { ok: true }; };
-    if (polling) bridge.refreshSports = async () => { eventIntents.push('refresh'); return { ok: true }; };
+    bridge.getSnapshot = async () => ({ ...await original(), mode: 'extension' });
   }
   if (mockNavigation) {
     const fixtureSnapshot = bridge.getSnapshot.bind(bridge);
@@ -46,24 +41,24 @@ async function setup(mockNavigation = false, sports?: LiveSportsSnapshot, pollin
     };
     bridge.navigateChannel = async id => { navigated.push(id); return { ok: true }; };
   }
-  const unmount = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: !sports });
-  return { window, bridge, unmount, navigated, eventIntents, sportsTimers };
+  const unmount = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: !installed });
+  return { window, bridge, unmount, navigated, sportsTimers };
 }
 
 test('installed Sports uses guide programs without provider polling; unloaded is distinct from no matches', async () => {
-  const { window, bridge, unmount, eventIntents, sportsTimers } = await setup(false, unavailableSports(), true);
+  const { window, bridge, unmount, sportsTimers } = await setup(false, true, true);
   try {
     const base = await bridge.getSnapshot();
     bridge.getSnapshot = async () => ({ ...base, guide: [] }); await bridge.refresh!(); await pause();
     window.document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true })); await pause();
     assert.match(window.document.body.textContent!, /Guide not loaded/);
-    assert.equal(eventIntents.length, 0); assert.equal(sportsTimers.length, 0);
+    assert.equal(sportsTimers.length, 0);
     assert.doesNotMatch(window.document.body.textContent!, /API key|relay|awaits approval|Refresh NBA/);
   } finally { unmount(); await window.happyDOM.abort(); }
 });
 
 test('guide Sports searches actual text, labels studio/replay/next/cache and dispatches guarded current Watch/Add', async () => {
-  const { window, bridge, unmount } = await setup(false, unavailableSports());
+  const { window, bridge, unmount } = await setup(false, true);
   const calls: unknown[] = [];
   const base = await bridge.getSnapshot(); const stamp = new Date().toISOString();
   const entry = { ...base.guide[0], evidenceClass: 'LIVE' as const, available: true, observedAt: stamp,
@@ -140,8 +135,8 @@ test('managed window screen makes separate original players and audio selection 
     window.document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q', bubbles: true, composed: true }));
     await pause();
     assert.equal(window.document.querySelector('h1')?.textContent, 'QuadBox');
-    assert.match(window.document.body.textContent ?? '', /does not compose protected video/);
-    assert.match(window.document.body.textContent ?? '', /Selecting a feed transfers audio and focus/);
+    assert.match(window.document.body.textContent ?? '', /Video stays in separate YouTube TV windows/);
+    assert.match(window.document.body.textContent ?? '', /Select audio also brings that window forward/);
     assert.equal(window.document.querySelectorAll('.pane-window-surface video').length, 0);
     assert.ok(window.document.querySelector('.heading-actions .button[disabled]'));
   } finally { unmount(); await window.happyDOM.abort(); }
@@ -252,12 +247,14 @@ test('cached guide and saved Watch history stay understandable with disabled nav
     const cleanup = api.mountDesktop(window.document.getElementById('root'), bridge, { demo: false });
     try {
       await pause(); const document = window.document;
-      assert.match(document.body.textContent!, /LAST OBSERVED PROGRAM/);
-      assert.match(document.querySelector('.guide-footer')!.textContent!, /2026-10-01T16:00:00Z/);
+      assert.match(document.body.textContent!, /Last observed program/);
+      assert(document.querySelector('.guide-footer')!.textContent!.includes(new Date('2026-10-01T16:00:00Z').toLocaleString()));
+      assert.equal(document.querySelector('.connection-help')!.closest('details'), null);
+      assert.equal(document.querySelector('.audio-controls details')!.hasAttribute('open'), false);
       assert.equal(document.querySelectorAll('.guide-row-actions button:not([disabled])').length, 0);
-      (Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Open native Live') as any).click(); await pause(); assert.equal(recovery, 1);
+      (Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Open YouTube TV Live') as any).click(); await pause(); assert.equal(recovery, 1);
       document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'w', bubbles: true, composed: true })); await pause();
-      assert.match(document.body.textContent!, /LAST CONFIRMED CHANNEL · SAVED/);
+      assert.match(document.body.textContent!, /Last confirmed channel · saved/);
       assert.match(document.body.textContent!, /Saved channel \(synthetic-missing\)/);
       assert.equal(document.querySelectorAll('.quick-channel:not([disabled])').length, 0);
       assert(document.querySelector('.previous-strip button[disabled]'));

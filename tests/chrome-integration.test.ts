@@ -92,9 +92,14 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal(players.get(2)!.volume, .24, 'selection preserves player volume');
   const selectionLog = log.slice(beforeSelection);
   assert(selectionLog.findIndex(x => x.id === 1 && x.value?.muted === true) < selectionLog.findIndex(x => x.id === 2 && x.value?.muted === false));
+  const retiredBoundary = log.length;
+  for (const command of [{ type: 'REFRESH_SPORTS' }, { type: 'WATCH_EVENT', eventId: 'old-provider' },
+    { type: 'CREATE_PANE', channelId: 'yttv:cbs', eventId: 'old-provider' }])
+    assert.equal((await send(command as any)).code, 'UNSUPPORTED_PATH');
+  assert.equal(log.length, retiredBoundary, 'retired commands cannot mutate players/windows');
   const third = await send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
   assert.equal(third.ok, false); assert.equal(third.code, 'SESSION_BOUND'); assert.equal(tabs.size, 3, 'only main, one added and unrelated native Live');
-  await send({ type: 'PREFERENCE', patch: { nightMuteLock: true } });
+  assert.equal((await send({ type: 'PREFERENCE', patch: { nightMuteLock: true } } as any)).code, 'INVALID_COMMAND');
   assert.equal((await send({ type: 'GET_SNAPSHOT' })).preferences.nightMuteLock, false);
   await Promise.all([send({ type: 'SELECT_PANE', paneId: 'main' }), send({ type: 'SELECT_PANE', paneId })]);
   assert.equal(tabs.get(1).mutedInfo.muted, true); assert.equal(tabs.get(2).mutedInfo.muted, false);
