@@ -1,5 +1,6 @@
+import { sportsListings, listingPlayable } from '../../../packages/sports-engine/src/guide';
 import { createAudioFocusController, createQuadState, type QuadState } from '../../../packages/quadbox/src/index';
-import { isPlaybackTarget, type GuideEntry } from '../../../packages/core/src/index';
+import { guidePrograms, isPlaybackTarget, type GuideEntry } from '../../../packages/core/src/index';
 import { defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
 import { createGuideMetadataStore } from '../../../packages/storage/src/guide-cache';
 import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
@@ -159,6 +160,7 @@ function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.guide) || !Number.isFinite(Date.parse(raw.observedAt))) return null;
   const guide: GuideEntry[] = raw.guide.slice(0, 500).filter(entry => entry && entry.evidenceClass === 'LIVE' && validId(entry.channel?.id) && typeof entry.channel.name === 'string' && entry.channel.name.length <= 150 && Number.isFinite(Date.parse(entry.observedAt))).map(entry => ({
     channel: { id: entry.channel.id, name: entry.channel.name },
+    programs: guidePrograms(entry.programs),
     programTitle: typeof entry.programTitle === 'string' ? entry.programTitle.slice(0, 300) : undefined,
     nextProgramTitle: typeof entry.nextProgramTitle === 'string' ? entry.nextProgramTitle.slice(0, 300) : undefined,
     league: entry.league === 'NBA' && /\bNBA\b/i.test(entry.programTitle ?? '') ? 'NBA' : undefined,
@@ -426,6 +428,15 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent, nightMuteLock: _mute, ...patch } = command.patch ?? {};
       preferences = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
       await savePreferences(); await notify(); return ok('Local preferences saved.');
+    }
+    case 'WATCH_PROGRAM':
+    case 'ADD_PROGRAM': {
+      const act = async () => {
+        const listing = sportsListings(guideFor(mainTabId)).find(item => item.entry.channel.id === command.channelId && item.program.title === command.title && item.entry.observedAt === command.observedAt);
+        if (!listing || !listingPlayable(listing)) return fail('TARGET_UNAVAILABLE', 'This program changed or has no fresh current target. Open native Live to recover listings.');
+        return command.type === 'ADD_PROGRAM' ? createPane(command.channelId) : navigate(command.channelId, mainTabId);
+      };
+      return runManaged(act);
     }
     case 'CREATE_PANE': return runManaged(() => createPane(command.channelId, command.eventId));
     case 'REPLACE_PANE': return runManaged(() => replacePane(command.paneId, command.channelId, command.eventId));

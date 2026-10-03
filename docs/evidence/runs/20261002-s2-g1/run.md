@@ -1,0 +1,41 @@
+# S2-G1 — useful Sports from the native guide
+
+Updated 2026-10-02 (America/New_York); prepared UTC 2026-10-03T01:16:35.049888+00:00. Local candidate **v0.1.10 / f24fa0471866e729**. Expected same extension ID **idaaiiafgopfpaojpnhaoefbefllioab**. New installed identity and real candidate qualification remain **NOT RUN** pending browser access recovery after the completed owner-reported reload. Last-confirmed installed baseline **v0.1.8 / a87877ca8e207785**.
+
+## Implementation and local evidence
+
+Desktop → Sports now defaults to authenticated native guide programs, without provider/key/service setup. Explicit program titles/details classify matchups, named sports and competitions; a network alone supplies no classification. Dynamic competition filters include only observed text. Unknown competition stays unspecified. Search matches all query terms against program/detail/channel/competition text, including guide-supplied teams. Separate repeated ESPN/NFL event rows are retained with distinct IDs while existing primary channel IDs/preferences remain intact.
+
+Cards show title/channel, current/next/upcoming context, supplied schedule text and original observation timestamp/age. Explicit replay labels and studio/countdown/pregame titles receive truthful kind labels; Sports program never asserts game LIVE, score, overtime or finality. Unclassified rows stay in Guide. Guide-not-loaded differs from no matching programs. Cache preserves whitelisted program text for the established 24-hour metadata lifetime; targets are never persisted. Cached/stale/unavailable/ambiguous/next/upcoming actions are disabled. Generic /watch landing handles and first-airing/thumbnail conflicts supply no authority.
+
+Watch/Add send exact channel/title/observation identity, revalidate classification/current context and fresh targets at dispatch, then reuse existing main navigation / serialized muted-on-create managed windows. Main plus at most one added feed remains enforced. No changes to audio routing, player volume/mute ownership, stored preferences/favorites/history schema, protected playback or permission scope. Fixture Lab stays explicitly separate. Standard manifest is storage + tv.youtube.com only; historical provider candidates remain inert.
+
+**Local/fixture class:** normal verify PASS: typecheck, **83/83 tests**, build/permission audit and docs check. Focused regressions cover program classification/text search/kinds, unloaded versus no-match UI, current Watch/Add intents, current-next and cache guards, stale/missing/mismatched targets, duplicate feeds, generic watch/ambiguous thumbnail guards, dispatch revalidation and unchanged selected audio. Existing mocked session/audio/worker tests passed; they do not prove live playback. [Verification log](verification.log), [candidate inventory](candidate.json), [source patch](implementation.patch), [frozen candidate](candidate-010-bundle/build-identity.json).
+
+## Real evidence and current boundary
+
+Before reload, the existing authenticated native Live guide was read through ordinary visible DOM on 2026-10-03 around 01:00–01:04 UTC. Programs included New York Rangers at Detroit Red Wings, Boston Bruins vs. Winnipeg Jets · NHL, #18 BYU vs. #19 Kansas · NCAAW Volleyball, WNBA Countdown, Dallas Wings at Golden State Valkyries next, NFL upcoming listings, tennis, golf and PPA Tour. These observations informed adapter structure only; they are **not candidate discovery/search or Watch/Add acceptance**. Original CBS was already paused/muted with volume slider 0 at first observation; no agent audio changes were made. Native Live was opened via its existing navigation. No new feeds were created.
+
+At the subsequent drawer inspection, browser access was denied because the admin-enforced browser security policy could not be verified. This is a concrete external access blocker, not a source failure. No indirect workaround was used. Candidate installed identity, actual discovery/search, eligible Watch advancing playback, eligible Add advancing playback, cached reload UI and account availability cases remain **UNOBSERVED / NOT RUN**. No unavailable sport was invented as a passed case.
+
+Reuse [C1-Q2](../20261002-c1-q2/run.md) completed 15m23s/720p two-feed viewing/audio evidence unless regression appears. No repeat long viewing trial was run. Baseline rollback retained [here](rollback-installed-018/build-identity.json); historical disk019 rollback retained [here](rollback-disk-019/build-identity.json). No reinstall/remove/reset, API acquisition, new permissions or remote operations.
+
+## Owner reload completed; qualification boundary
+
+Owner reported **“Reloaded”** at recorded UTC 2026-10-03T01:18:35.590417+00:00. This establishes owner-reported completion of the requested same-entry reload, not the installed runtime identity. [Reload handoff](reload-handoff.md). Then agent refreshes only designated main tab, binds displayed version/build/ID, recovers native Live, checks real available competitions/title/team searches, zero-match and current/next/replay/studio labels, and exercises eligible Watch and Add with separate advancing-player confirmation. Record unavailable or unclassified cases explicitly. Stop on first regression; preserve evidence before a bounded repair. Further reloads require a freshly prepared repair, not routine retries.
+
+After that report, supported reload of the designated main tab was denied by the same admin-policy check before access. The page refresh is **not confirmed**; no new candidate discovery/search or Watch/Add ran. [Browser access boundary](browser-access-boundary.json). Do not request another routine extension reload.
+
+S2-G1 is **implementation PASS / owner reload REPORTED COMPLETE / live qualification BLOCKED by external browser access**. Full Sports independent scores/game state/delay/overtime/finality/overrun remain deferred. Broader restart/disable-enable, full controls/failure isolation/performance, higher counts/composition/full U01–U18 and beta acceptance stay grouped open.
+
+Continuation at UTC 2026-10-03T01:19:39.070368+00:00: owner reported access should be back. Retried the supported existing-tab refresh once; the same admin-policy verification denial remains. No page refresh, new candidate identity, discovery/search or Watch/Add was observed. Frozen disk bundle still matches candidate inventory. No source changes or new extension reload.
+
+## Browser access recovered; first regression and bounded repair
+
+At UTC 2026-10-03T01:25:34.601584+00:00, after the owner closed the Extensions tab, supported browser access recovered. Only the existing main tab was refreshed. Native CBS Fire Country playback resumed after the loading transition, at720p, player/tab enabled and volume100% as before refresh. Desktop Shortcuts displayed exact **0.1.10 / f24fa0471866e729 / idaaiiafgopfpaojpnhaoefbefllioab** ([identity](installed-identity.txt)). Saved favorite CBS and shortcut bindings remained visible. No audio changes, added feeds or stream-limit errors occurred.
+
+Cached Sports rendered readable retained rows, original observation timestamp and disabled Watch/Add. It exposed two real presentation defects: old full-text listings contain date/time before Upcoming, so anchored matching mislabeled those as Current; cached episodic “Weekend at Brandy’s” matched the generic at pattern. [Failure AX](cached-sports-ax.txt), [UI-only screenshot](cached-010-ui.png). Stop-at-first-regression applied; no010 real Watch/Add qualification proceeded.
+
+Bounded repair recognizes embedded Upcoming text in legacy metadata and rejects rating/episode-bearing generic matchup classification, while explicit sports competition text remains supported. Focused regression added. Repaired **v0.1.11 / 343f238d6223baf3**, normal verify PASS: **84/84 tests**, typecheck/build/existing-permission audit/docs. [Verification](repair-011-verification.log), [inventory](candidate-011.json), [bundle](candidate-011-bundle/build-identity.json).010 frozen candidate and018 rollback remain untouched.
+
+One additional owner same-entry reload is necessary for this concrete repair; routine retry reloads remain unnecessary. New011 installed identity and complete Sports qualification pending. Browser policy blockage is resolved in this observed continuation; earlier denied attempts remain historical evidence.

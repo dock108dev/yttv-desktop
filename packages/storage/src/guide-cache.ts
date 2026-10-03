@@ -1,4 +1,4 @@
-import type { GuideEntry } from '../../core/src/index';
+import { guidePrograms, type GuideEntry } from '../../core/src/index';
 import type { StorageBridge } from './index';
 
 export const GUIDE_CACHE_KEY = 'yttv-desktop.guide-metadata.v1';
@@ -27,6 +27,7 @@ export function readGuideCache(raw: unknown, now = Date.now()): GuideMetadataCac
     ids.add(row.channel.id);
     const programFresh = now - Date.parse(row.observedAt) <= PROGRAM_METADATA_MAX_AGE_MS;
     rows.push({ channel: { id: row.channel.id, name: row.channel.name },
+      programs: programFresh ? guidePrograms(row.programs) : [],
       programTitle: programFresh && safeText(row.programTitle, 300) ? row.programTitle : undefined,
       nextProgramTitle: programFresh && safeText(row.nextProgramTitle, 300) ? row.nextProgramTitle : undefined,
       observedAt: row.observedAt, evidenceClass: 'LIVE', metadataSource: 'CACHED', available: false, target: null });

@@ -1,5 +1,9 @@
 # Phase 0 evidence
 
+## Git storage
+
+Git retains evidence templates, the run index and Markdown run summaries. Screenshots, copied extension/rollback bundles, machine-readable observations, patches, logs and prior-document snapshots under `runs/` stay local and are ignored. Keep each run summary concise, with candidate identity, checks, outcome and limitations. Links to local artifacts are useful on the machine that collected them; those artifacts are unavailable in a fresh checkout. Preserve existing local artifacts when removing them from Git tracking. The documentation check reports missing local artifact references separately from broken documentation links.
+
 **No experiment has run.** These templates prepare future evidence; they are not results. See [Phase 0 plan](../PHASE0_FEASIBILITY.md) and [next task](../../NEXT_TASK.md).
 
 | Template | Use |

@@ -1,17 +1,74 @@
+# macOS and editor leftovers
 .DS_Store
+._*
+.AppleDouble/
+.LSOverride
+*.swp
+*.swo
+*~
+.idea/
+
+# Dependencies, builds and caches (including workspace packages)
 node_modules/
 dist/
 build/
-coverage/
+.cache/
+.npm/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Native macOS build and personal Xcode state
+.build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Generated test results and diagnostics
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+*.log
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+
+# Local configuration, credentials and browser state
 .env
 .env.*
 !.env.example
+!.env.*.example
 *.key
 *.pem
-*.log
+*.p12
+*.pfx
 .local/
 browser-profiles/
 raw-captures/
-docs/evidence/runs/**/scratch/
+
+# Temporary exports and scratch work
+/tmp/
+/temp/
+/scratch/
+/artifacts/
+/captures/
+/recordings/
+/screenshots/
+
+# Keep concise run notes in Git; retain all other run artifacts locally.
+# Includes copied bundles, rollback builds, images, JSON dumps, patches,
+# logs and prior-document snapshots. Do not ignore source/test fixtures.
+/docs/evidence/runs/**/*
+!/docs/evidence/runs/**/
+!/docs/evidence/runs/**/*.md
+/docs/evidence/runs/**/scratch/
+/docs/local-verification.json

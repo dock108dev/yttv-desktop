@@ -57,6 +57,8 @@ export interface ClientBridge {
   getSnapshot(): DesktopSnapshot | Promise<DesktopSnapshot>;
   subscribe(listener: () => void): () => void;
   navigateChannel(channelId: string): Promise<ActionResult>;
+  watchProgram?(channelId: string, title: string, observedAt: string): Promise<ActionResult>;
+  addProgram?(channelId: string, title: string, observedAt: string): Promise<ActionResult>;
   watchEvent?(eventId: string): Promise<ActionResult>;
   addEvent?(eventId: string): Promise<ActionResult>;
   refreshSports?(): Promise<ActionResult>;

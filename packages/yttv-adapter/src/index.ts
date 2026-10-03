@@ -1,4 +1,4 @@
-import { normalizeText, type CapabilityResult, type GuideEntry, type PlaybackTarget } from '../../core/src/index';
+import { normalizeText, type CapabilityResult, type GuideEntry, type GuideProgram, type PlaybackTarget } from '../../core/src/index';
 
 /** These selectors are observations of the ordinary public page, not protected player APIs. */
 export const SELECTORS = {
@@ -9,6 +9,7 @@ export const SELECTORS = {
 export const TARGET_MAX_AGE_MS = 30 * 60_000;
 export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
   const target = entry.target;
+  if (/\bUpcoming:/i.test(entry.programTitle ?? '') || (entry.programs?.length && entry.programs[0].context !== 'CURRENT')) return false;
   if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !navigationUrl(target.url)) return false;
   const age = now - Date.parse(target.verifiedAt);
   return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
@@ -33,6 +34,7 @@ export function navigationUrl(value: string, base = 'https://tv.youtube.com'): s
       !/^\/watch(?:\/[^/?#]+)?\/?$/.test(url.pathname)) return null;
     // Only ordinary guide navigation parameters. Never accept arbitrary origins or media/CDN handles.
     if ([...url.searchParams.keys()].some(key => !['v', 'vp', 'vpp', 'channel', 'channelId'].includes(key))) return null;
+    if (url.pathname.replace(/\/$/, '') === '/watch' && !['v', 'channel', 'channelId'].some(key => url.searchParams.get(key))) return null;
     if (url.href.length > 8192) return null;
     return url.href;
   } catch { return null; }
@@ -49,19 +51,32 @@ export function parseGuide(document: Document, now = new Date().toISOString()): 
     const label = endpoint?.getAttribute('aria-label') ?? '';
     const name = /^watch\s+(.+)$/i.exec(label)?.[1]?.trim() || text(row.querySelector(`${SELECTORS.network} a`)) || text(row.querySelector(SELECTORS.network));
     if (!name || name.length > 150) continue;
-    const channelId = stableChannelId(name); if (seen.has(channelId)) continue;
+    const links = [...row.querySelectorAll(`${SELECTORS.airings} a`)];
+    const programs: GuideProgram[] = links.slice(0, 8).map((link, index) => {
+      const title = text(link.querySelector('.primary-text')) || text(link);
+      return { title, detail: text(link.querySelector('.tertiary-container')) || undefined,
+        scheduleText: text(link.querySelector('.time-text')) || undefined,
+        context: /^Upcoming:/i.test(title) || (index === 0 && /^\/?browse\//.test(link.getAttribute('href') ?? '')) ? 'UPCOMING' : index === 0 ? 'CURRENT' : 'NEXT' };
+    });
+    let channelId = stableChannelId(name);
+    // Native guide can list several distinct event feeds under the same network.
+    // Keep the existing primary channel identity; retain additional listings separately.
+    if (seen.has(channelId)) channelId += ':' + normalizeText(programs[0]?.title ?? '').replace(/ /g, '-').slice(0, 140);
+    if (seen.has(channelId)) continue;
     seen.add(channelId);
     const href = endpoint?.querySelector('a[href]')?.getAttribute('href');
     // Native thumbnail endpoints can be empty on a fresh guide. Its first
     // current-program link is also an ordinary supported navigation control.
     // Never skip forward to a later airing (which could schedule a future show).
     const currentHref = row.querySelector(`${SELECTORS.airings} a`)?.getAttribute('href');
-    const url = (href ? navigationUrl(href, document.location?.href) : null) ??
+    const currentUrl = currentHref ? navigationUrl(currentHref, document.location?.href) : null;
+    const thumbUrl = href ? navigationUrl(href, document.location?.href) : null;
+    const ambiguous = Boolean(currentHref && (!currentUrl || (thumbUrl && thumbUrl !== currentUrl)));
+    const url = programs[0]?.context === 'UPCOMING' || ambiguous ? null : (href ? navigationUrl(href, document.location?.href) : null) ??
       (currentHref ? navigationUrl(currentHref, document.location?.href) : null);
-    const programs = [...row.querySelectorAll(`${SELECTORS.airings} a`)].map(link => text(link)).filter(Boolean);
     const target: PlaybackTarget | null = url ? { kind: 'navigation', channelId, url, verifiedAt: now, evidenceClass: 'LIVE' } : null;
-    const league = /\bNBA\b/i.test(programs[0] ?? '') ? 'NBA' : undefined;
-    entries.push({ channel: { id: channelId, name }, programTitle: programs[0], nextProgramTitle: programs[1], league,
+    const league = /\bNBA\b/i.test(programs[0]?.title ?? '') ? 'NBA' : undefined;
+    entries.push({ channel: { id: channelId, name }, programTitle: programs[0]?.title, nextProgramTitle: programs[1]?.title, programs, league,
       available: Boolean(target), target, observedAt: now, evidenceClass: 'LIVE' });
   }
   return entries;
@@ -86,7 +101,7 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
     // Hidden SPA guide nodes are not a fresh observation. Identical rows must not renew old target timestamps.
     if (route === 'guide') {
       const parsed = parseGuide(document, observedAt);
-      const signature = JSON.stringify(parsed.map(entry => [entry.channel.id, entry.target?.url, entry.programTitle, entry.nextProgramTitle]));
+      const signature = JSON.stringify(parsed.map(entry => [entry.channel.id, entry.target?.url, entry.programTitle, entry.nextProgramTitle, entry.programs]));
       if (parsed.length && signature !== guideSignature) { guide = parsed; guideObservedAt = observedAt; guideSignature = signature; }
     }
     const player = activeVideo(document);
@@ -96,6 +111,10 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
         [node.getAttribute('aria-label')?.trim(), text(node)].filter(Boolean));
       const matched = guide.filter(entry => labels.some(values => values.some(value => normalizeText(value!) === normalizeText(entry.channel.name))));
       if (matched.length === 1) currentChannelId = matched[0].channel.id;
+      else if (matched.length > 1) {
+        const exact = matched.filter(entry => entry.target?.url === navigationUrl(document.location.href));
+        if (exact.length === 1) currentChannelId = exact[0].channel.id;
+      }
     }
     const program = [...document.querySelectorAll(SELECTORS.program)].filter(visible).map(text).find(Boolean);
     return { guide: guide.map(entry => ({ ...entry })), guideObservedAt, currentChannelId, currentProgram: program,

@@ -1,21 +1,20 @@
-# Next action — S2-L1 NBA activation, same task
+# Next action — S2-G1 installed Sports qualification
 
-Updated 2026-10-02 after [S2-L1 local implementation](docs/evidence/runs/20261002-s2-l1/run.md). **Live activation BLOCKED; concrete preparation complete.** NBA Free provider/normalization/retention/polling/local relay/UI/team search/event-first guarded Watch/Add are implemented; npm run verify PASS with 79 tests. This file owns the active action.
+Updated 2026-10-02. This file owns the active task. Implementation and normal verification are complete; browser access recovered and010 identity was verified; first cached presentation regression was repaired, requiring one owner repair reload before fresh qualification. [Run/evidence](docs/evidence/runs/20261002-s2-g1/run.md).
 
-Installed baseline freshly confirmed: **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**. CBS/audio/volume untouched; no reload, added feed or repeat of the completed 15m23s viewing qualification. Preferences/uncommitted work/prior bundles/evidence remain preserved.
+## Prepared candidate
 
-## One concrete external handoff
+**v0.1.11 / 343f238d6223baf3**, expected existing ID **idaaiiafgopfpaojpnhaoefbefllioab**. Typecheck, **84/84 tests**, build/existing permission audit and docs check PASS. Default Sports browses/searches native current/next/upcoming guide program text across observed competitions, with truthful kinds, freshness/cache labels and guarded Watch/main + Add/one managed feed. No API key, setup, relay or new permissions.
 
-Use the [prepared permission/access review](docs/evidence/runs/20261002-s2-l1/permission-review.md): owner-supplied NBA Free key in `.local/sports-provider.env`, then approval of **http://127.0.0.1:4318/*** and a single reload through the existing extension entry. Source decision: BALLDONTLIE NBA Free, $0/month, documented Games/current state and five requests/minute; local maximum four attempts/minute including failures. Do not activate a paid trial, buy/provision an account or extract credentials. No new permission has been applied.
+Last-confirmed installed **v0.1.10 / f24fa0471866e729**. Preserve playback, user audio choices, preferences/favorites/history, extension ID/storage, uncommitted work and all bundles/evidence. [018 rollback](docs/evidence/runs/20261002-s2-g1/rollback-installed-018/build-identity.json) and disk019 rollback retained. Reuse [C1-Q2](docs/evidence/runs/20261002-c1-q2/run.md) practical single-feed audio and15m23s720p dual managed windows PASS unless regression appears.
 
-Reviewable sports candidate: **v0.1.9 / 57058bd9d522e2bd**, `dist/sports-permission-candidate`, [inventory](docs/evidence/runs/20261002-s2-l1/candidate.json). Standard v0.1.9/9ed7cd8afadd5013 remains storage + tv.youtube.com only and makes zero sports requests without approved access. Neither candidate is installed. Stage the reviewed sports bundle into the existing Loaded from folder only after approval; preserve extension ID/storage and the rollback bundle.
+## Complete the viewing loop
 
-## Continue after access is supplied
+1. Browser access recovered after the owner closed Extensions. Installed010/f24fa0471866e729/same ID verified. Cached read-only action guard passed; qualification stopped at mislabeled legacy Upcoming context and episodic “at” false sports classification. Both have a bounded repair.
+2. **Owner only:** one additional same-entry reload for repaired011/343f238d6223baf3, after84-test normal verification. [Concrete repair handoff](docs/evidence/runs/20261002-s2-g1/repair-011-reload.md). Preserve ID/storage; keep main tab without refreshing yet. This reload is needed for the observed source repair.
+3. Agent refresh only designated main tab, bind011 runtime identity, verify repaired cached labels and disabled actions, then recover native Live. Qualify actual program/competition/team search and eligible Watch/main plus Add/one feed; advancing playback separately from dispatch. Record unavailable cases honestly.
+4. Close added feed and preserve owner audio/preferences/history. Reuse C1-Q2 long viewing evidence unless regression. Update canonical status/backlog/roadmap/evidence/Desktop pointer together.
 
-1. Start the metadata-only local relay with the deliberately supplied private configuration. Stop on denied authorization/spend requirements. No video or Google authentication enters the relay.
-2. After owner same-entry reload, refresh only the designated YouTube TV page and bind v0.1.9/57058bd9d522e2bd/same ID. Keep original playback/audio choices.
-3. Observe real NBA events or schedules, team search and score/status/retrieval labels. Source-update timestamp and broadcast metadata are undocumented/unknown, provider latency best-effort. Initial schedule window is yesterday/today/tomorrow, including explicit preseason; no full-season completeness claim. Unsupported leagues remain unavailable, Fixture Lab separate. No current-game contents have yet been queried.
-4. Separately observe mapped Watch/Add only with one fresh eligible native target corroborating NBA and both teams for an active/held provider event. Cached rows, network-only labels, future schedules, missing league/team evidence and ambiguous channels/events cannot grant navigation. If native metadata cannot corroborate a game, keep its event useful with unavailable actions. Main/one managed feed preserve event identity.
-5. Label no-live-game or mapping limitations from actual observations; do not infer them from access failure. Rare delay/OT/suspension regressions are synthetic only. Reuse C1-Q2 playback qualification; repeat the trial only for changed playback behavior or a real defect.
+## Grouped future gates
 
-Current evidence is source documentation, 78 local tests and an explicitly offline UI review. **Zero provider requests; real NBA schedule/score/search/mapped Watch/Add NOT RUN.** Do not call this live delivery. Complete this same task after the one combined external handoff. Grouped lifecycle/control/performance/full U01–U18/beta/owner acceptance remain open. No third/fourth feed, purchases/provisioning, protected capture/bypass, platform expansion, remote operations or publication.
+Independent scores/game state/delay/overtime/finality/overrun remain future work. Broader worker/browser restart/disable-enable, complete keyboard/native/assistive controls/failure isolation, formal attributed performance, higher-count/composition/full U01–U18 and beta acceptance stay grouped open. No provisioning, purchases, capture/bypass, publication or remote operations.

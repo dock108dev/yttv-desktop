@@ -1,1 +1,0 @@
-NBA access unavailable. Supply YTTV_NBA_API_KEY in the private project configuration.

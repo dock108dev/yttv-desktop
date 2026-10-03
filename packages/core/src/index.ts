@@ -14,7 +14,23 @@ export interface ChannelRef { id: string; name: string; networkId?: string; alia
 export interface PlaybackTarget {
   kind: 'navigation'; channelId: string; url: string; verifiedAt: string; evidenceClass: EvidenceClass;
 }
+export interface GuideProgram {
+  title: string; detail?: string; scheduleText?: string;
+  context: 'CURRENT' | 'NEXT' | 'UPCOMING';
+}
+/** Presentation metadata only; never restores navigation authority. */
+export function guidePrograms(raw: unknown): GuideProgram[] {
+  if (!Array.isArray(raw)) return [];
+  const cleanText = (v: unknown, limit: number) => typeof v === 'string' && v.trim() && v.length <= limit &&
+    !/[\x00-\x1f]|https?:\/\/|(?:token|credential|password|signature)=/i.test(v) ? v : undefined;
+  return raw.slice(0, 8).flatMap(p => {
+    const title = cleanText(p?.title, 300);
+    return title && ['CURRENT', 'NEXT', 'UPCOMING'].includes(p.context) ? [{ title,
+      detail: cleanText(p.detail, 300), scheduleText: cleanText(p.scheduleText, 100), context: p.context }] : [];
+  });
+}
 export interface GuideEntry {
+  programs?: GuideProgram[];
   metadataSource?: 'OBSERVED' | 'CACHED';
   channel: ChannelRef; programTitle?: string; nextProgramTitle?: string;
   programStart?: string; programEnd?: string; league?: string; teamIds?: string[];

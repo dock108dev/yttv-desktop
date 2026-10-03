@@ -139,3 +139,27 @@ test('audio controls read back mute and volume, polling preserves choices and di
     assert.equal(video.muted, false);
   } finally { adapter.dispose(); await window.happyDOM.abort(); }
 });
+
+test('explicit program metadata preserves duplicate event feeds and upcoming cannot borrow thumbnail navigation', async () => {
+  const window = fixtureWindow();
+  try {
+    window.document.body.innerHTML = ['Boston vs. Winnipeg · NHL', '#18 BYU vs. Kansas · NCAAW Volleyball', 'Upcoming: MLB Pregame'].map(title => `<ytu-epg-row><ytu-endpoint class="network">ESPN</ytu-endpoint><ytu-endpoint class="tenx-thumb" aria-label="watch ESPN"><a href="/watch?v=synthetic-${title.length}"></a></ytu-endpoint><div class="airings"><a href="/watch?v=synthetic-${title.length}"><span class="time-text">9:00 PM</span><span class="tertiary-container">Replay</span><span class="primary-text">${title}</span></a></div></ytu-epg-row>`).join('');
+    const rows=parseGuide(window.document as unknown as Document);
+    assert.equal(rows.length,3); assert.equal(new Set(rows.map(r=>r.channel.id)).size,3);
+    assert.equal(rows[0].programTitle,'Boston vs. Winnipeg · NHL'); assert.equal(rows[0].programs?.[0].detail,'Replay');
+    assert.equal(rows[2].programs?.[0].context,'UPCOMING'); assert.equal(rows[2].target,null);
+    assert.equal(navigationUrl('/watch'),null,'generic watch landing page supplies no channel authority');
+  } finally { await window.happyDOM.abort(); }
+});
+
+test('future or ambiguous first airing never borrows a valid current thumbnail target', async () => {
+  const window=fixtureWindow();
+  try {
+    const link=window.document.querySelector('.airings a')!;
+    link.setAttribute('href','/browse/future');
+    assert.equal(parseGuide(window.document as unknown as Document)[0].target,null);
+    assert.equal(parseGuide(window.document as unknown as Document)[0].programs?.[0].context,'UPCOMING');
+    link.setAttribute('href','/watch?v=different-airing');
+    assert.equal(parseGuide(window.document as unknown as Document)[0].target,null);
+  } finally {await window.happyDOM.abort();}
+});

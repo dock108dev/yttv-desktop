@@ -1,6 +1,6 @@
 # Decision log
 
-Current next product scope: [S2-L1](../NEXT_TASK.md), a first real league through source access, Sports UI/search and verified Watch/Add, following completed C1-Q2 viewing. This is a planning choice; live provider integration remains NOT RUN and full acceptance remains open. Preserve historical decisions below.
+Current next product scope: [S2-G1](../NEXT_TASK.md), Sports discovery/search and validated Watch/Add from the existing authenticated native guide. Historical work/evidence is retained; full acceptance remains open.
 
 Updated 2026-10-02. “Accepted” below means a planning/setup choice within this request, not product acceptance. Use [decision template](evidence/templates/decision.md) for later capability decisions.
 
@@ -48,3 +48,4 @@ Retain dates, evidence class/revision and unknowns. An official API page can inf
 | D027 |2026-10-02 | Installed C1-Q2 viewing milestone complete | [C1-Q2](evidence/runs/20261002-c1-q2/run.md): owner reload confirmed exact018/a87877ca8e207785/same ID; single-feed controls/owner hearing PASS;15m23s720p main+one managed windows PASS, both-direction audio, isolated replacement, expand/restore, background return and close to single | Owner corrected accidental negative listening answer; no viewing issues reported. Source unchanged/68-test verification retained; site mute UNKNOWN and periodic/resource attribution limits explicit. Full beta/release checks remain grouped and separate; no further routine reload handoff |
 
 | D028 | 2026-10-02 | S2-L1 NBA source and local implementation prepared; activation blocked | [S2-L1](evidence/runs/20261002-s2-l1/run.md): BALLDONTLIE NBA Free ($0, official 5/min), private metadata-only relay/local 4/min limit, provider Sports UI and event-first main+one guards; 79-test verify PASS, candidate019/57058bd9d522e2bd retained | No source-update/broadcast contract or latency guarantee invented. Owner Free key + exact loopback permission/reload are one handoff; zero real acquisition/mapping claims. Installed018 playback preserved, no repeat trial; full beta/U01–U18 remain open |
+| D029 | 2026-10-02 | Owner-corrected active scope | S2-G1 guide-based Sports discovery/search and guarded Watch/Add across available programs using existing permissions and main-plus-one route | Independent scores/state/overrun unqualified; S2-L1 activation superseded; earlier work retained |

@@ -26,7 +26,7 @@ The overnight hold is retired. Installed v0.1.8/a87877ca8e207785 implements norm
 
 ## Scope and fallbacks
 
-The local client provides a dense observed guide and shared state/fixture Sports contracts. Sports fixture actions cannot resolve against live guide evidence. The multi-view fallback controls the original main player plus one separately muted-on-create browser window; it does not render protected streams inside the controller. The total watch-session cap is conservative and does not establish the account allowance. Four sessions are disabled pending verified allowance and reliability.
+The local client provides a dense observed guide and guide-based Sports program discovery/search/guarded Watch/Add, with a separate fixture lab. Sports fixture actions cannot resolve against live guide evidence. The multi-view fallback controls the original main player plus one separately muted-on-create browser window; it does not render protected streams inside the controller. The total watch-session cap is conservative and does not establish the account allowance. Four sessions are disabled pending verified allowance and reliability.
 
 ## Evidence and source of truth
 
@@ -40,6 +40,14 @@ Installed **v0.1.8 / a87877ca8e207785 / idaaiiafgopfpaojpnhaoefbefllioab**, [C1-
 
 C1-Q1-R1 identifies installed v0.1.6 with source-input build ID a4fb694fb9dd7388; [inventory](evidence/runs/20261002-c1-q1-r1/candidate-016.json). Shortcuts displays runtime version/build and, in installed content, extension ID. Existing installation updates use **Reload on the existing entry**, preserving ID/preferences, followed by refresh of the designated test tab only. Current task does not use Remove/Load unpacked/clear storage. Owner performs extension management per NEXT_TASK. A version/build shown in the loopback fixture preview identifies preview files only. `build-identity.json` records exact input hashes; it does not inspect installed Chrome.
 
-## NBA sports candidate — prepared, not installed
+## Current Sports development
 
-Use [the combined owner handoff](evidence/runs/20261002-s2-l1/permission-review.md) before activating new access. `npm run build` retains the existing storage + tv.youtube.com audit. `npm run build:sports-candidate` builds a separate explicitly unapproved candidate with the sole extra http://127.0.0.1:4318/* host. Do not load it as a duplicate extension. `npm run sports:relay` reads only the ignored private `.local/sports-provider.env` supplied by the owner; `.env.example` is a blank template. The relay serves one sports metadata route and contains the provider key only in its process. No provider request is made without that supplied configuration.
+Follow [S2-G1](../NEXT_TASK.md). Build guide-based discovery/search/Watch/Add with the standard existing-permission candidate. Input is existing authenticated guide metadata; the product flow operates without private configuration or an external service. Keep guide classification separate from independent score/state events. Prepare the complete candidate before the owner same-entry reload.
+
+Earlier source-specific commands/candidates are historical artifacts, not the current activation route. See the [retained run](evidence/runs/20261002-s2-l1/run.md).
+
+## S2-G1 prepared viewing loop
+
+[Implementation/evidence](evidence/runs/20261002-s2-g1/run.md): **v0.1.10 / f24fa0471866e729**, **83-test normal verification PASS** with existing permissions. Native-guide Sports discovery/search/current-next/cache/guarded Watch/Add implemented; no external setup. Installed identity and live qualification **NOT RUN** blocked by the unavailable browser admin-policy check after owner-reported same-entry reload. Last-confirmed installed018 and completed C1-Q2 viewing evidence remain valid in their scope. [One reload handoff](evidence/runs/20261002-s2-g1/reload-handoff.md). Broader release gates above remain grouped open.
+
+Current S2-G1 state: browser access RECOVERED; installed010/f24fa0471866e729/same ID VERIFIED. Stopped at cached legacy Upcoming/episodic matchup presentation regression; repaired **011/343f238d6223baf3, 84-test normal verification PASS**. One owner repair reload pending, then fresh real qualification. [Canonical next task](../NEXT_TASK.md). Earlier browser denials retained historically; no provider setup or new permissions.

@@ -65,6 +65,7 @@ def main():
         parser.error('Report path must be a JSON file within this project')
     errors = []
     local_count = external_count = 0
+    missing_local_artifacts = []
     for name in REQUIRED:
         if not (ROOT / name).is_file():
             errors.append(f'Missing required file: {name}')
@@ -93,7 +94,16 @@ def main():
             dest = (path.parent / unquote(parts.path)).resolve() if parts.path else path
             pending_report = args.write_report and dest == report_path
             if not dest.exists() and not pending_report:
-                errors.append(f'Broken local link: {path}: {target}')
+                # .gitignore keeps Markdown run notes but excludes the run's
+                # generated artifacts. Their absence is expected in a checkout.
+                local_artifact = (
+                    dest.is_relative_to(ROOT / 'docs/evidence/runs')
+                    and dest.suffix != '.md'
+                ) or dest == ROOT / 'docs/local-verification.json'
+                if local_artifact:
+                    missing_local_artifacts.append(f'{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path.name}: {target}')
+                else:
+                    errors.append(f'Broken local link: {path}: {target}')
             elif parts.fragment and dest.suffix == '.md':
                 if unquote(parts.fragment) not in anchors(dest):
                     errors.append(f'Broken anchor: {path}: {target}')
@@ -131,6 +141,7 @@ def main():
         'markdown_files_checked': len(markdown),
         'local_links_checked': local_count,
         'external_links_seen_not_network_validated': external_count,
+        'local_artifact_links_unavailable': missing_local_artifacts,
         'private_workspaces_checked': len(WORKSPACES),
         'explicit_user_acceptance_criteria_checked': 18,
         'errors': errors,

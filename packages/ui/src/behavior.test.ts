@@ -4,7 +4,6 @@ import { build } from 'esbuild';
 import { Window } from 'happy-dom';
 import { resolve } from 'node:path';
 import { createDemoBridge } from './demo.js';
-import { normalizeNBAGame } from '../../sports-engine/src/balldontlie';
 import { unavailableSports, type LiveSportsSnapshot } from '../../sports-engine/src/live';
 
 // DOM harness only. These tests establish interface behavior, not live service capabilities.
@@ -51,50 +50,48 @@ async function setup(mockNavigation = false, sports?: LiveSportsSnapshot, pollin
   return { window, bridge, unmount, navigated, eventIntents, sportsTimers };
 }
 
-test('a closed mounted drawer grants no Sports polling demand; reopening restores bounded demand', async () => {
-  const { window, unmount, eventIntents, sportsTimers } = await setup(false, unavailableSports(), true);
+test('installed Sports uses guide programs without provider polling; unloaded is distinct from no matches', async () => {
+  const { window, bridge, unmount, eventIntents, sportsTimers } = await setup(false, unavailableSports(), true);
   try {
-    await pause(); const document = window.document;
-    document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true })); await pause();
-    assert.equal(eventIntents.length, 1); assert.equal(sportsTimers.length, 1);
-    const drawer = document.getElementById('root') as any;
-    drawer.style.display = 'none'; sportsTimers[0](); assert.equal(eventIntents.length, 1);
-    drawer.style.display = 'block'; sportsTimers[0](); assert.equal(eventIntents.length, 2);
-    assert.equal(document.querySelectorAll('.sports-card').length, 0);
+    const base = await bridge.getSnapshot();
+    bridge.getSnapshot = async () => ({ ...base, guide: [] }); await bridge.refresh!(); await pause();
+    window.document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true })); await pause();
+    assert.match(window.document.body.textContent!, /Guide not loaded/);
+    assert.equal(eventIntents.length, 0); assert.equal(sportsTimers.length, 0);
+    assert.doesNotMatch(window.document.body.textContent!, /API key|relay|awaits approval|Refresh NBA/);
   } finally { unmount(); await window.happyDOM.abort(); }
 });
 
-test('installed Sports starts honestly unavailable; Fixture Lab is explicit and unsupported leagues stay empty', async () => {
-  const { window, unmount } = await setup(false, unavailableSports());
+test('guide Sports searches actual text, labels studio/replay/next/cache and dispatches guarded current Watch/Add', async () => {
+  const { window, bridge, unmount } = await setup(false, unavailableSports());
+  const calls: unknown[] = [];
+  const base = await bridge.getSnapshot(); const stamp = new Date().toISOString();
+  const entry = { ...base.guide[0], evidenceClass: 'LIVE' as const, available: true, observedAt: stamp,
+    target: { kind: 'navigation' as const, channelId: base.guide[0].channel.id, url: 'https://tv.youtube.com/watch?v=synthetic', verifiedAt: stamp, evidenceClass: 'LIVE' as const },
+    programs: [{ title: 'WNBA Countdown', context: 'CURRENT' as const }, { title: 'Dallas Wings vs. Golden State Valkyries · WNBA', context: 'NEXT' as const }] };
+  const cached = { ...entry, channel: { id: 'yttv:cache', name: 'Cached channel' }, metadataSource: 'CACHED' as const, programs: [{title: 'NHL Replay', context: 'CURRENT' as const}] };
+  bridge.getSnapshot = async () => ({ ...base, guide: [entry, cached], capabilities: { ...base.capabilities, navigation: true, managedWindows: true }, panes: [] });
+  bridge.watchProgram = async (...args) => { calls.push(['watch', ...args]); return {ok: true}; };
+  bridge.addProgram = async (...args) => { calls.push(['add', ...args]); return {ok: true}; };
   try {
-    await pause(); const document = window.document;
-    (document.querySelector('.desktop-app') as any).dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true })); await pause();
-    assert.equal(document.querySelectorAll('.sports-card').length, 0); assert.match(document.body.textContent!, /NBA connection awaits approval/);
-    const lab = [...document.querySelectorAll('button')].find(button => button.textContent === 'Open Fixture Lab')!;
-    (lab as any).click(); await pause(); assert.ok(document.querySelectorAll('.sports-card').length > 0);
-    assert.equal(document.querySelectorAll('.sports-card-actions button:not([disabled])').length, document.querySelectorAll('.sports-card').length);
-    ([...document.querySelectorAll('button')].find(button => button.textContent === 'Return to NBA') as any).click(); await pause();
-    ([...document.querySelectorAll('button')].find(button => button.textContent === 'MLB · unavailable') as any).click(); await pause();
-    assert.equal(document.querySelectorAll('.sports-card').length, 0); assert.match(document.body.textContent!, /League unavailable/);
-  } finally { unmount(); await window.happyDOM.abort(); }
-});
-
-test('provider event remains team-searchable without channel knowledge and mapping failure disables actions', async () => {
-  const stamp = new Date().toISOString();
-  const event = normalizeNBAGame({ id: 9001, datetime: null, status_state: 'suspended', status: 'Suspended',
-    home_team: { id: 20, full_name: 'New York Knicks', name: 'Knicks' }, visitor_team: { id: 2, full_name: 'Boston Celtics', name: 'Celtics' } }, stamp);
-  const { window, unmount, eventIntents } = await setup(false, { ...unavailableSports(), state: 'READY', events: [event] });
-  try {
-    await pause(); const document = window.document;
-    document.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', bubbles: true })); await pause();
-    const input = document.querySelector('input[placeholder="Search team or league"]') as any;
-    input.value = 'Knicks'; input.dispatchEvent(new window.Event('input', { bubbles: true })); await pause();
-    assert.equal(document.querySelectorAll('.sports-card').length, 1);
-    assert.match(document.querySelector('.sports-card')!.textContent!, /SUSPENDED/);
-    assert.match(document.body.textContent!, /Scheduled: unknown/); assert.match(document.body.textContent!, /Source updated: unknown/);
-    assert.match(document.body.textContent!, /Network unknown/); assert.match(document.body.textContent!, /Watch\/Add unavailable/);
-    assert.equal(document.querySelectorAll('.sports-card-actions button:not([disabled])').length, 0); assert.deepEqual(eventIntents, []);
-  } finally { unmount(); await window.happyDOM.abort(); }
+    await bridge.refresh!(); await pause();
+    const doc = window.document;
+    doc.querySelector('.desktop-app')!.dispatchEvent(new window.KeyboardEvent('keydown', {key:'s', bubbles:true})); await pause();
+    assert.equal(doc.querySelectorAll('.sports-card').length, 3);
+    assert.match(doc.body.textContent!, /Studio \/ analysis/); assert.match(doc.body.textContent!, /Replay/); assert.match(doc.body.textContent!, /Next listing/);
+    const cards = doc.querySelectorAll('.sports-card');
+    assert.equal(cards[0].querySelectorAll('button:not([disabled])').length, 2);
+    assert.equal(cards[1].querySelectorAll('button:not([disabled])').length, 0);
+    assert.equal(cards[2].querySelectorAll('button:not([disabled])').length, 0);
+    (cards[0].querySelector('button') as any).click(); await pause();
+    assert.equal(JSON.stringify(calls[0]), JSON.stringify(['watch', entry.channel.id, 'WNBA Countdown', stamp]));
+    const input = doc.querySelector('input[placeholder="Search program, team or competition"]') as any;
+    const search = async (value: string) => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')!.set!.call(input,value); input.dispatchEvent(new window.Event('input',{bubbles:true})); await pause(); };
+    await search('Valkyries'); assert.equal(doc.querySelectorAll('.sports-card').length,1);
+    await search('missing team'); assert.match(doc.body.textContent!, /No matching programs/);
+    await search(''); (doc.querySelector('.sports-card button:nth-child(2)') as any).click(); await pause();
+    assert.equal(JSON.stringify(calls[1]), JSON.stringify(['add',entry.channel.id,'WNBA Countdown',stamp]));
+  } finally {unmount(); await window.happyDOM.abort();}
 });
 
 test('preview is disclosed, fixtures cannot Watch/Add, favorite settings update through bridge', async () => {

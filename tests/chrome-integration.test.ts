@@ -32,6 +32,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
       update: async (id: number, value: object) => { log.push({ operation: 'update', id, value }); if (failMuteOnce && id === 1 && (value as any).muted === true) { failMuteOnce = false; throw new Error('synthetic mute failure'); }
         Object.assign(tabs.get(id), value); if ('muted' in value) tabs.get(id).mutedInfo = { muted: (value as any).muted, reason: 'extension' }; return tabs.get(id); },
       sendMessage: async (id: number, message: any) => {
+        if (message.type === 'NAVIGATE') { log.push({operation:'navigate',id,value:message}); return {ok:false,code:'TIMEOUT',reason:'Synthetic playback not confirmed'}; }
         if (message.type !== 'PLAYER_AUDIO') return undefined;
         log.push({ operation: 'player-audio', id, value: message });
         if (failEnable && message.muted === false) return { ok: false };
@@ -63,7 +64,20 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, true);
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true })).ok, false, 'popup cannot change another tab’s drawer');
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true }, { ...originalSender, id: 'unrelated' })).ok, false, 'another extension cannot impersonate the content bridge');
-  assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' })).ok, true);
+  const sportsRow = { ...observation.guide[0], programTitle: 'NHL Replay', programs: [{ title: 'NHL Replay', context: 'CURRENT' as const }, {title:'WNBA Countdown',context:'NEXT' as const}] };
+  await send({ type:'OBSERVE', observation: {...observation, guide:[sportsRow]} }, originalSender);
+  assert.equal((await send({type:'GET_SNAPSHOT'})).guide[0].programs[0].title,'NHL Replay');
+  const beforeSportsReject = log.length;
+  for (const command of [
+    {type:'WATCH_PROGRAM' as const, channelId:'yttv:cbs',title:'WNBA Countdown',observedAt:now},
+    {type:'ADD_PROGRAM' as const, channelId:'yttv:cbs',title:'NHL Replay',observedAt:'2020-01-01T00:00:00Z'},
+    {type:'WATCH_PROGRAM' as const, channelId:'yttv:cbs',title:'Changed NHL',observedAt:now},
+  ]) assert.equal((await send(command)).code,'TARGET_UNAVAILABLE');
+  assert.equal(log.length,beforeSportsReject,'changed and future program intents do not navigate or create');
+  assert.equal((await send({type:'WATCH_PROGRAM',channelId:'yttv:cbs',title:'NHL Replay',observedAt:now})).code,'TIMEOUT');
+  assert.equal(log.at(-1)?.operation,'navigate'); assert.equal(log.at(-1)?.id,1);
+  assert.equal(players.get(1)!.volume,.37); assert.equal(players.get(1)!.muted,false);
+  assert.equal((await send({ type: 'ADD_PROGRAM', channelId: 'yttv:cbs', title:'NHL Replay', observedAt:now })).ok, true);
   const creation = log.findIndex(item => item.operation === 'create');
   assert.equal(log[creation].value.url, 'about:blank');
   assert.deepEqual(log[creation + 1], { operation: 'update', id: 2, value: { muted: true } });

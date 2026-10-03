@@ -1,3 +1,4 @@
+import { sportsListings, listingPlayable } from '../../sports-engine/src/guide';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { GuideEntry, SportsEvent } from '../../core/src/index';
@@ -128,16 +129,6 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
   const usingFixtures = Boolean(demo || fixtureLab);
   const [fixtures, setFixtures] = useState(() => demo ? createIllustrativeFixtures(Date.now()) : []);
   const sportsState = snapshot.sports ?? unavailableSports();
-  useEffect(() => {
-    if (surface !== 'SPORTS' || usingFixtures || !bridge.refreshSports) return;
-    const poll = () => {
-      // The content app remains mounted behind a closed drawer. Hidden UI grants no polling demand.
-      if (document.visibilityState !== 'hidden' && appRef.current?.checkVisibility()) void bridge.refreshSports?.();
-    };
-    poll();
-    const timer = window.setInterval(poll, 60_000);
-    return () => window.clearInterval(timer);
-  }, [surface, usingFixtures, bridge]);
   const savedEntry = (id: string): GuideEntry => snapshot.guide.find(entry => entry.channel.id === id) ?? { channel: { id, name: `Saved channel (${id.replace(/^yttv:/, '')})` }, available: false, target: null, observedAt: '', evidenceClass: 'LIVE', metadataSource: 'CACHED' };
   const currentEntry = snapshot.currentChannelId ? savedEntry(snapshot.currentChannelId) : undefined;
   const audioSource = snapshot.panes.find(p => p.id === (snapshot.activePaneId ?? 'main'));
@@ -325,12 +316,15 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
   };
 
   const visibleSports = searchEvents(usingFixtures ? fixtures : sportsState.events, query, { now: clock }).filter(event => sportsLeague === 'ALL' || event.league === sportsLeague);
+  const guideSports = sportsListings(orderGuide(snapshot.guide, snapshot.preferences));
+  const visibleGuideSports = sportsListings(orderGuide(snapshot.guide, snapshot.preferences), query, sportsLeague);
+  const competitions = ['ALL', ...new Set(guideSports.map(item => item.competition))];
   const leagues = ['ALL', 'MLB', 'NFL', 'NCAA_FOOTBALL', 'NBA', 'NHL'];
   const presentationEntry = savedEntry;
   const favorites = orderGuide([...snapshot.guide, ...snapshot.preferences.favorites.filter(id => !snapshot.guide.some(entry => entry.channel.id === id)).map(presentationEntry)], snapshot.preferences).filter(entry => snapshot.preferences.favorites.includes(entry.channel.id));
   const recents = snapshot.preferences.recentChannels.map(presentationEntry);
 
-  const headerTitles: Record<Surface, string> = { WATCH: 'Your television, at a glance.', GUIDE: 'Less scrolling. More watching.', SPORTS: 'Follow the game. Not the schedule.', QUADBOX: 'More games. One control surface.' };
+  const headerTitles: Record<Surface, string> = { WATCH: 'Your television, at a glance.', GUIDE: 'Less scrolling. More watching.', SPORTS: 'Find sports in your YouTube TV guide.', QUADBOX: 'More games. One control surface.' };
 
   return <div className="desktop-app" ref={appRef} tabIndex={0} aria-label="Desktop workspace">
     <aside className="rail" aria-label="Main navigation">
@@ -351,7 +345,7 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
           <small>Routing readback; audible sound requires listening. If quiet, check native site mute and your output.</small>
           {snapshot.audioError && <p role="alert">{snapshot.audioError}</p>}
         </section>
-        <div className="page-heading"><div><div className="eyebrow">{surface === 'QUADBOX' ? 'MANAGED WINDOW WORKSPACE' : surface === 'SPORTS' ? 'INDEPENDENT SPORTS ENGINE' : 'YOUR DESKTOP EXPERIENCE'}</div><h1>{surfaceItems.find(item => item.id === surface)?.label}</h1><p>{headerTitles[surface]}</p></div><div className="heading-actions">{surface === 'SPORTS' && <button className="button subtle" onClick={() => { if (usingFixtures) { const now = Date.now(); setFixtures(createIllustrativeFixtures(now)); setClock(now); } else void run('Refresh NBA', bridge.refreshSports); }}><Icon name="refresh"/> {usingFixtures ? 'Refresh fixtures' : 'Refresh NBA'}</button>}{surface === 'GUIDE' && <button className={`button subtle ${manageGuide ? 'active' : ''}`} onClick={toggleGuideManagement} aria-pressed={manageGuide}><Icon name="settings"/> {manageGuide ? 'Done editing' : 'Customize'}</button>}{surface === 'QUADBOX' && snapshot.expandedPaneId && <button className="button" onClick={() => void run('Restore windows', () => bridge.restoreLayout())}><Icon name="restore"/> Restore layout <kbd>{keyLabel('restore')}</kbd></button>}{surface === 'QUADBOX' && <button className="button primary" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows || snapshot.panes.length >= 2}><Icon name="plus"/> Add channel</button>}</div></div>
+        <div className="page-heading"><div><div className="eyebrow">{surface === 'QUADBOX' ? 'MANAGED WINDOW WORKSPACE' : surface === 'SPORTS' ? 'SPORTS FROM YOUR GUIDE' : 'YOUR DESKTOP EXPERIENCE'}</div><h1>{surfaceItems.find(item => item.id === surface)?.label}</h1><p>{headerTitles[surface]}</p></div><div className="heading-actions">{surface === 'SPORTS' && <button className="button subtle" onClick={() => { if (usingFixtures) { const now = Date.now(); setFixtures(createIllustrativeFixtures(now)); setClock(now); } else void run('Refresh guide', bridge.recoverGuide); }}><Icon name="refresh"/> {usingFixtures ? 'Refresh fixtures' : 'Refresh guide'}</button>}{surface === 'GUIDE' && <button className={`button subtle ${manageGuide ? 'active' : ''}`} onClick={toggleGuideManagement} aria-pressed={manageGuide}><Icon name="settings"/> {manageGuide ? 'Done editing' : 'Customize'}</button>}{surface === 'QUADBOX' && snapshot.expandedPaneId && <button className="button" onClick={() => void run('Restore windows', () => bridge.restoreLayout())}><Icon name="restore"/> Restore layout <kbd>{keyLabel('restore')}</kbd></button>}{surface === 'QUADBOX' && <button className="button primary" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows || snapshot.panes.length >= 2}><Icon name="plus"/> Add channel</button>}</div></div>
 
         {notice && <div className={`notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}><Icon name={notice.kind === 'error' ? 'window' : 'check'}/><span>{notice.text}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss message"><Icon name="close" size={15}/></button></div>}
         {pending && <div className="operation-status" role="status"><span className="loading-dot"/>{pending}…</div>}
@@ -384,11 +378,32 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
         </>}
 
         {surface === 'SPORTS' && <>
-          <div className="sports-disclosure"><div className="fixture-badge">{usingFixtures ? 'FIXTURE LAB' : 'NBA'}</div><div><strong>{usingFixtures ? 'Illustrative states · separate from current coverage' : sportsState.state === 'READY' ? 'NBA events and scores' : sportsState.state === 'PERMISSION_REQUIRED' ? 'NBA connection awaits approval' : 'NBA data unavailable'}</strong><p>{usingFixtures ? 'All scores, teams, times and broadcast networks here are illustrative. Fixtures never open a real stream.' : sportsState.disclosure}</p>{!usingFixtures && <p>{sportsState.state === 'PERMISSION_REQUIRED' ? 'The prepared local metadata connection needs owner permission and an authorized NBA key.' : sportsState.state === 'READY' ? 'Recent retrieval is shown separately from unknown source-update time.' : 'Retained games remain visible as last known. Check the local sports connection; no sample games are substituted.'}</p>}</div></div>
-          {!demo && <button className="button subtle" aria-pressed={fixtureLab} onClick={() => { setFixtureLab(!fixtureLab); if (!fixtureLab) setFixtures(createIllustrativeFixtures(Date.now())); setSelectedFixtures([]); }}>{fixtureLab ? 'Return to NBA' : 'Open Fixture Lab'}</button>}
+          <div className="sports-disclosure"><div className="fixture-badge">{usingFixtures ? 'FIXTURE LAB' : 'YOUTUBE TV GUIDE'}</div><div><strong>{usingFixtures ? 'Illustrative states · separate from current coverage' : 'Current and upcoming sports programs'}</strong><p>{usingFixtures ? 'All scores, teams, times and networks here are illustrative. Fixtures never open a real stream.' : 'Search program, team and competition text supplied by your guide. Current means the guide listing, not confirmed game state. Scores, overtime and finality are not supplied here.'}</p></div></div>
+          {!demo && <button className="button subtle" aria-pressed={fixtureLab} onClick={() => { setFixtureLab(!fixtureLab); setSportsLeague('ALL'); setQuery(''); if (!fixtureLab) setFixtures(createIllustrativeFixtures(Date.now())); setSelectedFixtures([]); }}>{fixtureLab ? 'Return to guide sports' : 'Open Fixture Lab'}</button>}
+          {!usingFixtures && <>
+            <div className="sports-toolbar"><div className="league-tabs" aria-label="Competition filter">{competitions.map(value => <button key={value} className={value === sportsLeague ? 'selected' : ''} aria-pressed={value === sportsLeague} onClick={() => setSportsLeague(value)}>{value === 'ALL' ? 'All sports' : value}</button>)}</div><SearchBox value={query} setValue={setQuery} inputRef={searchRef} placeholder="Search program, team or competition"/></div>
+            <div className="section-title sports-section-title"><h2>Guide programs <span>{visibleGuideSports.length}</span></h2><span className="quiet-label">CURRENT / NEXT · OBSERVED LISTINGS</span></div>
+            {visibleGuideSports.length ? <div className="sports-grid">{visibleGuideSports.map(item => {
+              const playable = snapshot.connection === 'connected' && snapshot.capabilities.navigation && listingPlayable(item, clock);
+              const age = Math.max(0, Math.floor((clock - Date.parse(item.entry.observedAt)) / 60000));
+              const stale = item.entry.metadataSource === 'CACHED' || clock - Date.parse(item.entry.observedAt) > 30 * 60000;
+              return <article className="sports-card" key={`${item.entry.channel.id}:${item.index}`}>
+                <div className="sports-card-top"><span className="league-badge">{item.competition}</span><span>{item.program.context === 'CURRENT' ? 'Current listing' : item.program.context === 'NEXT' ? 'Next listing' : 'Upcoming listing'}</span></div>
+                <h3>{item.program.title}</h3><p>{item.entry.channel.name} · {item.kind}</p>
+                {item.program.detail && <p>{item.program.detail}</p>}
+                <p>{item.program.scheduleText ? `Guide schedule: ${item.program.scheduleText}` : 'Guide schedule: unknown'}</p>
+                <p>{stale ? 'Last observed / cached' : 'Guide observed'} · {age}m ago · <time>{item.entry.observedAt}</time></p>
+                <div className="sports-card-actions"><button className="button primary" disabled={!playable || !bridge.watchProgram || Boolean(pending)} onClick={() => void run('Watch program', () => bridge.watchProgram!(item.entry.channel.id, item.program.title, item.entry.observedAt))}>Watch</button><button className="button" disabled={!playable || !bridge.addProgram || !snapshot.capabilities.managedWindows || snapshot.panes.length >= 2 || Boolean(pending)} onClick={() => { setSurface('QUADBOX'); void run('Add program', () => bridge.addProgram!(item.entry.channel.id, item.program.title, item.entry.observedAt)); }}>Add</button></div>
+                {!playable && <p className="mapping-unavailable">{item.program.context !== 'CURRENT' ? 'Upcoming programs cannot use the current channel target.' : 'Watch/Add unavailable. Refresh guide to recover a fresh target.'}</p>}
+              </article>;
+            })}</div> : <EmptyState icon="sports" title={!snapshot.guide.length ? 'Guide not loaded' : query || sportsLeague !== 'ALL' ? 'No matching programs' : 'No explicit sports programs in this guide'} text={!snapshot.guide.length ? 'Open native Live to load account listings.' : 'Search uses observed guide text. Refresh guide for current coverage; unclassified shows remain in ordinary Guide.'}/>}
+            <p className="guide-footer">Guide observation: {snapshot.guideObservedAt ?? 'not loaded'} · Cached listings remain readable; refresh guide to recover navigation.</p>
+          </>}
+          {usingFixtures && <>
           <div className="sports-toolbar"><div className="league-tabs" aria-label="League filter">{leagues.map(league => <button key={league} className={league === sportsLeague ? 'selected' : ''} onClick={() => setSportsLeague(league)} aria-pressed={league === sportsLeague}>{league === 'ALL' ? 'All sports' : league === 'NCAA_FOOTBALL' ? 'College football' : league}{!usingFixtures && !['ALL', 'NBA'].includes(league) ? ' · unavailable' : ''}</button>)}</div><SearchBox value={query} setValue={setQuery} inputRef={searchRef} placeholder="Search team or league"/></div>
           <div className="section-title sports-section-title"><h2>{usingFixtures ? 'Illustrative game states' : 'NBA events'} <span>{visibleSports.length}</span></h2><span className="quiet-label">SCHEDULE WINDOWS DO NOT DETERMINE FINALITY</span></div>
-          {visibleSports.length ? <div className="sports-grid">{visibleSports.map(event => <SportsCard key={event.id} event={event} guide={snapshot.guide} now={clock} selected={selectedFixtures.includes(event.id)} onSelect={() => setSelectedFixtures(previous => previous.includes(event.id) ? previous.filter(id => id !== event.id) : [...previous, event.id])} connected={!usingFixtures && sportsState.state === 'READY' && snapshot.connection === 'connected'} canAdd={snapshot.capabilities.managedWindows && snapshot.panes.length < 2} pending={Boolean(pending)} onWatch={() => void run('Watch event', bridge.watchEvent ? () => bridge.watchEvent!(event.id) : undefined)} onAdd={() => void run('Add event', bridge.addEvent ? () => bridge.addEvent!(event.id) : undefined)}/>)}</div> : <EmptyState icon="sports" title={usingFixtures ? 'No matching fixtures' : !['ALL', 'NBA'].includes(sportsLeague) ? 'League unavailable' : query ? 'No matching NBA events' : sportsState.state === 'READY' ? 'No NBA events returned' : 'NBA connection unavailable'} text={usingFixtures ? 'Search the illustrative scenarios in Fixture Lab.' : 'Only NBA is prepared. Current events require the authorized provider connection. An empty response never finalizes tracked games.'}/>}
+          {visibleSports.length ? <div className="sports-grid">{visibleSports.map(event => <SportsCard key={event.id} event={event} guide={snapshot.guide} now={clock} selected={selectedFixtures.includes(event.id)} onSelect={() => setSelectedFixtures(previous => previous.includes(event.id) ? previous.filter(id => id !== event.id) : [...previous, event.id])} connected={false} canAdd={snapshot.capabilities.managedWindows && snapshot.panes.length < 2} pending={Boolean(pending)} onWatch={() => void run('Watch event', bridge.watchEvent ? () => bridge.watchEvent!(event.id) : undefined)} onAdd={() => void run('Add event', bridge.addEvent ? () => bridge.addEvent!(event.id) : undefined)}/>)}</div> : <EmptyState icon="sports" title={usingFixtures ? 'No matching fixtures' : !['ALL', 'NBA'].includes(sportsLeague) ? 'League unavailable' : query ? 'No matching NBA events' : sportsState.state === 'READY' ? 'No NBA events returned' : 'NBA connection unavailable'} text={usingFixtures ? 'Search the illustrative scenarios in Fixture Lab.' : 'Only NBA is prepared. Current events require the authorized provider connection. An empty response never finalizes tracked games.'}/>}
+          </>}
           {usingFixtures && selectedFixtures.length > 0 && <div className="fixture-selection"><span><Icon name="check"/> {selectedFixtures.length} fixture scenarios selected</span><p>Fixture selection exercises identity only.</p><button className="text-button" onClick={() => setSelectedFixtures([])}>Clear</button></div>}
         </>}
 

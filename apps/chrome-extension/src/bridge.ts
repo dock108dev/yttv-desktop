@@ -45,6 +45,8 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     recoverGuide: () => request({ type: 'OPEN_NATIVE_GUIDE' }),
     navigateChannel: channelId => request({ type: 'NAVIGATE', channelId }),
+    watchProgram: (channelId, title, observedAt) => request({ type: 'WATCH_PROGRAM', channelId, title, observedAt }),
+    addProgram: (channelId, title, observedAt) => request({ type: 'ADD_PROGRAM', channelId, title, observedAt }),
     watchEvent: eventId => request({ type: 'WATCH_EVENT', eventId }),
     addEvent: eventId => request({ type: 'ADD_EVENT', eventId }),
     refreshSports: async () => { const result = await request({ type: 'REFRESH_SPORTS' }); await refresh(); return result; },

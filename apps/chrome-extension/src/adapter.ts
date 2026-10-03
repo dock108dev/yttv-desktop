@@ -4,6 +4,7 @@ import type { Preferences } from '../../../packages/storage/src/index';
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
   | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'REFRESH_SPORTS' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
+  | { type: 'WATCH_PROGRAM' | 'ADD_PROGRAM'; channelId: string; title: string; observedAt: string }
   | { type: 'WATCH_EVENT' | 'ADD_EVENT'; eventId: string }
   | { type: 'AUDIO' | 'PLAYER_AUDIO'; muted?: boolean; volume?: number }
   | { type: 'OBSERVE'; observation: AdapterObservation }
