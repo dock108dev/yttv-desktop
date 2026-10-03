@@ -105,3 +105,10 @@ Default docs checking now uses repository files only; `--repository-only` remain
 Strict typecheck,2/2 affected checker tests, normal production build/exact permission audit in a disposable source export, default docs check without sibling/private artifacts, built fixture HTML loopback response and final docs/diff checks PASS. Source fingerprint `fe101bf3cc23768882cd631c733f8885bcc578441b53cf670846e25850a574cd`; parent HEAD `c5a307f319bfe032d97c95b63c987c000e5e67d7`. Frozen original bundle unchanged. Earlier98-test results remain prior maintenance evidence; no full suite/CI/browser/live/release campaign repeated. No commit/push/install or owner-state action.
 
 Q3-B1 remains active; broader mixed-service/layout/capacity and installed/hosted acceptance require their existing gates. These documentation changes do not activate proposed features. Review and portable build evidence are retained in `.local/docs-accuracy-review`.
+
+
+## CI-02 — UI test scheduling repair
+
+2026-10-03 EDT: repaired the reported hosted zero-row/wrong-surface failures in the DOM test harness. Mount and interaction checks use bundled React `act` instead of35ms sleeps; guide observations precede the UI clock, and direct fixture preference changes explicitly publish their snapshot. Runtime source and frozen installed bundle are unchanged. [Evidence and limits](docs/evidence/runs/20261003-ci-ui-scheduling/run.md).
+
+Local `verify:source` PASS:98/98 offline tests, typecheck, in-memory production build/permission audit and portable documentation check. Eight UI-suite runs with four concurrent processes PASS88/88 test cases. Hosted rerun remains NOT RUN; supplied exit143 has no confirmed cancellation/timeout cause. Bounded next task: observe Repository checks on the next authorized hosted run. Q3-B1 remains the active product milestone; this repair provides no installed/live or release qualification.
