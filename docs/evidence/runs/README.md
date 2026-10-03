@@ -1,5 +1,14 @@
 # Run records
 
+**Current recovery checkpoint — 2026-10-03:**023 TV-area/start filled the requested area PASS OWNER_REPORTED. Owner then reports only NBC Add enabled after guide refresh, followed by Arrange failure “TV area or feed count is unavailable” and **0 /4 feeds**. Historical original tab is absent; two newer YTTV tabs exist but ownership/creation path is unqualified. No tab silently adopted or closed. Prepared **0.2.4 /1cdc745144268bcc**,116-test/typecheck/build/permission verification PASS: explicit existing-player choice when original missing, archived closed-original return record, no-playback/audio/movement during choice, useful missing-player error and disabled-channel explanations.023 retained. Installed repair NOT RUN; changed024 needs owner-only activation then Use this player → Start → Add/Arrange retry. [Evidence](20261003-q3-b1-recovery/run.md). Two–four advancing, full controls/Return/stability and first-beta release remain OPEN; broader MVP separate; Prime/Netflix final deferred expansion.
+
+
+Current local workflow repair: [Q3-B1-R2](20261003-q3-b1-r2/run.md),022 /029d311113a6963f,115 tests PASS; activation/installed workflow/advancing count NOT RUN.
+
+**Installed checkpoint — 2026-10-03:** identity **0.2.1 /61a83fecdc9217c6** OWNER_CONFIRMED; frozen021/020/017 preserved, no reload/rebuild. Fresh current CBS baseline remains paused/player-muted46940.540876; numeric volume UNKNOWN, native slider0/UI100%, site/tab confirmation pending. One coordinated remote/search/singleton/state/TV-area owner checklist and precise named main+NBC4/ABC7/ESPN four-total disposable trial approval are pending. Remote PARTIAL prior owner report; arrangement/four-total/TV-area installed and advancing1–4/ten-minute hold NOT RUN. Enrollment/Return needs usable current numeric-volume and mute captures. Original Comics continuity unqualified across owner refresh. First beta OPEN; broader MVP separate; mixed services final post-beta. [Consolidated run](20261003-q3-b1-installed/run.md).
+
+**Current disposition — 2026-10-03:** Q3-B1-R1 is COMPLETE for source/verification/freeze: **0.2.1 / 61a83fecdc9217c6**,113/113 offline tests, typecheck and production build/permission audit PASS. Healthy same-build dedupe, invalidated/different-build replacement and fresh usable current-build reconnect confirmation are covered.020 and017 rollback preserved. Changed021 owner-only activation/Connection observations are PENDING; one consolidated installed run remains OPEN for all four first-beta features and advancing counts. No native player/runtime/audio actions occurred. Prime/Netflix remain final deferred post-first-beta work, outside beta gates. This disposition supersedes earlier prospective reconnect-repair instructions; earlier candidate evidence retains its own scope. [Repair and installed run](20261003-q3-b1-r1/run.md).
+
 The [2026-10-02 local beta run](20261002-local-beta/auth-baseline.md) records limited authenticated, muted Chrome playback observations. It does not qualify the full Phase 0 matrix. Its [integration record](20261002-local-beta/live-integration.md) retains failures and installed-runtime uncertainty.
 
 The [2026-10-02 handoff review](20261002-handoff-review/review.md) freshly verifies local source/build 0.1.3 with 46 automated tests and a narrow permission audit. It adds no browser/live evidence. The selected next task is [C1-Q1](../../../NEXT_TASK.md).
@@ -43,3 +52,13 @@ Installed C1-RG1 navigation closeout017/50a15df68eb2c3db: scoped feedback and90/
 ## C1-RG2 consolidated readiness / everyday use — complete2026-10-03 EDT
 
 [Run](20261002-c1-rg2/run.md), [exact acceptance ledger](20261002-c1-rg2/acceptance-ledger.md), [one remaining release ledger](20261002-c1-rg2/release-checks.md). Installed017/50a15df68eb2c3db/same ID;54 unchanged hashes/recorded102-test verification retained. Safe controls passed; captured paused Comics Unleashed4:36/100%/mute preserved.9 bounded surface timings and11 paused Chrome aggregate samples are limited performance context. No repair/reload/test extra. Usable main-plus-one handoff COMPLETE; full MVP/beta OPEN.
+
+- [Q3-B1 local candidate and grouped owner handoff](20261003-q3-b1-implementation/run.md): four requested YTTV controls implemented locally; new installed controls/active counts NOT RUN; full beta OPEN.
+
+- [Q3-B1 review and first-beta resequencing](20261003-q3-b1-review-resequence/run.md):72 frozen hashes matched; reconnect lifecycle/false-success gap identified; first beta YTTV only, services last post-beta; next bounded Q3-B1-R1.
+
+- [Q3-B1-R1 targeted completion review](20261003-q3-b1-r1/review.md): both reconnect findings resolved;84 hashes match; next changed021 activation and consolidated installed qualification.
+
+- [Installed021 handback review](20261003-q3-b1-installed/review.md): owner identity confirmed; native-refresh attribution/current mute-volume baseline retained; next grouped remote/area session with no new reload or repair.
+
+- [One remote/workspace owner clarification](20261003-remote-workspace-clarification/run.md): product workflow and new lead handoff supersede the detailed named-trial questionnaire; no playback approval or installed pass inferred.

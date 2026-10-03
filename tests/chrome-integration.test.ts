@@ -8,6 +8,7 @@ import { envelope } from '../apps/chrome-extension/src/adapter';
 
 test('extension scope remains storage and YouTube TV only', async () => {
   const manifest = JSON.parse(await readFile(new URL('../apps/chrome-extension/manifest.json', import.meta.url), 'utf8'));
+  assert.deepEqual(manifest.optional_permissions, ['system.display', 'scripting']);
   assert.deepEqual(manifest.permissions, ['storage']); assert.deepEqual(manifest.host_permissions, ['https://tv.youtube.com/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
   assert.equal(manifest.web_accessible_resources, undefined);
@@ -17,7 +18,9 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   let listener: ((message: unknown, sender: unknown, reply: (value: any) => void) => unknown) | undefined;
   const tabs = new Map<number, any>([[1, { id: 1, windowId: 1, url: 'https://tv.youtube.com/watch?v=original', active: true, mutedInfo: { muted: false } }], [4, { id: 4, windowId: 4, url: 'https://tv.youtube.com/live', mutedInfo: { muted: false } }]]);
   const log: Array<{ operation: string; id?: number; value?: any }> = []; const local: Record<string, unknown> = {}; const session: Record<string, unknown> = {};
-  let next = 2;
+  let next = 2; let createGate: Promise<void> | undefined; let creationStarted: (() => void) | undefined;
+  let injectionPermission = false;
+  let reconnectResponse: ((message: any) => unknown) | undefined;
   let failEnable = false; let failMuteOnce = false; let failFocus = false;
   const players = new Map<number, { muted: boolean; volume: number }>([[1, { muted: false, volume: .37 }]]);
   (globalThis as any).chrome = {
@@ -27,11 +30,14 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
     },
     runtime: { id: 'local', getURL: (path: string) => `chrome-extension://local/${path}`, sendMessage: async () => undefined,
       onMessage: { addListener: (fn: typeof listener) => { listener = fn; } } },
+    permissions: { contains: async () => injectionPermission },
+    scripting: { executeScript: async (value: any) => { log.push({ operation: 'inject', value }); return []; } },
     tabs: {
-      query: async () => [...tabs.values()].filter(tab => tab.url.startsWith('https://tv.youtube.com/')), get: async (id: number) => { if (!tabs.has(id)) throw new Error('closed'); return tabs.get(id); },
+      query: async (q: any) => [...tabs.values()].filter(tab => q?.windowId !== undefined ? tab.windowId === q.windowId : tab.url.startsWith('https://tv.youtube.com/')), get: async (id: number) => { if (!tabs.has(id)) throw new Error('closed'); return tabs.get(id); },
       update: async (id: number, value: object) => { log.push({ operation: 'update', id, value }); if (failMuteOnce && id === 1 && (value as any).muted === true) { failMuteOnce = false; throw new Error('synthetic mute failure'); }
         Object.assign(tabs.get(id), value); if ('muted' in value) tabs.get(id).mutedInfo = { muted: (value as any).muted, reason: 'extension' }; return tabs.get(id); },
       sendMessage: async (id: number, message: any) => {
+        if (message.type === 'GET_OBSERVATION') return reconnectResponse?.(message);
         if (message.type === 'NAVIGATE') { log.push({operation:'navigate',id,value:message}); return {ok:false,code:'TIMEOUT',reason:'Synthetic playback not confirmed'}; }
         if (message.type !== 'PLAYER_AUDIO') return undefined;
         log.push({ operation: 'player-audio', id, value: message });
@@ -44,7 +50,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
       onRemoved: { addListener() {} }, onUpdated: { addListener() {} },
     },
     windows: {
-      create: async (value: any) => { const id = next++; log.push({ operation: 'create', id, value }); const tab = { id, windowId: id, url: value.url }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24 }); return { id, tabs: [tab] }; },
+      create: async (value: any) => { while (tabs.has(next)) next++; const id = next++; log.push({ operation: 'create', id, value }); creationStarted?.(); if (createGate) await createGate; const tab = { id, windowId: id, url: value.url }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24 }); return { id, tabs: [tab] }; },
       update: async (id: number, value: any) => { log.push({ operation: 'window-update', id, value }); if (failFocus && value.focused) throw new Error('synthetic focus failure'); return { id }; },
       get: async (id: number) => ({ id, state: 'normal', left: 50, top: 50, width: 780, height: 520 }),
       remove: async (id: number) => tabs.delete(id),
@@ -59,11 +65,32 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
     currentChannelId: 'yttv:cbs', playback: { playing: true, muted: false, volume: .37, currentTime: 10, readyState: 4, width: 1280, height: 720 } };
   await send({ type: 'OBSERVE', observation }, { id: 'local', url: 'https://tv.youtube.com/watch?v=original', tab: tabs.get(1) });
   const originalSender = { id: 'local', url: tabs.get(1).url, tab: tabs.get(1) };
+  assert.equal((await send({ type: 'RECONNECT_MAIN' })).code, 'INJECTION_PERMISSION');
+  injectionPermission = true; const reconnectStart = log.length;
+  const nativeBefore = structuredClone({ tab: tabs.get(1), player: players.get(1) });
+  const confirmedReconnect = (message: any) => ({ ...observation, observedAt: new Date().toISOString(), playerKey: 'original-player', connectionBuild: 'source', connectionNonce: message.connectionNonce });
+  for (const response of [undefined, () => ({}), (m: any) => ({ ...confirmedReconnect(m), observedAt: '2020-01-01T00:00:00Z' }),
+    (m: any) => ({ ...confirmedReconnect(m), connectionBuild: 'old-build' }), (m: any) => ({ ...confirmedReconnect(m), connectionNonce: 'old-request' }),
+    (m: any) => ({ ...confirmedReconnect(m), playback: { ...observation.playback, volume: null } }),
+    (m: any) => ({ ...confirmedReconnect(m), playback: { ...observation.playback, readyState: 0 } })]) {
+    reconnectResponse = response;
+    assert.equal((await send({ type: 'RECONNECT_MAIN' })).code, 'RECONNECT_UNCONFIRMED');
+  }
+  reconnectResponse = confirmedReconnect;
+  assert.equal((await send({ type: 'RECONNECT_MAIN' })).ok, true);
+  reconnectResponse = undefined;
+  assert.deepEqual({ tab: tabs.get(1), player: players.get(1) }, nativeBefore);
+  assert.equal(log.slice(reconnectStart).filter(x => x.operation === 'inject').length, 8);
+  for (const row of log.slice(reconnectStart).filter(x => x.operation === 'inject')) assert.deepEqual(row.value, { target: { tabId: 1 }, files: ['content.js'] });
+  assert.equal(log.slice(reconnectStart).some(x => x.operation === 'player-audio' || x.operation === 'navigate' || x.operation === 'create'), false);
+  assert.equal(log.slice(reconnectStart).some(x => x.operation === 'update'), false, 'reconnection never reloads/navigates/unmutes');
+  assert.equal((await send({ type: 'RECONNECT_MAIN' }, originalSender)).code, 'INVALID_SENDER');
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, false);
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true }, originalSender)).ok, true);
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, true);
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true })).ok, false, 'popup cannot change another tab’s drawer');
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true }, { ...originalSender, id: 'unrelated' })).ok, false, 'another extension cannot impersonate the content bridge');
+  observation.observedAt = new Date().toISOString();
   const sportsRow = { ...observation.guide[0], programTitle: 'NHL Replay', programs: [{ title: 'NHL Replay', context: 'CURRENT' as const }, {title:'WNBA Countdown',context:'NEXT' as const}] };
   await send({ type:'OBSERVE', observation: {...observation, guide:[sportsRow]} }, originalSender);
   assert.equal((await send({type:'GET_SNAPSHOT'})).guide[0].programs[0].title,'NHL Replay');
@@ -77,7 +104,12 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal((await send({type:'WATCH_PROGRAM',channelId:'yttv:cbs',title:'NHL Replay',observedAt:now})).code,'TIMEOUT');
   assert.equal(log.at(-1)?.operation,'navigate'); assert.equal(log.at(-1)?.id,1);
   assert.equal(players.get(1)!.volume,.37); assert.equal(players.get(1)!.muted,false);
-  assert.equal((await send({ type: 'ADD_PROGRAM', channelId: 'yttv:cbs', title:'NHL Replay', observedAt:now })).ok, true);
+  let releaseCreation!: () => void; const started = new Promise<void>(resolve => { creationStarted = resolve; });
+  createGate = new Promise<void>(resolve => { releaseCreation = resolve; });
+  const pendingCreation = send({ type: 'ADD_PROGRAM', channelId: 'yttv:cbs', title:'NHL Replay', observedAt:now });
+  await started; const pendingSnapshot = await send({ type: 'GET_SNAPSHOT' });
+  assert.equal(pendingSnapshot.pendingFeedCreations, 1); assert.equal(pendingSnapshot.panes.length, 1);
+  releaseCreation(); assert.equal((await pendingCreation).ok, true); createGate = undefined; creationStarted = undefined;
   const creation = log.findIndex(item => item.operation === 'create');
   assert.equal(log[creation].value.url, 'about:blank');
   assert.deepEqual(log[creation + 1], { operation: 'update', id: 2, value: { muted: true } });
@@ -97,8 +129,15 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
     { type: 'CREATE_PANE', channelId: 'yttv:cbs', eventId: 'old-provider' }])
     assert.equal((await send(command as any)).code, 'UNSUPPORTED_PATH');
   assert.equal(log.length, retiredBoundary, 'retired commands cannot mutate players/windows');
-  const third = await send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
-  assert.equal(third.ok, false); assert.equal(third.code, 'SESSION_BOUND'); assert.equal(tabs.size, 3, 'only main, one added and unrelated native Live');
+  const attempts = await Promise.all(Array.from({ length: 3 }, () => send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' })));
+  assert.deepEqual(attempts.map(result => result.ok), [true, true, false], 'pending creations serialize through the shared four-feed ceiling');
+  assert.equal(attempts[2].code, 'SESSION_BOUND');
+  const four = await send({ type: 'GET_SNAPSHOT' }); assert.equal(four.panes.length, 4);
+  const focusStart = log.length;
+  await send({ type: 'FOCUS_PANE', paneId });
+  assert.equal(log.slice(focusStart).some(row => row.value?.muted !== undefined || row.operation === 'player-audio'), false);
+  for (const extra of four.panes.slice(2)) await send({ type: 'REMOVE_PANE', paneId: extra.id });
+  assert.equal(tabs.size, 3, 'only main, one added and unrelated native Live after closing test companions');
   assert.equal((await send({ type: 'PREFERENCE', patch: { nightMuteLock: true } } as any)).code, 'INVALID_COMMAND');
   assert.equal((await send({ type: 'GET_SNAPSHOT' })).preferences.nightMuteLock, false);
   await Promise.all([send({ type: 'SELECT_PANE', paneId: 'main' }), send({ type: 'SELECT_PANE', paneId })]);
@@ -138,6 +177,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal(tabs.get(1).url, untouchedOriginal); assert.equal(tabs.get(4).url, untouchedOtherPane);
   assert.deepEqual(log.slice(beforeReplacement).filter(item => item.value?.url).map(item => item.id), [2]);
 
+  const beforeMainExpand = log.length; assert.equal((await send({ type: 'EXPAND_PANE', paneId: 'main' })).code, 'MAIN_NOT_ENROLLED'); assert.equal(log.length, beforeMainExpand);
   assert.equal((await send({ type: 'EXPAND_PANE', paneId })).ok, true);
   assert.equal((await send({ type: 'GET_SNAPSHOT' })).expandedPaneId, paneId);
   assert.equal((await send({ type: 'RESTORE_LAYOUT' })).ok, true);

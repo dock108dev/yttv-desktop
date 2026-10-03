@@ -56,12 +56,14 @@ test('content invalidation disposes observers/timers, preserves native audio cho
   class ObservedMutationObserver extends NativeObserver { override disconnect() { disconnects++; super.disconnect(); } }
   const context: any = {
     window, document: window.document, HTMLVideoElement: window.HTMLVideoElement, MutationObserver: ObservedMutationObserver,
-    getComputedStyle: window.getComputedStyle.bind(window), URL, fixtureMounts: 0, fixtureUnmounts: 0,
+    getComputedStyle: window.getComputedStyle.bind(window), Event: window.Event, crypto: globalThis.crypto, URL, fixtureMounts: 0, fixtureUnmounts: 0,
     setInterval: (fn: () => void, duration: number) => { const id = setInterval(fn, duration); intervals.add(id); return id; },
     clearInterval: (id: ReturnType<typeof setInterval>) => { intervals.delete(id); clearInterval(id); },
     setTimeout: (fn: () => void, duration: number) => { const id = setTimeout(() => { timeouts.delete(id); fn(); }, duration); timeouts.add(id); return id; },
     clearTimeout: (id: ReturnType<typeof setTimeout>) => { timeouts.delete(id); clearTimeout(id); },
     chrome: { runtime: {
+      get id() { return invalid ? undefined : 'local'; },
+      getManifest() { if (invalid) throw new Error('Extension context invalidated.'); return {}; },
       sendMessage: () => { calls++; if (invalid) throw new Error('Extension context invalidated.'); return Promise.resolve(undefined); },
       onMessage: { addListener: (fn: Function) => runtimeListeners.add(fn), removeListener: (fn: Function) => runtimeListeners.delete(fn) },
     }, storage: { onChanged: { addListener: (fn: Function) => storageListeners.add(fn), removeListener: (fn: Function) => storageListeners.delete(fn) } } },
@@ -82,13 +84,39 @@ test('content invalidation disposes observers/timers, preserves native audio cho
     assert.equal(context.fixtureUnmounts, 1); assert.equal(intervals.size, 0); assert.equal(timeouts.size, 0);
     assert.equal(runtimeListeners.size, 0); assert.equal(storageListeners.size, 0); assert(disconnects >= 1);
     assert.equal(host.shadowRoot!.querySelectorAll('[role="status"]').length, 1);
-    assert.match(host.shadowRoot!.textContent!, /Refresh this YouTube TV page/);
+    assert.match(host.shadowRoot!.textContent!, /Reconnect original player/);
     const stoppedCalls = calls;
     window.document.body.append(window.document.createElement('div'));
     (host.shadowRoot!.querySelector('.toggle') as any).click();
     await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(calls, stoppedCalls);
     const video = window.document.querySelector('video')!; video.muted = false;
     video.dispatchEvent(new window.Event('playing', { bubbles: true })); assert.equal(video.muted, false);
+    video.currentTime = 123; video.volume = .37;
+    const nativeBefore = { time: video.currentTime, volume: video.volume, muted: video.muted, paused: video.paused, url: window.location.href };
+    invalid = false;
+    runInNewContext(bundle.outputFiles[0].text, context);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    let connection: any;
+    for (const fn of runtimeListeners) fn({ namespace: 'yttv-desktop.v1', type: 'GET_OBSERVATION', connectionNonce: 'fresh-request' }, { id: 'local' }, (v: any) => { connection = v; });
+    assert.equal(connection.connectionBuild, 'source'); assert.equal(connection.connectionNonce, 'fresh-request');
+    assert.equal(connection.playback.currentTime, 123); assert(connection.playerKey);
+    assert.equal(context.fixtureMounts, 2); assert.equal(intervals.size, 1); assert.equal(runtimeListeners.size, 2); assert.equal(storageListeners.size, 1);
+    assert.equal(window.document.querySelectorAll('#yttv-desktop-local-beta').length, 1);
+    assert.notEqual(window.document.getElementById('yttv-desktop-local-beta'), host);
+    // Different-build replacement disposes even a healthy old bridge.
+    runInNewContext('var __YTTV_BUILD__ = "next-build";\n' + bundle.outputFiles[0].text, context);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(context.fixtureMounts, 3); assert.equal(context.fixtureUnmounts, 2);
+    assert.equal(intervals.size, 1); assert.equal(runtimeListeners.size, 2); assert.equal(storageListeners.size, 1);
+    // A reload can invalidate runtime.id before the old launcher is marked invalid.
+    invalid = true;
+    runInNewContext('var __YTTV_BUILD__ = "next-build";\n' + bundle.outputFiles[0].text, context);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    invalid = false;
+    runInNewContext('var __YTTV_BUILD__ = "next-build";\n' + bundle.outputFiles[0].text, context);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(intervals.size, 1); assert.equal(runtimeListeners.size, 2); assert.equal(storageListeners.size, 1);
+    assert.deepEqual({ time: video.currentTime, volume: video.volume, muted: video.muted, paused: video.paused, url: window.location.href }, nativeBefore);
   } finally {
     for (const id of intervals) clearInterval(id); for (const id of timeouts) clearTimeout(id); await window.happyDOM.abort();
   }

@@ -16,9 +16,35 @@ let adapter: DOMAdapter | undefined;
 let host: HTMLElement | undefined;
 const lifecycle = createExtensionLifecycle();
 function start() {
-  if (host || document.getElementById(HOST_ID)) return;
-  host = document.createElement('div'); host.id = HOST_ID;
+  if (host) return;
+  const existing = document.getElementById(HOST_ID);
+  const build = typeof __YTTV_BUILD__ === 'string' ? __YTTV_BUILD__ : 'source';
+  // Probe the old isolated world, including reloads before its next API operation.
+  if (existing?.dataset.extensionBuild === build) {
+    existing.removeAttribute('data-bridge-healthy');
+    existing.dispatchEvent(new Event('yttv-bridge-probe'));
+    if (existing.dataset.bridgeHealthy === 'true') { lifecycle.dispose(); return; }
+  }
+  // Explicit re-injection replaces only the old extension launcher; the native player is untouched.
+  if (existing) { if (!existing.shadowRoot?.querySelector('.drawer')) return; existing.dispatchEvent(new Event('yttv-bridge-dispose')); existing.remove(); }
+  host = document.createElement('div'); host.id = HOST_ID; host.dataset.extensionBuild = build;
   host.style.cssText = 'position:fixed;right:16px;top:72px;z-index:2147483600;font-family:system-ui,sans-serif;';
+  const ownedHost = host;
+  const probe = () => {
+    try {
+      if (!chrome.runtime.id) { lifecycle.invalidate(); return; }
+      chrome.runtime.getManifest();
+      if (lifecycle.active) ownedHost.dataset.bridgeHealthy = 'true';
+    } catch { lifecycle.invalidate(); }
+  };
+  const dispose = () => lifecycle.dispose();
+  ownedHost.addEventListener('yttv-bridge-probe', probe);
+  ownedHost.addEventListener('yttv-bridge-dispose', dispose);
+  lifecycle.addCleanup(() => {
+    ownedHost.removeEventListener('yttv-bridge-probe', probe);
+    ownedHost.removeEventListener('yttv-bridge-dispose', dispose);
+    ownedHost.removeAttribute('data-bridge-healthy');
+  });
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = ':host{color-scheme:dark}*{box-sizing:border-box}.toggle{position:fixed;right:16px;top:18px;padding:9px 16px;border:1px solid #596582;background:#111b2a;color:#ecf3ff;border-radius:10px;font:600 13px system-ui;cursor:pointer;box-shadow:0 4px 20px #0007}.drawer{width:min(440px,calc(100vw - 32px));height:calc(100vh - 90px);overflow:auto;background:#0b1220;border:1px solid #324159;border-radius:14px;box-shadow:0 12px 48px #000b}.drawer[hidden]{display:none}';
@@ -37,15 +63,17 @@ function start() {
     if (lifecycle.active) void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'SET_DRAWER_STATE', opened })));
   };
   toggle.addEventListener('click', toggleDrawer);
-  shadow.append(style, uiStyle, toggle, drawer); document.documentElement.append(host);
+  const remote = document.createElement('button'); remote.className = 'toggle'; remote.style.right = '120px'; remote.textContent = 'Open remote';
+  remote.addEventListener('click', () => { applyDrawerState(false); void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OPEN_REMOTE' }))); });
+  shadow.append(style, uiStyle, remote, toggle, drawer); document.documentElement.append(host);
   lifecycle.onInvalidated(() => {
     unmount?.(); unmount = undefined;
     host!.setAttribute('data-extension-state', 'refresh-required');
-    toggle.textContent = 'Desktop · Refresh page';
-    toggle.setAttribute('aria-label', 'Desktop updated. Refresh the YouTube TV page to reconnect');
+    toggle.textContent = 'Desktop · Reconnect';
+    toggle.setAttribute('aria-label', 'Desktop updated. Use the remote Connection control to reconnect');
     const notice = document.createElement('p'); notice.setAttribute('role', 'status');
     notice.style.cssText = 'margin:0;padding:24px;color:#ecf3ff;font:14px/1.6 system-ui;';
-    notice.textContent = 'Desktop extension updated. Refresh this YouTube TV page to reconnect. Your underlying playback remains available.';
+    notice.textContent = 'Desktop extension updated. Use Reconnect original player in the remote Connection section. Your underlying playback remains available.';
     drawer.replaceChildren(notice);
   });
   const renewPlayer = (event: Event) => { if (event.target instanceof HTMLVideoElement) playerKeys.set(event.target, crypto.randomUUID()); };
@@ -72,7 +100,7 @@ function start() {
   const runtimeListener = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (value: unknown) => void) => {
     if (!lifecycle.active) return false;
     if (_sender.id !== chrome.runtime.id || !isMessage(message) || !validCommand(message)) return false;
-    if (message.type === 'GET_OBSERVATION') { void lifecycle.guard(() => sendResponse(adapter?.getObservation())); return false; }
+    if (message.type === 'GET_OBSERVATION') { void lifecycle.guard(() => sendResponse({ ...adapter?.getObservation(), playerKey: playerKey(), connectionBuild: build, connectionNonce: message.connectionNonce })); return false; }
     if (message.type === 'NAVIGATE') { void lifecycle.guard(() => adapter!.navigateToChannel(message.channelId)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'PLAYER_AUDIO') {
       if (message.playerKey && message.playerKey !== playerKey()) { sendResponse({ ok: false, code: 'PLAYER_CHANGED', audioFailure: 'PLAYER_CHANGED' }); return false; }
@@ -107,6 +135,8 @@ else {
   lifecycle.addCleanup(() => ready.disconnect());
   ready.observe(document, { childList: true });
 }
-window.addEventListener('pagehide', () => {
-  lifecycle.dispose();
-}, { once: true });
+const pageHide = () => lifecycle.dispose();
+if (lifecycle.active) {
+  window.addEventListener('pagehide', pageHide, { once: true });
+  lifecycle.addCleanup(() => window.removeEventListener('pagehide', pageHide));
+}

@@ -291,3 +291,13 @@ test('restored panes and diagnostics cannot carry arbitrary stored payloads into
   assert.equal(snapshot.panes.length, 2);
   assert.doesNotMatch(JSON.stringify(snapshot), /synthetic-secret|privatePayload/);
 });
+
+test('closing the original persists missing-main identity and never adopts unrelated owner playback after worker wake', async () => {
+  const h = await harness(); await h.observe(); await h.remove();
+  h.tabs.set(90, { id: 90, windowId: 90, active: true, url: 'https://tv.youtube.com/watch?v=unrelated', mutedInfo: { muted: false } });
+  // A subsequent command drains the serialized close cleanup before restarting.
+  await h.send({ type: 'MUTE' }); h.start();
+  const snapshot = await h.send({ type: 'GET_SNAPSHOT' }); assert.equal(snapshot.panes.length, 0);
+  assert.equal((await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' })).ok, false);
+  assert.equal(h.tabs.get(90).mutedInfo.muted, false); assert(!h.log.some(row => row.id === 90));
+});

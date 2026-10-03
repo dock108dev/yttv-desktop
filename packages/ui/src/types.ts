@@ -12,6 +12,7 @@ export interface UIManagedPane {
   id: string;
   channelId: string;
   channelName: string;
+  feedNumber?: number;
   eventId?: string;
   muted: boolean | null;
   playerMuted?: boolean | null;
@@ -27,6 +28,11 @@ export interface UIManagedPane {
 }
 
 export interface DesktopSnapshot {
+  originalMissing?: boolean;
+  originalCandidates?: { tabId: number; label: string }[];
+  workspace?: { available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
+  feedLimit?: number;
+  pendingFeedCreations?: number;
   mode: 'extension' | 'demo';
   connection: 'connected' | 'waiting' | 'unavailable';
   statusMessage?: string;
@@ -70,6 +76,8 @@ export interface ClientBridge {
   replacePane(paneId: string, channelId: string): Promise<ActionResult>;
   expandPane(paneId: string): Promise<ActionResult>;
   restoreLayout(): Promise<ActionResult>;
+  focusPane?(paneId: string): Promise<ActionResult>;
+  openRemote?(): Promise<ActionResult>;
   focusOriginal?(): Promise<ActionResult>;
   setAudio?(change: { muted?: boolean; volume?: number }): Promise<ActionResult>;
   mute?(): Promise<ActionResult>;

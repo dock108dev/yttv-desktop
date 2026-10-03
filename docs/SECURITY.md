@@ -27,3 +27,7 @@ Origin/Host checks constrain browser requests, not other local processes: they c
 [Security tests](../tests/security.test.ts) use synthetic data, disposable files and ephemeral loopback ports. Worker/adapter tests cover rejected senders, malformed commands and restored-field sanitation. These checks do not establish loaded-browser CSP enforcement, absence of all vulnerabilities, audible output or protected playback. Dependency advisory results require a current review of the exact lockfile; no current advisory scan is claimed.
 
 [Retained security evidence](evidence/runs/20261003-security-source/report.md) records earlier source checks and retired provider findings at their own revision. Proposed services need independent origin/capability/permission review; current permissions do not cover them.
+
+## Q3-B1 optional access
+
+The0.2.0 candidate retains storage/tv.youtube.com mandatory scope and packaged CSP. Optional system.display reads monitor metadata only on Choose monitor; optional scripting permits deliberate Reconnect original player without a native page reload. RECONNECT_MAIN is extension-sender-only, validates the designated YTTV tab and permission, and injects only the packaged content.js file. No arbitrary script/target or expanded service host is accepted. Startup never requests either permission. Denial preserves native/current-screen fallback. Session return geometry has no navigation/audio authority. Installed permission and preservation checks remain open in the [candidate evidence](evidence/runs/20261003-q3-b1-implementation/run.md).

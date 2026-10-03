@@ -9,7 +9,7 @@ import { validCommand } from '../apps/chrome-extension/src/adapter';
 
 test('IPC rejects malformed, oversized and mass-assignment commands before privileged handlers', () => {
   for (const value of [null, [], { type: 'UNKNOWN' }, { type: 'NAVIGATE', channelId: 7 },
-    { type: 'SELECT_PANE', paneId: '' }, { type: 'AUDIO', volume: NaN }, { type: 'PLAYER_AUDIO', muted: 'false' },
+    { type: 'SELECT_PANE', paneId: '' }, { type: 'CHOOSE_MAIN', tabId: 0 }, { type: 'CHOOSE_MAIN', tabId: '30' }, { type: 'AUDIO', volume: NaN }, { type: 'PLAYER_AUDIO', muted: 'false' },
     { type: 'PREFERENCE', patch: { schemaVersion: 99 } }, { type: 'PREFERENCE', patch: { currentChannel: 'unconfirmed' } },
     { type: 'PREFERENCE', patch: { favorites: Array(1001).fill('x') } },
     { type: 'OBSERVE', observation: { guide: Array(501).fill({}), observedAt: new Date().toISOString(), playback: {} } },

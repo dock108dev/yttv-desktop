@@ -1,6 +1,6 @@
 # Decision log
 
-Current active scope: [Q3-B1 mixed-service TV workspace](../NEXT_TASK.md), compact remote, auto1–4 total Chrome players across YTTV/Prime Video/Netflix and selected monitor/custom area. Preserve installed017; per-service access/control/playback needs new evidence.
+Current active scope: [one compact remote managing the up-to-four-player YTTV workspace](../NEXT_TASK.md).021 /61a83fecdc9217c6 is owner-confirmed with frozen113-test proof; integrated installed usefulness and counts remain unqualified. The latest owner clarification below supersedes the detailed named-trial workflow. Preserve current viewing state and prior evidence; services stay last post-beta.
 
 Updated 2026-10-02. “Accepted” below means a planning/setup choice within this request, not product acceptance. Use [decision template](evidence/templates/decision.md) for later capability decisions.
 
@@ -92,3 +92,23 @@ Implement [Q3-B1](TV_WORKSPACE_BETA.md): persistent compact extension remote plu
 ## 2026-10-03 — Prime Video and Netflix in the same four-slot workspace
 
 Owner explicitly added Prime Video and Netflix support. [Mixed-service spec](MULTI_SERVICE_BETA.md) extends Q3-B1 without increasing its four-TOTAL ceiling. Use original signed-in native Chrome players, explicit Add existing player tab and separate service adapters; maintain YTTV target/navigation guards. New service permissions are optional/explicit and reviewed with the whole candidate. Native catalog/sign-in/purchase remain owner/service-owned. Actual mixed playback and control capabilities require separate evidence under per-service limits; no protected embedding, capture or account bypass.
+
+## 2026-10-03 — corrected first-beta and final mixed-service sequence
+
+The owner explicitly moved Prime Video and Netflix to the very last currently planned work, after the first beta release. This decision supersedes the earlier same-day decision to include them in Q3-B1. The first beta is YouTube TV only: compact separate remote, automatic readable arrangement, up to four total feeds and monitor/custom TV-area selection. R25 remains a retained [future design](MULTI_SERVICE_BETA.md), DEFERRED until first-beta release and all preceding planned work completes or the owner explicitly defers it. Mixed-service adapters, service access/account work and mixed playback qualification are not active and do not block first-beta acceptance. The [roadmap](ROADMAP.md) and [NEXT_TASK](../NEXT_TASK.md) own the corrected sequence and current task.
+
+The four YTTV controls are locally implemented in0.2.0 / b7b2f2eee9eb58f5 with113-test normal verification. Chrome confirms version0.2.0, existing ID and Loaded from; toolbar remote opening preserved the paused/muted original. Review identified invalidated same-build reinjection and reconnect false-success; Q3-B1-R1 is the next bounded source repair. After its complete verified candidate, Connection exact build/render/reconnect is the first installed gate, using focused owner observations because the browser tool blocks extension-page inspection. No second reload or alternate inspection workaround is requested. Installed layout/area/control checks and advancing playback counts1–4 remain unqualified. This observation boundary is not a provider refusal or full-beta signoff. The later owner mute hold remains active and overrides historical normal-audio authorization.
+
+## 2026-10-03 — Q3-B1-R1 completion review
+
+Targeted read-only review approves the same-build lifecycle and truthful reconnect fixes in frozen021 /61a83fecdc9217c6.84 source/test/output/retained020/017 hashes match. Existing113-test verification remains revision-bound; this review reran no product tests or browser actions. Earlier prospective repair decisions are complete, not new repair tasks. Next is one changed021 owner activation/Connection observation, then the consolidated installed run. Counts and full first-beta release remain unqualified/open; service sequencing and mute/paused preservation stay unchanged. [Review](evidence/runs/20261003-q3-b1-r1/review.md).
+
+## 2026-10-03 — installed021 and owner-refresh baseline
+
+Owner confirmed021 /61a83fecdc9217c6 and attributed launcher recovery to native refresh. Connected native launcher is observed; reconnect-alone remains owner-reported. Refresh replaced Comics with CBS News New York; original continuity stays unqualified across that action, and no source defect is inferred. Current CBS was paused46940.540876/player-muted; numeric DOM volume is UNKNOWN, native slider0, site/tab mute unconfirmed/conflicting. Preserve the actual current state and confirm the mute layers before further work. Next is grouped remote-only/TV-area observations, then safe current-state enrollment/Return/layout controls and an explicitly approved/restorable active-count context. No repeated reload/rebuild/causality question. First beta remains YTTV-only and open; services remain last post-beta. [Review](evidence/runs/20261003-q3-b1-installed/review.md).
+
+## 2026-10-03 — one remote is the product, tests serve the workflow
+
+Owner clarified that one compact remote should control up to four player windows, and objected to excessive test/channel specificity. Q3-B1 is a central managed workspace: owner chooses content/area in the remote, product creates/places/labels/manages the players, with Add/Replace/Close/selection/Expand/Restore and Return from that same controller. Manually opening four tabs/screens does not fulfill it. Current source has much of this; installed integrated operation remains unqualified.
+
+The named-channel questionnaire/trial is superseded as active work. Diagnostic raw timestamps, channel/tab IDs and exact sampling details remain historical evidence, not product requirements. The correction does not authorize resuming/replacing the protected paused player or enabling audio. Complete available local work autonomously, use minimal owner observations for tool-blocked surfaces, and ask one brief plain-language state-change approval only when the practical live demonstration needs it. [New lead handoff](LEAD_ENGINEER_HANDOFF.md), [clarification record](evidence/runs/20261003-remote-workspace-clarification/run.md). First beta remains YTTV-only; mixed services last after beta.

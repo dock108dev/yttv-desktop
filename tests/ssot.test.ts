@@ -16,9 +16,9 @@ function row(): GuideEntry { return { channel: { id: 'yttv:cbs', name: 'CBS' }, 
 function audioState(): AudioState { return { ...createAudioState(), panes: ['one', 'two'].map(id => ({ id, playbackSession: id, availability: 'READY', muted: true })) }; }
 
 test('UI and worker use the current shared limit, separate from account allowance and saved layouts', async () => {
-  assert.equal(CURRENT_MANAGED_FEED_LIMIT, 2);
-  for (const n of [-1, 1.5, NaN, 2, 3, 4]) assert.equal(canAddManagedFeed(n), false);
-  assert.equal(canAddManagedFeed(0), true); assert.equal(canAddManagedFeed(1), true);
+  assert.equal(CURRENT_MANAGED_FEED_LIMIT, 4);
+  for (const n of [-1, 1.5, NaN, 4, 5]) assert.equal(canAddManagedFeed(n), false);
+  assert.equal(canAddManagedFeed(0), true); assert.equal(canAddManagedFeed(1), true); assert.equal(canAddManagedFeed(2), true); assert.equal(canAddManagedFeed(3), true);
   for (const file of ['packages/ui/src/index.tsx', 'apps/chrome-extension/src/background.ts']) {
     const source = await readFile(file, 'utf8'); assert.match(source, /quadbox\/src\/policy/);
     assert.doesNotMatch(source, /panes\.length\s*[<>]=?\s*[12]/);

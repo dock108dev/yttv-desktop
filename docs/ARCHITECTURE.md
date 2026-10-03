@@ -1,6 +1,6 @@
 # Current architecture and sources of truth
 
-The supported runtime is the restricted Chrome YouTube TV client and its isolated, non-playing fixture preview. Sports discovery uses authenticated guide text. Independent provider scores, event-to-channel resolution, Safari/native playback and mixed-service/four-player workspace behavior are not implemented current paths. Proposed capabilities are documented separately in the engineering roadmap.
+The supported runtime is the restricted Chrome YouTube TV client and its isolated, non-playing fixture preview. Sports discovery uses authenticated guide text. Independent provider scores, event-to-channel resolution, Safari/native playback and mixed-service playback are not implemented current paths. One compact remote owns the operating workflow for up to four total native YTTV player windows in one automatically arranged workspace. These controls exist in frozen0.2.1 /61a83fecdc9217c6, with113 recorded passing tests and owner-confirmed installed identity; the integrated installed workflow and advancing counts remain unqualified. Proposed capabilities are documented separately in the engineering roadmap.
 
 ## Domain authority
 
@@ -32,9 +32,9 @@ Domain: **Managed feed capacity and audio handoff**
 
 Authoritative module: [policy.ts](../packages/quadbox/src/policy.ts) and [index.ts](../packages/quadbox/src/index.ts).
 
-Why this is authoritative: the current managed ceiling is two total feeds, used by UI and worker; account allowance is an independent runtime bound. The shared audio controller serializes mute-all-before-enable-one and compensates failures.
+Why this is authoritative: the current managed ceiling is four total feeds, including pending creation, used by UI and worker; account allowance is an independent runtime bound. The shared audio controller serializes mute-all-before-enable-one and compensates failures.
 
-Known callers: Chrome worker managed creation/audio selection and shared UI Add controls. Four-feed creation is unsupported.
+Known callers: Chrome worker managed creation/audio selection and shared UI Add controls. Four-total creation is implemented in source; actual account allowance and simultaneous advancing playback require count-specific installed evidence.
 
 Domain: **Browser ownership, privileged commands and runtime state**
 
@@ -56,12 +56,18 @@ Domain: **Rendering, lifecycle and builds**
 
 Authoritative module: [UI](../packages/ui/src/index.tsx), [runtime lifecycle](../apps/chrome-extension/src/runtime.ts), [build](../scripts/build.mjs).
 
-Why this is authoritative: one UI receives bridge snapshots and uses shared eligibility/limit policies. Production entry points compose it with the validated Chrome bridge; the explicit demo uses separate synthetic storage. The standard build audits storage plus tv.youtube.com only. Unknown build options, including unsupported alternative build modes, fail before writing. `--check` compiles in memory and preserves frozen output.
+Why this is authoritative: the remote and shared UI receive bridge snapshots and use shared eligibility/limit policies. Production entry points compose them with the validated Chrome bridge; the explicit demo uses separate synthetic storage. The standard build audits required storage/tv.youtube.com access and the precise optional display/reconnect permissions. Unknown build options, including unsupported alternative build modes, fail before writing. `--check` compiles in memory and preserves frozen output.
 
 Known callers: content/panel entry points and npm build/preview commands; focused tests compile the current source, against current source.
 
 ## Retained schema and evidence boundaries
 
-Preferences still read the version1 schema, including inert historical fields and saved event/layout identifiers, so existing local records and layout intent remain readable. `nightMuteLock` always sanitizes to false and is no longer an accepted setting command. Old event metadata may remain in session records but has no event action, provider client or resolver caller; the retired sports cache is neither loaded nor deleted. Restore may recover up to three previously stored extras for safe control/cleanup; this does not permit new feeds beyond the current two-total ceiling. Removing these records requires a schema migration that preserves existing settings.
+Preferences still read the version1 schema, including inert historical fields and saved event/layout identifiers, so existing local records and layout intent remain readable. `nightMuteLock` always sanitizes to false and is no longer an accepted setting command. Old event metadata may remain in session records but has no event action, provider client or resolver caller; the retired sports cache is neither loaded nor deleted. Restore may recover up to three previously stored extras for safe control/cleanup; this does not permit new feeds beyond the current shared four-total ceiling. Removing these records requires a schema migration that preserves existing settings.
 
 The event-resolver workspace manifest remains a non-executable future boundary alongside Safari/macOS placeholders; no duplicate resolver implementation remains. Existing frozen bundles, failed runs and historical source/provider evidence stay intact and qualify only their recorded revisions. Historical evidence is not current setup guidance. [Provider boundaries](PROVIDER_EVALUATION.md), [error behavior](ERROR_HANDLING.md), [security](SECURITY.md).
+
+## Q3-B1 workspace ownership
+
+`packages/quadbox/src/geometry.ts` owns outer-window logical-coordinate geometry, minimums and normalized area-intent validation. `apps/chrome-extension/src/workspace.ts` owns singleton remote, reversible same-tab enrollment/Return and transactional bounds application/readback/rollback. `background.ts` serializes those operations with feed creation/close/audio, exposes the shared capacity/pending count and prevents missing-main adoption. The geometry controller has no audio/navigation port. `continuity.ts` bounds same-player paused/volume/mute preservation checks. Remote selected-control/focus commands do not select audio.
+
+`remote.tsx` renders the compact controller through the existing client bridge, fresh target/program guards and worker commands. `display.ts` owns optional display gesture and diagram conversion. `content.tsx` retains a collapsed launcher and replaces only its older extension launcher on deliberate packaged-file re-injection. Optional scripting is checked in the extension-only RECONNECT_MAIN command, whose target is the designated permitted YTTV tab and whose file is fixed to content.js; it cannot inject arbitrary commands or automate authentication. TV-area intent is local version1 data; original return/expanded bounds/remote identity are browser-session data. None can persist playback URLs or enable audio. Source capabilities and installed playback evidence remain separate.

@@ -1,8 +1,10 @@
-# Q3-B1 — mixed-service TV workspace
+# R25 — deferred final post-beta mixed-service expansion
 
-Updated 2026-10-03 EDT. **Status: READY PLAN / NOT IMPLEMENTED.** The owner expanded the active beta goal to four total feeds across **YouTube TV, Prime Video and Netflix**. This companion extends [TV_WORKSPACE_BETA](TV_WORKSPACE_BETA.md); its compact remote, automatic arrangement and monitor/custom TV-area requirements remain. [NEXT_TASK](../NEXT_TASK.md) owns the active task. No service access, account capability, extension permission or installed mixed-service playback is established by this plan.
+Updated 2026-10-03 EDT following the owner's corrected sequence. **Status: DEFERRED / NOT IMPLEMENTED — VERY LAST CURRENTLY PLANNED EXPANSION.** The first beta is YouTube TV only. Prime Video and Netflix follow first-beta release and all preceding planned work, including the grouped release remainder and later-platform work, once those items complete or the owner explicitly defers them. R25 is not a first-beta acceptance or release gate. The [roadmap](ROADMAP.md) owns that sequence and [NEXT_TASK](../NEXT_TASK.md) owns the active YTTV qualification task.
 
-## Delivery target
+The design below is retained for that future task; its implementation instructions are conditional on later activation. Do not build mixed-service adapters, prepare/request service access, provision accounts or run mixed-service qualification now. No service access, account capability, extension permission or installed mixed-service playback is established by this plan. The first-beta [TV_WORKSPACE_BETA](TV_WORKSPACE_BETA.md) specification remains remote, arrangement, four total YTTV feeds and TV-area selection.
+
+## Future delivery target
 
 Deliver one Chrome workspace containing up to **four enrolled native web-player tabs total**, in any supported service combination. For example, two YouTube TV players, one Prime Video player and one Netflix player occupy all four slots. The remote and area selector occupy no playback slots. This is a shared four-feed ceiling, not four feeds per service.
 
@@ -10,7 +12,7 @@ The first integration is **Add existing player tab**. The owner opens each servi
 
 Keep playback in the original supported Chrome pages. Native desktop applications, embedded protected players, a composed video surface, screen capture, DRM extraction and media proxies are outside this task. The services continue to own authentication, entitlements, account limits, captions, ads, seek, episode selection, purchases and playback quality.
 
-Retain the installed v0.1.17 baseline, existing extension ID/storage, rollback, preferences, source and uncommitted work. Preserve the current site/tab mute and paused-program boundary. Capture actual current state before runtime work; a historical handback is not a current observation. Preparing these additions does not authorize audio enable/transfer or navigation that cannot restore the preserved program/position.
+Retain the existing extension ID/storage, rollback, preferences, source and uncommitted work. Current prepared YTTV candidate0.2.1 /61a83fecdc9217c6 has113-test normal verification and the reconnect repair; installed021 identity is now owner-confirmed. Remote is partially owner-confirmed, with new area/layout/control/counts still unqualified. Installed017 evidence and rollback are retained in their historical scope. At future activation, capture then-current runtime/candidate identity and owner constraints before work. A historical handback is not a current observation. The current site/tab mute and paused-program boundary grants no audio enable/transfer or navigation that cannot restore the preserved program/position.
 
 ## Owner flow
 
@@ -87,13 +89,13 @@ Four enrolled handles, four ready players and four simultaneously advancing play
 
 Reuse the original Q3-B1 geometry/remote/TV-area tests. Add meaningful mixed-service tests for neutral identity and migration, explicit eligible-tab selection, same-tab enrollment/return, capability denial, exact permission gating, stale document/player actions, mixed-service shared-capacity reservations, fifth rejection, cross-service failure isolation, native-control fallbacks and tab-mute ordering. Retain the existing YouTube TV target/audio/volume regressions.
 
-Run normal verification on the complete resulting source, including preserved newer uncommitted inputs. Freeze an exact source/test/bundle inventory and rollback. Old 102-test evidence qualifies its retained candidate only.
+At future activation, run normal verification on the complete resulting source, including preserved newer uncommitted inputs. Freeze an exact source/test/bundle inventory and rollback. Recorded102-test017 and113-test020 evidence each qualify their retained inputs only.
 
 After one complete candidate and any owner activation/reload, bind installed version/build/extension ID. Use restorable or owner-approved disposable contexts and the active mute hold. Qualify a real player from each requested service separately before mixed three and mixed four, where account/title/browser capability permits. Then observe the highest functioning mixed count for the bounded sustained period in TV_WORKSPACE_BETA. Stop increasing count on a service/account refusal or destabilization; preserve the working feeds.
 
 Record the services and observed player count, requested/actual window bounds, readiness/advancement, quality where exposed, native/tab mute distinctions, supported versus native-fallback controls, controller reopen, Add/Remove reflow, Expand/Restore, TV-area selection and same-tab return. Reuse prior evidence in its exact scope. Local mocks establish logic, not cross-service playback, accounts or quality. Aggregate Chrome resources do not establish per-service attribution.
 
-Deliver separate verdicts for remote/layout/area, YouTube TV regression preservation, Prime integration, Netflix integration, shared four-feed capacity and each observed mixed playback count. Missing credentials/access, unavailable title/control, actual concurrency refusal or protected-page limitation remains an explicit open criterion. Update the main specification, usage instructions, evidence and canonical trackers together. Full MVP/beta acceptance stays open until its own criteria pass.
+Deliver separate future-expansion verdicts for remote/layout/area, YouTube TV regression preservation, Prime integration, Netflix integration, shared four-feed capacity and each observed mixed playback count. Missing credentials/access, unavailable title/control, actual concurrency refusal or protected-page limitation remains an explicit open criterion for R25. Update the main specification, usage instructions, evidence and canonical trackers together. R25 acceptance belongs to its later expansion; its absence does not block the first YTTV beta release. First-beta acceptance remains governed by its own current criteria and owner signoff.
 
 ## Primary references
 
