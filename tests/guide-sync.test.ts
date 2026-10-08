@@ -24,7 +24,7 @@ test('automatic discovery is inactive, browser-muted before native navigation, c
   assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
   assert.equal(h.log[0][1].active, false);
   assert.deepEqual(h.log[1], ['update', 2, { muted: true }]);
-  assert.match(h.log[2][2].url, /^https:\/\/tv.youtube.com\/live#yttv-guide-sync=/);
+  assert.match(h.log[2][2].url, /^https:\/\/tv\.youtube\.com\/live#yttv-guide-sync=/);
   assert.equal(h.sync.status, 'loading'); assert(h.sync.owns(2));
   h.sync.observed(99, 'unrelated'); await wait(7); assert.equal(h.sync.status, 'loading');
   h.sync.observed(2, 'rows'); await wait(8);
