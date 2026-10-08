@@ -5,17 +5,22 @@ export const SELECTORS = {
   guideRow: 'ytu-epg-row', network: 'ytu-endpoint.network',
   watchEndpoint: 'ytu-endpoint.tenx-thumb[aria-label]', airings: '.airings',
   program: 'main h1, main [role="heading"], [role="main"] h1, [role="main"] [role="heading"]',
+  playbackControl: 'ytu-player-controls button[aria-label], ytu-player-controls [role="button"][aria-label], ytu-play-pause-button[aria-label], ytu-play-pause-button [aria-label], button.ytp-play-button',
   volumeSlider: 'ytu-player-controls ytu-volume-slider tp-yt-paper-slider[role="slider"]',
 } as const;
 export const TARGET_MAX_AGE_MS = 30 * 60_000;
+/** Observation age policy shared by presentation and navigation eligibility. */
+export function freshGuideObservation(entry: GuideEntry, now = Date.now()): boolean {
+  const age = now - Date.parse(entry.observedAt);
+  return entry.metadataSource !== 'CACHED' && entry.evidenceClass === 'LIVE' &&
+    Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
+}
 export function freshLiveTarget(entry: GuideEntry, now = Date.now()): boolean {
   const target = entry.target;
   if (/\bUpcoming:/i.test(entry.programTitle ?? '') || (entry.programs?.length && entry.programs[0].context !== 'CURRENT')) return false;
-  if (entry.metadataSource === 'CACHED' || !entry.available || entry.evidenceClass !== 'LIVE' || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !isPlaybackTarget(target)) return false;
+  if (!freshGuideObservation(entry, now) || !entry.available || !target || target.evidenceClass !== 'LIVE' || target.channelId !== entry.channel.id || !isPlaybackTarget(target)) return false;
   const age = now - Date.parse(target.verifiedAt);
-  const observedAge = now - Date.parse(entry.observedAt);
-  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS &&
-    Number.isFinite(observedAge) && observedAge >= 0 && observedAge <= TARGET_MAX_AGE_MS;
+  return Number.isFinite(age) && age >= 0 && age <= TARGET_MAX_AGE_MS;
 }
 export interface PlaybackObservation {
   playing: boolean | null; muted: boolean | null; volume?: number | null; readyState: number | null;
@@ -150,17 +155,65 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
   return {
     getObservation, navigateToChannel,
     seedGuide(entries: GuideEntry[]) {
-      if (guide.length || !Array.isArray(entries)) return;
+      if (!Array.isArray(entries)) return;
+      const priorSignature = JSON.stringify(guide);
       // Unavailable rows still carry guide metadata and saved ordering. Keep them
       // across document replacement without promoting missing/stale targets.
-      guide = entries.filter(entry => entry?.evidenceClass === 'LIVE' && typeof entry.channel?.id === 'string' &&
+      const incoming = entries.slice(0, 500).filter(entry => entry?.evidenceClass === 'LIVE' && typeof entry.channel?.id === 'string' &&
         Boolean(entry.channel.id.trim()) && typeof entry.channel.name === 'string' &&
         Number.isFinite(Date.parse(entry.observedAt))).map(entry => {
         const playable = freshLiveTarget(entry);
         return { ...entry, available: playable, target: playable ? entry.target : null };
       });
+      const merged = new Map(guide.map(entry => [entry.channel.id, entry]));
+      for (const entry of incoming) {
+        const prior = merged.get(entry.channel.id);
+        if (!prior || Date.parse(entry.observedAt) > Date.parse(prior.observedAt)) merged.set(entry.channel.id, entry);
+      }
+      guide = [...merged.values()].slice(0, 500);
+      if (JSON.stringify(guide) === priorSignature) return;
       guideObservedAt = guide.length ? new Date(Math.max(...guide.map(entry => Date.parse(entry.observedAt)))).toISOString() : undefined;
       notify();
+    },
+    setPlayback: async (playing: boolean, mutedStart = false, stillCurrent = () => true): Promise<CapabilityResult<PlaybackObservation>> => {
+      const player = activeVideo(document);
+      const refuse = (code: string, reason: string): CapabilityResult<PlaybackObservation> => ({ ok: false, capability: 'playback', code: 'TARGET_UNAVAILABLE', reason: `${code}: ${reason} Use native Play/Pause.` });
+      const current = () => !disposed && activeVideo(document) === player && stillCurrent();
+      if (!player || !current() || getObservation().route !== 'watch') return refuse('PLAYER_UNAVAILABLE', 'Watch player unavailable.');
+      const before = getObservation().playback;
+      if (playing ? before.playing === true : player.paused) {
+        if (mutedStart) player.muted = true;
+        return { ok: true, value: getObservation().playback, observedAt: new Date().toISOString() };
+      }
+      const controls = [...document.querySelectorAll<HTMLElement>(SELECTORS.playbackControl)].filter(node => {
+        const label = node.getAttribute('aria-label')?.trim() ?? node.getAttribute('title')?.trim() ?? '';
+        return visible(node) && node.getAttribute('aria-disabled') !== 'true' && !node.hasAttribute('disabled') &&
+          (playing ? /^Play(?: video)?(?: \(k\))?$/i : /^Pause(?: video)?(?: \(k\))?$/i).test(label);
+      });
+      const unique = controls.filter(node => !controls.some(other => other !== node && node.contains(other)));
+      if (unique.length !== 1) return refuse('CONTROL_UNAVAILABLE', 'A unique native playback control is unavailable.');
+      if (mutedStart) player.muted = true;
+      // The site's ordinary button owns playback orchestration; do not call video.play()
+      // behind that control or synthesize a trusted gesture/security workaround.
+      try { unique[0].click(); }
+      catch { return refuse('CONTROL_REFUSED', 'Native control request failed.'); }
+      const deadline = Date.now() + 4000;
+      const expectedMuted = mutedStart || before.muted === true, expectedVolume = before.volume;
+      while (current()) {
+        // Restore this same player's captured choice if the native handler changes
+        // audio as a side effect; no audio transfer or new volume choice is implied.
+        try {
+          if (player.muted !== expectedMuted) player.muted = expectedMuted;
+          if (expectedVolume != null && player.volume !== expectedVolume) player.volume = expectedVolume;
+        } catch { return refuse('AUDIO_PRESERVATION_FAILED', 'Playback could not preserve audio choices.'); }
+        const value = getObservation().playback;
+        if ((playing ? value.playing === true : player.paused) && (!mutedStart || value.muted === true)) {
+          notify(); return { ok: true, value, observedAt: new Date().toISOString() };
+        }
+        if (Date.now() >= deadline) return refuse('CONTROL_UNCONFIRMED', 'Native control did not confirm the requested state.');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return refuse('PLAYER_CHANGED', 'Player changed during the request.');
     },
     setAudio: async (change: { muted?: boolean; volume?: number }): Promise<CapabilityResult<PlaybackObservation> & { audioFailure?: string }> => {
       const player = activeVideo(document);

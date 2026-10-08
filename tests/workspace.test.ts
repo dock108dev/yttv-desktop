@@ -172,3 +172,32 @@ test('closed original recovery retains return evidence and never releases an exi
   assert.equal(w.snapshot().enrolled, false); assert.equal(h.session['yttv-desktop.closed-original.v1'].origin.tabId, 1);
   assert.equal(h.log.length, boundary, 'no adoption, moving, closing or audio commands');
 });
+
+test('geometry restores the initiating remote focus but explicit Expand still focuses its player', async () => {
+  const h = harness(), w = h.make(); await w.openRemote();
+  const remoteId = h.log.find(x => x[0] === 'create')[1];
+  h.windows.get(remoteId).focused = false; await w.focusRemote();
+  assert.equal(h.windows.get(remoteId).focused, true, 'completion can restore remote after popup creation steals focus');
+  await w.setArea(area, area); await w.enroll();
+  let at = h.log.length; await w.arrange();
+  assert.deepEqual(h.log.slice(at).at(-1), ['window', remoteId, { focused: true }]);
+  at = h.log.length; await w.expand('main');
+  assert.deepEqual(h.log.slice(at).at(-1), ['window', h.tabs.get(1).windowId, { focused: true }]);
+  await w.restore();
+  h.tabs.delete(remoteId); h.windows.delete(remoteId);
+  const creates = h.log.filter(x => x[0] === 'create').length; await w.arrange();
+  assert.equal(h.log.filter(x => x[0] === 'create').length, creates, 'closed remote is never recreated by geometry');
+});
+
+
+test('extension session loss restores saved placement and original Return from durable workspace backup without moving on open', async () => {
+  const h = harness(), w = h.make(); await w.setArea(area, area); await w.enroll(); h.add(30); h.add(31);
+  await w.setAuto(false); await w.expand('pane-30');
+  for (const key of Object.keys(h.session)) delete h.session[key];
+  const before = h.log.length; const recovered = h.make(); await recovered.ready;
+  assert.equal(recovered.snapshot().enrolled, true); assert.equal(recovered.snapshot().expanded, true);
+  assert.equal(recovered.snapshot().intent?.autoArrange, false); assert.equal(h.log.length, before);
+  assert.equal((await recovered.restore()).ok, true);
+  assert.equal((await recovered.returnMain()).ok, true); assert.equal(h.tabs.get(1).windowId, 10); assert.equal(h.tabs.get(1).index, 1);
+  assert(h.tabs.has(9)); assert(h.tabs.has(30)); assert(h.tabs.has(31));
+});

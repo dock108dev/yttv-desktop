@@ -6,64 +6,77 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 
 const checker = resolve('scripts/check_docs.py');
-const scaffold = JSON.parse(execFileSync('python3', ['-c',
-  'import json, runpy, sys; m = runpy.run_path(sys.argv[1]); print(json.dumps([m["REQUIRED"], m["WORKSPACES"]]))', checker],
-{ encoding: 'utf8' })) as [string[], string[]];
+const required = JSON.parse(execFileSync('python3', ['-c',
+  'import json, runpy, sys; print(json.dumps(runpy.run_path(sys.argv[1])["REQUIRED"]))', checker],
+{ encoding: 'utf8' })) as string[];
 
-function fixture() {
-  const parent = mkdtempSync(join(tmpdir(), 'yttv-docs-'));
-  const root = join(parent, 'checkout');
+function fixture(git = true) {
+  const root = mkdtempSync(join(tmpdir(), 'yttv-docs-'));
   const put = (path: string, content: string) => {
     const file = join(root, path); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, content);
   };
-  for (const path of scaffold[0]) put(path, '# Fixture\nStatus: NOT RUN\n');
+  for (const path of required) put(path, '# Fixture\n');
   copyFileSync(checker, join(root, 'scripts/check_docs.py'));
+  put('.gitignore', '.local/\ndocs/evidence/\nworking-notes.md\n');
   put('package.json', JSON.stringify({ private: true, workspaces: ['apps/*', 'packages/*'] }));
-  for (const path of scaffold[1]) {
+  for (const path of ['apps/chrome-extension', 'packages/core']) {
     put(`${path}/package.json`, JSON.stringify({ name: path.replace('/', '-'), private: true }));
     put(`${path}/README.md`, '# Workspace\n');
   }
-  put('docs/ACCEPTANCE_AND_TEST_PLAN.md', Array.from({ length: 18 }, (_, i) => `| U${String(i + 1).padStart(2, '0')} | fixture |`).join('\n'));
+  if (git) execFileSync('git', ['init', '--quiet', root]);
   const run = (...args: string[]) => {
     const result = spawnSync('python3', [join(root, 'scripts/check_docs.py'), ...args], { encoding: 'utf8' });
     assert.equal(result.error, undefined);
     return { status: result.status, report: JSON.parse(result.stdout) };
   };
-  return { put, run, close: () => rmSync(parent, { recursive: true, force: true }) };
+  return { put, run, close: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-test('default and explicit portable docs checks need only repository files and disclose historical artifacts', () => {
+test('deliverable docs checks ignore local notes and require no plans or generated inventories', () => {
   const f = fixture();
   try {
-    f.put('README.md', '# Fixture\n[Pointer](../yttv_next_steps.md)\n[Review](.local/review.md)\n[Historical inventory](docs/setup-validation.json)\n');
-    f.put('.local/private.md', '[Invalid](missing.md)\n');
+    f.put('.local/private.md', '[Bad](missing.md)\n');
+    f.put('docs/evidence/private.md', '[Bad](missing.md)\n');
+    f.put('working-notes.md', '[Bad](../private-tracker.md)\n');
     const portable = f.run('--repository-only');
     assert.equal(portable.status, 0);
     assert.equal(portable.report.mode, 'repository-only');
-    assert.equal(portable.report.local_artifact_links_unavailable.length, 3);
-    // Explicit report generation supplies the inventory rather than treating it as unavailable.
-    const generated = f.run('--repository-only', '--write-report');
-    assert.equal(generated.status, 0);
-    assert.equal(generated.report.local_artifact_links_unavailable.length, 2);
-    const local = f.run();
-    assert.equal(local.status, 0);
-    assert.equal(local.report.mode, 'repository-only');
-    assert.equal(local.report.local_artifact_links_unavailable.length, 2);
+    assert.equal(f.run().status, 0);
+    f.put('docs/new-guide.md', '[Bad](missing.md)\n');
+    assert.equal(f.run().status, 1, 'new nonignored docs must be checked before staging');
   } finally { f.close(); }
 });
 
-test('portable docs checks still reject broken repository links, anchors and external filesystem dependencies', () => {
+test('docs checks reject broken links, anchors, private pointers and ignored dependencies', () => {
   const f = fixture();
   try {
+    f.put('.local/private.md', '# Private\n');
     for (const [link, error] of [
       ['missing.md', 'Broken local link'],
-      ['docs/PRODUCT.md#missing', 'Broken anchor'],
-      ['../other-project/README.md', 'External filesystem dependency'],
+      ['docs/ARCHITECTURE.md#missing', 'Broken anchor'],
+      ['../private-tracker.md', 'External filesystem dependency'],
+      ['.local/private.md', 'Link to local-only file'],
     ]) {
       f.put('README.md', `# Fixture\n[Bad](${link})\n`);
-      const result = f.run('--repository-only');
+      const result = f.run();
       assert.equal(result.status, 1);
       assert.ok(result.report.errors.some((message: string) => message.startsWith(error)), result.report.errors.join('\n'));
     }
+    f.put('README.md', '# Fixture\n[Valid](docs/ARCHITECTURE.md#fixture)\n');
+    assert.equal(f.run().status, 0);
+  } finally { f.close(); }
+});
+
+test('clean source archives validate without Git metadata', () => {
+  const f = fixture(false);
+  try { assert.equal(f.run().status, 0); } finally { f.close(); }
+});
+
+test('workspace discovery checks new packages rather than a frozen scaffold list', () => {
+  const f = fixture();
+  try {
+    f.put('packages/new/package.json', JSON.stringify({ name: 'packages-core', private: true }));
+    f.put('packages/new/README.md', '# Package\n');
+    assert.ok(f.run().report.errors.some((message: string) => message.startsWith('Duplicate workspace name')));
   } finally { f.close(); }
 });

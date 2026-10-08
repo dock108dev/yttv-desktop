@@ -8,6 +8,7 @@ export type FailureCode =
   | 'RESTORE_AUDIO_FAILED'
   | 'WINDOW_CLEANUP_FAILED'
   | 'TAB_CLOSE_FAILED'
+  | 'GUIDE_SYNC_FAILED'
   | 'COMMAND_FAILED'
   | 'NOTIFY_FAILED'
   | 'CONTEXT_INVALIDATED'
@@ -26,7 +27,7 @@ export function createFailureDiagnostics(clock = () => new Date().toISOString())
       rows.set(code, row);
       // Log first occurrence and powers of two; counters retain every failure within this context.
       if (row.count === 1 || Number.isInteger(Math.log2(row.count))) {
-        console.warn('YTTV_FAILURE', { ...row });
+        console.warn(`YTTV_FAILURE ${code}`, { ...row });
       }
     },
     snapshot: () => [...rows.values()].map(row => ({ ...row })),

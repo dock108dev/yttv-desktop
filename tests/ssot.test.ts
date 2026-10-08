@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { isPlaybackTarget, watchNavigationUrl, type GuideEntry } from '../packages/core/src/index';
-import { freshLiveTarget, navigationUrl, TARGET_MAX_AGE_MS } from '../packages/yttv-adapter/src/index';
+import { freshGuideObservation, freshLiveTarget, navigationUrl, TARGET_MAX_AGE_MS } from '../packages/yttv-adapter/src/index';
 import { CURRENT_MANAGED_FEED_LIMIT, canAddManagedFeed } from '../packages/quadbox/src/policy';
 import { createAudioState, createAudioFocusController, transferAudioFocus, type AudioState } from '../packages/quadbox/src/index';
 import { sanitizePreferences } from '../packages/storage/src/index';
+import * as storage from '../packages/storage/src/index';
 import { validCommand } from '../apps/chrome-extension/src/adapter';
 
 const now = Date.parse('2026-10-03T16:00:00Z');
@@ -23,6 +24,35 @@ test('UI and worker use the current shared limit, separate from account allowanc
     const source = await readFile(file, 'utf8'); assert.match(source, /quadbox\/src\/policy/);
     assert.doesNotMatch(source, /panes\.length\s*[<>]=?\s*[12]/);
   }
+  const worker = await readFile('apps/chrome-extension/src/background.ts', 'utf8');
+  assert.match(worker, /!canAddManagedFeed\(controlledIds\(\)\.length \+ pendingFeedCreations\)/);
+  assert.doesNotMatch(worker, /controlledIds\(\)\.length[^\n]*>= CURRENT_MANAGED_FEED_LIMIT/);
+});
+
+test('guide age has one boundary for display and target eligibility', async () => {
+  for (const [age, expected] of [[0, true], [TARGET_MAX_AGE_MS, true], [TARGET_MAX_AGE_MS + 1, false], [-1, false]] as const) {
+    const entry = { ...row(), observedAt: new Date(now - age).toISOString() };
+    assert.equal(freshGuideObservation(entry, now), expected);
+    assert.equal(freshLiveTarget(entry, now), expected);
+  }
+  for (const entry of [{ ...row(), observedAt: 'invalid' }, { ...row(), metadataSource: 'CACHED' as const },
+    { ...row(), evidenceClass: 'REPLAY' as const }]) assert.equal(freshGuideObservation(entry, now), false);
+  // Current metadata is useful even when no navigation target is available.
+  assert(freshGuideObservation({ ...row(), available: false, target: null }, now));
+  assert.equal(freshLiveTarget({ ...row(), available: false, target: null }, now), false);
+  const ui = await readFile('packages/ui/src/index.tsx', 'utf8');
+  assert.match(ui, /!freshGuideObservation\(item.entry, clock\)/);
+  assert.doesNotMatch(ui, /30 \* 60000/);
+});
+
+test('unused preference APIs cannot reintroduce alternate writes or reset paths', () => {
+  for (const symbol of ['DEFAULT_PREFERENCES', 'toggleFavorite', 'setChannelHidden', 'exportPreferences', 'importPreferences']) {
+    assert.equal(symbol in storage, false, symbol);
+  }
+  const store = storage.createPreferencesStore({ async get() { return undefined; }, async set() {} });
+  assert.equal('reset' in store, false);
+  assert.equal(typeof store.load, 'function'); assert.equal(typeof store.save, 'function');
+  assert.notEqual(storage.defaultPreferences(), storage.defaultPreferences());
 });
 
 test('watch-page URL policy is shared by target validation and the adapter', () => {

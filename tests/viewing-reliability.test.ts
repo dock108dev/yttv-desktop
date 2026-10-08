@@ -1,57 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
-import { runInNewContext } from 'node:vm';
-import { envelope } from '../apps/chrome-extension/src/adapter';
-
-const bundled = build({ entryPoints: ['apps/chrome-extension/src/background.ts'], bundle: true, write: false, format: 'iife', platform: 'browser' });
-const sourcePromise = bundled.then(result => result.outputFiles[0].text);
-async function harness() {
-  const source = await sourcePromise;
-  const local: Record<string, any> = {}; const session: Record<string, any> = {};
-  const tabs = new Map<number, any>([[1, { id: 1, windowId: 1, url: 'https://tv.youtube.com/watch?v=main', mutedInfo: { muted: false }, active: true }]]);
-  const players = new Map<number, any>([[1, { muted: false, volume: 1, readyState: 4, key: 'player-1', documentId: 'document-1', route: 'watch' }]]);
-  const controls: { audio?: (id: number, message: any) => Promise<any>; tabFails?: boolean; localFails?: boolean; sessionFails?: boolean; removeFails?: boolean; queryFails?: boolean; sessionReadFails?: boolean } = {};
-  const log: any[] = []; let next = 2; let listener: any; let removed: any; let updated: any; let clock = Date.now() + 1000;
-  const observation = (id = 1) => { const player = players.get(id); const now = new Date(++clock).toISOString(); const guideTime = new Date(Date.now() - 10).toISOString(); return {
-    observedAt: now, guideObservedAt: now, route: player.route, currentChannelId: 'yttv:cbs',
-    playback: { muted: player.muted, volume: player.volume, readyState: player.readyState, playing: true, currentTime: clock, width: 1280, height: 720 },
-    guide: [{ channel: { id: 'yttv:cbs', name: 'CBS' }, observedAt: guideTime, evidenceClass: 'LIVE', available: true,
-      target: { kind: 'navigation', channelId: 'yttv:cbs', url: 'https://tv.youtube.com/watch?v=cbs&vp=guide', verifiedAt: guideTime, evidenceClass: 'LIVE' } }],
-  }; };
-  const chrome = {
-    storage: Object.fromEntries(['local', 'session'].map(area => { const data = area === 'local' ? local : session; return [area, {
-      get: async (key: string) => { if (area === 'session' && controls.sessionReadFails) throw new Error('private session read'); return { [key]: structuredClone(data[key]) }; }, set: async (value: object) => { if (area === 'local' ? controls.localFails : controls.sessionFails) throw new Error('private token=synthetic'); Object.assign(data, structuredClone(value)); },
-    }]; })),
-    runtime: { id: 'test', getURL: (path: string) => `chrome-extension://test/${path}`, sendMessage: async () => undefined, onMessage: { addListener: (fn: any) => { listener = fn; } } },
-    tabs: {
-      query: async () => { if (controls.queryFails) throw new Error('private query'); return [...tabs.values()].filter(tab => tab.url.startsWith('https://tv.youtube.com/')); },
-      get: async (id: number) => { if (!tabs.has(id)) throw new Error('closed'); return tabs.get(id); },
-      update: async (id: number, value: any) => { log.push({ type: 'tab', id, value }); const tab = tabs.get(id); if (controls.tabFails) throw new Error('test tab failure'); if (!tab) throw new Error('closed'); Object.assign(tab, value); if ('muted' in value) tab.mutedInfo = { muted: value.muted, reason: 'extension' }; return tab; },
-      sendMessage: async (id: number, message: any, options: any) => {
-        if (message.type === 'GET_OBSERVATION') return observation(id);
-        if (message.type !== 'PLAYER_AUDIO') return undefined;
-        log.push({ type: 'player', id, message, options }); if (controls.audio && message.volume !== undefined) return controls.audio(id, message); const player = players.get(id);
-        if (options?.documentId && options.documentId !== player.documentId || message.playerKey && message.playerKey !== player.key) return { ok: false };
-        if (message.volume !== undefined) player.volume = message.volume;
-        if (message.muted !== undefined) player.muted = message.muted;
-        return { ok: true, value: { volume: player.volume, muted: player.muted } };
-      },
-      remove: async (id: number) => { tabs.delete(id); removed(id); },
-      onRemoved: { addListener: (fn: any) => { removed = fn; } }, onUpdated: { addListener: (fn: any) => { updated = fn; } },
-    },
-    windows: {
-      create: async () => { const id = next++; const tab = { id, windowId: id, url: 'about:blank', mutedInfo: { muted: true } }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24, readyState: 4, key: `player-${id}`, documentId: `document-${id}`, route: 'watch' }); return { id, tabs: [tab] }; },
-      update: async (id: number) => ({ id }), remove: async (id: number) => { if (controls.removeFails) throw new Error('private cleanup'); tabs.delete(id); removed(id); },
-    },
-  };
-  const start = () => runInNewContext(source, { chrome, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
-  let omitDocumentId = false;
-  const send = (command: any, id?: number) => new Promise<any>(resolve => listener(envelope(command), id ? { id: 'test', url: tabs.get(id)?.url, tab: tabs.get(id), documentId: omitDocumentId ? undefined : players.get(id).documentId } : { id: 'test', url: 'chrome-extension://test/panel.html' }, resolve));
-  const observe = (id = 1, raw = observation(id)) => send({ type: 'OBSERVE', observation: raw, playerKey: players.get(id).key }, id);
-  const replacement = (key = 'player-new', documentId = 'document-new') => Object.assign(players.get(1), { volume: 1, key, documentId });
-  start(); return { omitDocumentIdentity: () => { omitDocumentId = true; }, start, send, sendFrom: (command: any, sender: any) => new Promise<any>(resolve => listener(envelope(command), sender, resolve)), observe, replacement, observation, players, tabs, log, local, session, controls, advance: () => { clock += 11_000; }, remove: (id = 1) => chrome.tabs.remove(id), updated: (...args: any[]) => updated(...args) };
-}
+import { harness } from './helpers/viewing-worker';
 
 test('explicit volume survives a ready replacement without enabling a deliberately muted tab', async () => {
   const h = await harness(); await h.observe(); await h.send({ type: 'AUDIO', volume: .37 }); await h.send({ type: 'MUTE' });
@@ -75,13 +24,13 @@ test('native volume change supersedes saved volume; guide preview and old observ
   assert.equal(h.log.some(row => row.type === 'tab'), false, 'volume alone never mutates tab mute');
 });
 
-test('worker wake retains volume choices but grants no saved layout audio authority', async () => {
+test('worker wake retains volume choices and observes existing audio routing without replaying enable or mute', async () => {
   const h = await harness(); await h.observe(); await h.send({ type: 'AUDIO', volume: .19 });
   await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
   const id = (await h.send({ type: 'GET_SNAPSHOT' })).panes[1].id; await h.send({ type: 'SELECT_PANE', paneId: 'main' });
   h.start(); const restored = await h.send({ type: 'GET_SNAPSHOT' });
-  assert.equal(restored.audioFocusId, undefined); assert.equal(h.tabs.get(1).mutedInfo.muted, true); assert.equal(h.tabs.get(2).mutedInfo.muted, true);
-  h.replacement(); await h.observe(); assert.equal(h.players.get(1).volume, .19); assert.equal(h.tabs.get(1).mutedInfo.muted, true);
+  assert.equal(restored.audioFocusId, 'main'); assert.equal(h.tabs.get(1).mutedInfo.muted, false); assert.equal(h.tabs.get(2).mutedInfo.muted, true);
+  h.replacement(); await h.observe(); assert.equal(h.players.get(1).volume, .19); assert.equal(h.tabs.get(1).mutedInfo.muted, false);
   assert.equal((await h.send({ type: 'REMOVE_PANE', paneId: id })).ok, true);
   await h.send({ type: 'SELECT_PANE', paneId: 'main' }); const before = h.log.length;
   h.updated(1, { url: h.tabs.get(1).url }, h.tabs.get(1)); h.replacement('post-close', 'post-close-doc'); await h.observe();
@@ -146,7 +95,7 @@ test('late recovery success cannot erase a newer failed explicit choice or overw
   const old = h.observe(); await started; const newer = h.send({ type: 'AUDIO', volume: .61 });
   await new Promise(r => setTimeout(r, 0)); release({ ok: true, value: { volume: .37 } }); await old; assert.equal((await newer).ok, false);
   const state = await h.send({ type: 'GET_SNAPSHOT' });
-  assert.match(state.audioError, /Player audio operation failed/); assert.equal(state.volumeRecovery.savedVolume, .37, 'failed newer choice is not saved as confirmed');
+  assert.match(state.audioError, /Player audio unavailable/); assert.equal(state.volumeRecovery.savedVolume, .37, 'failed newer choice is not saved as confirmed');
   assert.equal(state.volumeRecovery.status, 'Explicit volume unavailable; use native volume');
   assert(state.volumeDiagnostics.some((r: any) => r.result === 'superseded'));
 });
@@ -225,13 +174,13 @@ test('failed preference patch preserves visible and durable choices; a later ret
   snapshot = await h.send({ type: 'GET_SNAPSHOT' }); assert.equal(snapshot.preferencePersistence, 'saved');
 });
 
-test('restored layout mute refusal stays visible and grants no audio authority', async () => {
+test('restoring layout never requests mute or enable, including when tab mutation is unavailable', async () => {
   const h = await harness(); await h.observe(); await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
   h.controls.tabFails = true; h.start();
   const snapshot = await h.send({ type: 'GET_SNAPSHOT' });
-  assert.match(snapshot.audioError, /mute failed|mute could not be confirmed/);
-  assert.equal(snapshot.audioFocusId, undefined);
-  assert(snapshot.failureDiagnostics.some((row: any) => row.code === 'RESTORE_AUDIO_FAILED' && row.count === 2));
+  assert.equal(snapshot.audioError, undefined);
+  assert.equal(snapshot.audioFocusId, 'main');
+  assert(!snapshot.failureDiagnostics.some((row: any) => row.code === 'RESTORE_AUDIO_FAILED'));
 });
 
 test('failed creation cleanup retains the added window for control and reports explicit failure', async () => {

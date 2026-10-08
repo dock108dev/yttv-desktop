@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YouTube TV Desktop \u2014 Local Beta",
   "description": "Compact separate remote and up to four managed YouTube TV player windows with TV area arrangement.",
-  "version": "0.2.4",
+  "version": "0.2.12",
   "permissions": [
     "storage"
   ],

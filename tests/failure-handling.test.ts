@@ -11,6 +11,7 @@ test('bounded diagnostics count every failure, emit sparse static records and re
     const diagnostics = createFailureDiagnostics(() => '2026-10-03T12:00:00.000Z');
     for (let i = 0; i < 17; i++) diagnostics.record('COMMAND_FAILED');
     assert.equal(logs.length, 5); assert.equal(diagnostics.snapshot()[0].count, 17);
+    assert.equal((logs[0] as unknown[])[0], 'YTTV_FAILURE COMMAND_FAILED', 'Chrome error summaries must retain the static failure code without expanding an object');
     diagnostics.snapshot()[0].count = 999; assert.equal(diagnostics.snapshot()[0].count, 17);
   } finally { console.warn = original; }
 });

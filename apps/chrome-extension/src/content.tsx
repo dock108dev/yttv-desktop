@@ -1,3 +1,4 @@
+import { isGuideSyncURL } from './guide-sync';
 import { mountDesktop } from '../../../packages/ui/src/index';
 import { createClientBridge } from './bridge';
 import { createDOMAdapter, envelope, isMessage, validCommand, type DOMAdapter } from './adapter';
@@ -16,7 +17,20 @@ let adapter: DOMAdapter | undefined;
 let host: HTMLElement | undefined;
 const lifecycle = createExtensionLifecycle();
 function start() {
-  if (host) return;
+  if (host || adapter) return;
+  if (isGuideSyncURL(document.location.href)) {
+    // Discovery observes ordinary guide DOM only. No launcher, player controls,
+    // bridge snapshot/adoption, volume recovery or native input handling here.
+    adapter = createDOMAdapter(document);
+    lifecycle.addCleanup(() => adapter?.dispose());
+    adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation }))); });
+    const listener = (message: unknown, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => {
+      if (lifecycle.active && sender.id === chrome.runtime.id && isMessage(message) && message.type === 'GET_OBSERVATION') respond(adapter!.getObservation());
+      return false;
+    };
+    void lifecycle.guard(() => { chrome.runtime.onMessage.addListener(listener); lifecycle.addCleanup(() => chrome.runtime.onMessage.removeListener(listener)); });
+    return;
+  }
   const existing = document.getElementById(HOST_ID);
   const build = typeof __YTTV_BUILD__ === 'string' ? __YTTV_BUILD__ : 'source';
   // Probe the old isolated world, including reloads before its next API operation.
@@ -100,11 +114,23 @@ function start() {
   const runtimeListener = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (value: unknown) => void) => {
     if (!lifecycle.active) return false;
     if (_sender.id !== chrome.runtime.id || !isMessage(message) || !validCommand(message)) return false;
-    if (message.type === 'GET_OBSERVATION') { void lifecycle.guard(() => sendResponse({ ...adapter?.getObservation(), playerKey: playerKey(), connectionBuild: build, connectionNonce: message.connectionNonce })); return false; }
+    if (message.type === 'GET_OBSERVATION') {
+      const observation = adapter!.getObservation(), key = playerKey();
+      // Rebind sender document metadata after a worker wake without reinjection,
+      // guide navigation or awaiting the managed queue from a content reply.
+      void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation, playerKey: key })));
+      void lifecycle.guard(() => sendResponse({ ...observation, playerKey: key, connectionBuild: build, connectionNonce: message.connectionNonce })); return false;
+    }
     if (message.type === 'NAVIGATE') { void lifecycle.guard(() => adapter!.navigateToChannel(message.channelId)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
+    if (message.type === 'PLAYER_PLAYBACK') {
+      if (message.playerKey !== playerKey()) { sendResponse({ ok: false, code: 'PLAYER_CHANGED', reason: 'Player changed. Use native Play/Pause.' }); return false; }
+      const key = message.playerKey;
+      void lifecycle.guard(() => adapter!.setPlayback(message.playing, message.mutedStart, () => key === playerKey())).then(value => { if (lifecycle.active) sendResponse(key === playerKey() ? value : { ok: false, code: 'PLAYER_CHANGED', reason: 'Player changed. Use native Play/Pause.' }); }); return true;
+    }
     if (message.type === 'PLAYER_AUDIO') {
       if (message.playerKey && message.playerKey !== playerKey()) { sendResponse({ ok: false, code: 'PLAYER_CHANGED', audioFailure: 'PLAYER_CHANGED' }); return false; }
-      void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
+      const key = playerKey();
+      void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) sendResponse(key === playerKey() ? value : { ok: false, code: 'PLAYER_CHANGED', audioFailure: 'PLAYER_CHANGED' }); }); return true; }
     if (message.type === 'MUTE') { void lifecycle.guard(() => adapter!.mute()).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
     if (message.type === 'TOGGLE_DESKTOP') { toggleDrawer(); void lifecycle.guard(() => sendResponse({ ok: true })); return false; }
     return false;
@@ -116,6 +142,9 @@ function start() {
   if (lifecycle.active) {
     adapter.subscribe(observation => { void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OBSERVE', observation, playerKey: playerKey() }))); });
     const bridge = createClientBridge(lifecycle);
+    const seedCurrent = () => { void Promise.resolve(bridge.getSnapshot()).then(snapshot => { if (lifecycle.active) adapter?.seedGuide(snapshot.guide); }); };
+    lifecycle.addCleanup(bridge.subscribe(seedCurrent));
+    seedCurrent();
     if (lifecycle.active) { unmount = mountDesktop(drawer, bridge, { demo: false, extensionId: chrome.runtime.id }); lifecycle.addCleanup(() => { unmount?.(); unmount = undefined; }); }
   }
   // New managed watch pages have never rendered the guide themselves. Bootstrap only the

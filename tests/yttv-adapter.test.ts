@@ -205,3 +205,65 @@ test('replacement during native volume settlement reports player change without 
     const reply = await adapter.setAudio({ volume: .37 }); assert.equal(reply.ok, false); assert.equal(reply.audioFailure, 'PLAYER_CHANGED'); assert.equal(video.muted, true);
   } finally { adapter.dispose(); await window.happyDOM.abort(); }
 });
+
+test('native playback button drives service state even when direct media Play is refused; audio and replacement guards remain', async () => {
+  const window = fixtureWindow(); window.location.href = 'https://tv.youtube.com/watch?v=cbs';
+  const player = window.document.querySelector('video')!;
+  let paused = true, clicks = 0, refuse = false, replace = false;
+  Object.defineProperties(player, { readyState: { get: () => 4 }, paused: { get: () => paused } });
+  player.muted = true; player.volume = .37;
+  player.play = async () => { throw new Error('Direct media API must not be called'); };
+  player.pause = () => { throw new Error('Direct media API must not be called'); };
+  window.document.body.insertAdjacentHTML('beforeend', '<ytu-player-controls><button aria-label="Play (k)"></button></ytu-player-controls>');
+  const button = window.document.querySelector('ytu-player-controls button')!;
+  button.getBoundingClientRect = () => ({ width: 40, height: 40 } as any);
+  button.addEventListener('click', () => { clicks++; if (replace) { player.remove(); return; } if (!refuse) { paused = !paused; player.muted = false; player.volume = 1; button.setAttribute('aria-label', paused ? 'Play (k)' : 'Pause (k)'); } });
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    assert.equal((await adapter.setPlayback(true)).ok, true); assert.equal(player.muted, true); assert.equal(player.volume, .37);
+    assert.equal((await adapter.setPlayback(true)).ok, true); assert.equal(clicks, 1, 'idempotent Play cannot toggle Pause');
+    assert.equal((await adapter.setPlayback(false)).ok, true); assert.equal(player.muted, true);
+    player.muted = false;
+    assert.equal((await adapter.setPlayback(true)).ok, true); assert.equal(player.muted, false);
+    assert.equal((await adapter.setPlayback(false)).ok, true);
+    assert.equal((await adapter.setPlayback(true, true)).ok, true); assert.equal(player.muted, true);
+    assert.equal((await adapter.setPlayback(false)).ok, true);
+    refuse = true; const before = clicks; const refusal = await adapter.setPlayback(true);
+    assert.equal(refusal.ok, false); if (!refusal.ok) assert.match(refusal.reason, /CONTROL_UNCONFIRMED.*native Play/i);
+    assert.equal(clicks, before + 1, 'one native click, no retry and no media API bypass');
+    refuse = false; replace = true;
+    const changed = await adapter.setPlayback(true); assert.equal(changed.ok, false); if (!changed.ok) assert.match(changed.reason, /PLAYER_CHANGED/);
+    assert.equal(player.volume, .37);
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
+});
+
+test('missing or ambiguous native playback buttons return a specific fallback without a media API request', async () => {
+  const window = fixtureWindow(); window.location.href = 'https://tv.youtube.com/watch?v=cbs';
+  const player = window.document.querySelector('video')!;
+  Object.defineProperties(player, { readyState: { get: () => 4 }, paused: { get: () => true } });
+  player.play = async () => { assert.fail('No direct media request'); };
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    const missing = await adapter.setPlayback(true); assert.equal(missing.ok, false); if (!missing.ok) assert.match(missing.reason, /CONTROL_UNAVAILABLE/);
+    window.document.body.insertAdjacentHTML('beforeend', '<ytu-player-controls><button aria-label="Play"></button><button aria-label="Play"></button></ytu-player-controls>');
+    for (const button of window.document.querySelectorAll('button')) button.getBoundingClientRect = () => ({ width: 40, height: 40 } as any);
+    const ambiguous = await adapter.setPlayback(true); assert.equal(ambiguous.ok, false); if (!ambiguous.ok) assert.match(ambiguous.reason, /CONTROL_UNAVAILABLE/);
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
+});
+
+
+test('newer automatic guide data reaches an existing watch adapter without renewing old timestamps or looping on equal data', async () => {
+  const window = fixtureWindow(); const initial = parseGuide(window.document as unknown as Document)[0];
+  window.location.href = 'https://tv.youtube.com/watch?v=cbs'; window.document.body.innerHTML = '';
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  adapter.seedGuide([initial]);
+  let updates = 0; adapter.subscribe(() => { updates++; });
+  adapter.seedGuide([initial]); assert.equal(updates, 1, 'identical sync does not notify again');
+  const at = new Date(Date.now() + 1).toISOString();
+  const newer = { ...initial, programTitle: 'Updated program', observedAt: at, target: { ...initial.target!, verifiedAt: at } };
+  adapter.seedGuide([newer]);
+  assert.equal(adapter.getObservation().guide[0].programTitle, 'Updated program');
+  assert.equal(adapter.getObservation().guide[0].observedAt, at);
+  adapter.seedGuide([initial]); assert.equal(adapter.getObservation().guide[0].observedAt, at, 'late stale sync cannot overwrite newer native data');
+  assert.equal(updates, 2); adapter.dispose(); await window.happyDOM.abort();
+});

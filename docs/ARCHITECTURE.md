@@ -1,73 +1,43 @@
-# Current architecture and sources of truth
+# Architecture
 
-The supported runtime is the restricted Chrome YouTube TV client and its isolated, non-playing fixture preview. Sports discovery uses authenticated guide text. Independent provider scores, event-to-channel resolution, Safari/native playback and mixed-service playback are not implemented current paths. One compact remote owns the operating workflow for up to four total native YTTV player windows in one automatically arranged workspace. These controls exist in frozen0.2.1 /61a83fecdc9217c6, with113 recorded passing tests and owner-confirmed installed identity; the integrated installed workflow and advancing counts remain unqualified. Proposed capabilities are documented separately in the engineering roadmap.
+The runtime is a Chrome Manifest V3 extension over ordinary YouTube TV pages. Video stays in native player windows. The remote and page drawer receive snapshots through a validated bridge; they do not inspect protected streams. The separate fixture preview cannot play video.
 
-## Domain authority
+## Module ownership
 
-Domain: **Navigation handles and shared contracts**
+| Responsibility | Module | Callers |
+| --- | --- | --- |
+| Ordinary watch URL and target validation, program sanitation | `packages/core/src/index.ts` | Adapter, worker observation sanitation, guide cache, Sports |
+| Native DOM observation, guide age/eligibility, Play/Pause and volume | `packages/yttv-adapter/src/index.ts` | Content bridge, worker, both interfaces |
+| Four-total managed capacity and serialized audio handoff | `packages/quadbox/src/policy.ts`, `index.ts` | Worker Add/Connect/audio, interface controls |
+| Preferences/history/layout sanitation and serialized load/save | `packages/storage/src/index.ts` | Worker, Guide ordering, fixture preview |
+| Cached presentation metadata without navigation authority | `packages/storage/src/guide-cache.ts` | Worker |
+| Guide Sports classification and illustrative fixture states | `packages/sports-engine/src/guide.ts`, `index.ts` | Interfaces and worker program guards |
+| Managed identity, privileged commands and cancellation | `apps/chrome-extension/src/background.ts` | Validated bridge commands and browser events |
+| Bridge observation sanitation and volatile guide merging | `apps/chrome-extension/src/observations.ts` | Worker-selected sources |
+| Reversible enrollment/Return, placement and readback | `apps/chrome-extension/src/workspace.ts`, `packages/quadbox/src/geometry.ts` | Worker and display-area selection |
+| Durable ownership/geometry backup | `apps/chrome-extension/src/recovery.ts` | Worker and workspace |
+| Bounded native guide discovery helper | `apps/chrome-extension/src/guide-sync.ts` | Worker |
+| Remote rendering, shared drawer state and stateless components | `apps/chrome-extension/src/remote.tsx`, `packages/ui/src/index.tsx`, `components.tsx` | Extension entry points and fixture preview |
+| Context lifecycle and build/permission audit | `apps/chrome-extension/src/runtime.ts`, `scripts/build.mjs` | Content/panel/worker entries and npm commands |
 
-Authoritative module: [packages/core/src/index.ts](../packages/core/src/index.ts).
+## Authority and state
 
-Why this is authoritative: `watchNavigationUrl` validates ordinary watch-page URLs once; `isPlaybackTarget` validates their identity/evidence metadata. `guidePrograms` sanitizes program fields. No protected-stream, account or credential access.
+The worker serializes managed operations. Pane ownership binds tab/window identity; native controls additionally bind document and player identity before and after readback. Source replacement, navigation, explicit controls and removal cancel obsolete startup/recovery work. Splitting this coordinator into handlers sharing mutable maps would obscure authority and cancellation ordering; independent transformations live outside it.
 
-Known callers: YouTube TV adapter, Chrome worker observation sanitation, guide cache and Sports listing expansion.
+Targets must be ordinary allowlisted watch URLs with matching channel identity, current LIVE evidence and guide/target ages within 30 minutes. Cached or unchanged hidden guide nodes cannot renew authority. Program actions also revalidate title and observation time. A current guide listing does not establish a game is in progress.
 
-Domain: **YouTube TV observation and current target eligibility**
+The volatile catalog retains at most 500 rows, including observed ages when source windows close. The durable guide cache contains sanitized presentation metadata only. Native discovery uses an inactive muted Live helper with a 15-second deadline, request coalescing, cooldown and exact cleanup ownership. A helper moved or navigated elsewhere is left alone.
 
-Authoritative module: [packages/yttv-adapter/src/index.ts](../packages/yttv-adapter/src/index.ts).
+Added players are muted before navigation and attempt native startup once. Play/Pause clicks a unique native button and checks the same player for up to four seconds; it never calls `video.play()` behind the site control. Volume preserves mute. Audio enable uses serialized mute-all-before-enable-one with compensation on failure. Focus and geometry commands carry no audio-enable authority.
 
-Why this is authoritative: selectors and native player controls stay here. `freshLiveTarget` requires a current non-cached LIVE listing, matching validated LIVE target, and guide/target ages within30 minutes. Adapter `navigationUrl` delegates to the shared URL validator.
+## Persistence and recovery
 
-Known callers: adapter navigation, Chrome worker snapshots/navigation/Add/Replace, Guide UI and Sports `listingPlayable`.
+Version 1 preferences store history, channel customization, shortcuts and saved layout intent. Confirmed channel switches alone advance history. Legacy event/layout identifiers remain readable but grant no playback authority; the retired mute-lock field sanitizes to false and cannot be set through commands.
 
-Domain: **Sports discovery and illustrative state**
+Session records and durable local backups recover known owned windows, Return information and geometry. Recorded ordinary page URLs verify identity, never become eligible guide targets. Recovery observes current audio routing rather than replaying saved enable or mute commands. Missing or changed tab identities require explicit Connect; no unrelated tab is silently adopted or given historical Return authority.
 
-Authoritative module: [guide.ts](../packages/sports-engine/src/guide.ts) for ordinary browsing; [index.ts](../packages/sports-engine/src/index.ts) for the separate fixture lab.
+Workspace bounds are applied transactionally with readback and rollback. Manual placement stays manual. Return uses supported original placement or reports a normal-window fallback when the former parent is unavailable. Storage writes and physical browser changes are separate operations, so a failed command does not imply a complete rollback.
 
-Why this is authoritative: guide classification uses explicit program text without inventing game state; `listingPlayable` checks the current program and delegates target authority to the adapter. Fixture normalization/visibility/search never grants playback authority. No external provider is acquired by current source.
+## Limits
 
-Known callers: shared UI; worker `WATCH_PROGRAM`/`ADD_PROGRAM` revalidate title, timestamp and current listing immediately before actions. The demo and Fixture Lab render illustrative events with Watch/Add disabled by construction.
-
-Domain: **Managed feed capacity and audio handoff**
-
-Authoritative module: [policy.ts](../packages/quadbox/src/policy.ts) and [index.ts](../packages/quadbox/src/index.ts).
-
-Why this is authoritative: the current managed ceiling is four total feeds, including pending creation, used by UI and worker; account allowance is an independent runtime bound. The shared audio controller serializes mute-all-before-enable-one and compensates failures.
-
-Known callers: Chrome worker managed creation/audio selection and shared UI Add controls. Four-total creation is implemented in source; actual account allowance and simultaneous advancing playback require count-specific installed evidence.
-
-Domain: **Browser ownership, privileged commands and runtime state**
-
-Authoritative module: [background.ts](../apps/chrome-extension/src/background.ts); [adapter.ts](../apps/chrome-extension/src/adapter.ts) owns the command envelope/validation.
-
-Why this is authoritative: the worker alone owns enrolled window/tab identity, session restoration, observed state and mutations. Sender validation precedes command dispatch. Legacy provider commands fail with `UNSUPPORTED_PATH`; ordinary malformed commands fail explicitly. The bridge transports supported commands rather than implementing another policy.
-
-Known callers: [bridge.ts](../apps/chrome-extension/src/bridge.ts), content script, extension page. Content player controls are validated again at the browser/adapter seam.
-
-Domain: **Persistence**
-
-Authoritative module: [storage index](../packages/storage/src/index.ts) and [guide cache](../packages/storage/src/guide-cache.ts).
-
-Why this is authoritative: preferences/history/layout sanitation and serialized writes have one implementation. Failed writes preserve prior choices; unreadable records remain explicit. Guide cache stores sanitized metadata, never navigation authority. Confirmed switches alone update history.
-
-Known callers: worker local/session bridges, isolated demo preference storage, Guide ordering and schema validation tests.
-
-Domain: **Rendering, lifecycle and builds**
-
-Authoritative module: [UI](../packages/ui/src/index.tsx), [runtime lifecycle](../apps/chrome-extension/src/runtime.ts), [build](../scripts/build.mjs).
-
-Why this is authoritative: the remote and shared UI receive bridge snapshots and use shared eligibility/limit policies. Production entry points compose them with the validated Chrome bridge; the explicit demo uses separate synthetic storage. The standard build audits required storage/tv.youtube.com access and the precise optional display/reconnect permissions. Unknown build options, including unsupported alternative build modes, fail before writing. `--check` compiles in memory and preserves frozen output.
-
-Known callers: content/panel entry points and npm build/preview commands; focused tests compile the current source, against current source.
-
-## Retained schema and evidence boundaries
-
-Preferences still read the version1 schema, including inert historical fields and saved event/layout identifiers, so existing local records and layout intent remain readable. `nightMuteLock` always sanitizes to false and is no longer an accepted setting command. Old event metadata may remain in session records but has no event action, provider client or resolver caller; the retired sports cache is neither loaded nor deleted. Restore may recover up to three previously stored extras for safe control/cleanup; this does not permit new feeds beyond the current shared four-total ceiling. Removing these records requires a schema migration that preserves existing settings.
-
-The event-resolver workspace manifest remains a non-executable future boundary alongside Safari/macOS placeholders; no duplicate resolver implementation remains. Existing frozen bundles, failed runs and historical source/provider evidence stay intact and qualify only their recorded revisions. Historical evidence is not current setup guidance. [Provider boundaries](PROVIDER_EVALUATION.md), [error behavior](ERROR_HANDLING.md), [security](SECURITY.md).
-
-## Q3-B1 workspace ownership
-
-`packages/quadbox/src/geometry.ts` owns outer-window logical-coordinate geometry, minimums and normalized area-intent validation. `apps/chrome-extension/src/workspace.ts` owns singleton remote, reversible same-tab enrollment/Return and transactional bounds application/readback/rollback. `background.ts` serializes those operations with feed creation/close/audio, exposes the shared capacity/pending count and prevents missing-main adoption. The geometry controller has no audio/navigation port. `continuity.ts` bounds same-player paused/volume/mute preservation checks. Remote selected-control/focus commands do not select audio.
-
-`remote.tsx` renders the compact controller through the existing client bridge, fresh target/program guards and worker commands. `display.ts` owns optional display gesture and diagram conversion. `content.tsx` retains a collapsed launcher and replaces only its older extension launcher on deliberate packaged-file re-injection. Optional scripting is checked in the extension-only RECONNECT_MAIN command, whose target is the designated permitted YTTV tab and whose file is fixed to content.js; it cannot inject arbitrary commands or automate authentication. TV-area intent is local version1 data; original return/expanded bounds/remote identity are browser-session data. None can persist playback URLs or enable audio. Source capabilities and installed playback evidence remain separate.
+Four managed windows is a software bound independent of account playback allowance. Readback, counts and advancing clocks cannot establish visible video or heard sound. Capability failures retain native fallback. Safari/macOS and event-resolver packages are non-executable placeholders; other services and independent scores are unsupported. There is no backend, account sync, protected-stream composition or remote telemetry.

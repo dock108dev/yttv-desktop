@@ -12,7 +12,7 @@ The application is a local Chrome MV3 client and an isolated Node fixture-previe
 | Rendering | React renders text without raw HTML. Components consume bridge snapshots, not provider/player internals. |
 | Browser → fixture server | Bind127.0.0.1:4173; enforce Host, optional same-origin Origin and Fetch Metadata checks. Serve only demo HTML/panel JS/CSS, with canonical containment and defensive response headers. |
 
-The manifest permits only storage and `https://tv.youtube.com/*`. It requests no cookies, broad tabs, capture, webRequest or all-sites access. Packaged CSP uses bundled scripts, `object-src 'none'` and `base-uri 'none'`. Build validation rejects a permission/host change before writing.
+Required manifest access is storage and `https://tv.youtube.com/*`; optional access is described below. It requests no cookies, broad tabs, capture, webRequest or all-sites access. Packaged CSP uses bundled scripts, `object-src 'none'` and `base-uri 'none'`. Build validation rejects a permission/host change before writing.
 
 ## Validation and diagnostics
 
@@ -26,8 +26,6 @@ Origin/Host checks constrain browser requests, not other local processes: they c
 
 [Security tests](../tests/security.test.ts) use synthetic data, disposable files and ephemeral loopback ports. Worker/adapter tests cover rejected senders, malformed commands and restored-field sanitation. These checks do not establish loaded-browser CSP enforcement, absence of all vulnerabilities, audible output or protected playback. Dependency advisory results require a current review of the exact lockfile; no current advisory scan is claimed.
 
-[Retained security evidence](evidence/runs/20261003-security-source/report.md) records earlier source checks and retired provider findings at their own revision. Proposed services need independent origin/capability/permission review; current permissions do not cover them.
+## Optional access
 
-## Q3-B1 optional access
-
-The0.2.0 candidate retains storage/tv.youtube.com mandatory scope and packaged CSP. Optional system.display reads monitor metadata only on Choose monitor; optional scripting permits deliberate Reconnect original player without a native page reload. RECONNECT_MAIN is extension-sender-only, validates the designated YTTV tab and permission, and injects only the packaged content.js file. No arbitrary script/target or expanded service host is accepted. Startup never requests either permission. Denial preserves native/current-screen fallback. Session return geometry has no navigation/audio authority. Installed permission and preservation checks remain open in the [candidate evidence](evidence/runs/20261003-q3-b1-implementation/run.md).
+Optional `system.display` reads monitor metadata for area selection. Optional `scripting` reconnects the designated YouTube TV player using only packaged `content.js`; it cannot inject arbitrary commands or automate authentication. Permission requests are deliberate user actions. Recovery may reuse an already-granted scripting permission without prompting. The native player remains fallback when access is unavailable.

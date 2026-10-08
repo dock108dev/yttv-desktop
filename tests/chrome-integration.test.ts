@@ -64,7 +64,8 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
     guide: [{ channel: { id: 'yttv:cbs', name: 'CBS' }, available: true, target: { kind: 'navigation', channelId: 'yttv:cbs', url: 'https://tv.youtube.com/watch?v=cbs&vp=guide', verifiedAt: now, evidenceClass: 'LIVE' }, observedAt: now, evidenceClass: 'LIVE' }],
     currentChannelId: 'yttv:cbs', playback: { playing: true, muted: false, volume: .37, currentTime: 10, readyState: 4, width: 1280, height: 720 } };
   await send({ type: 'OBSERVE', observation }, { id: 'local', url: 'https://tv.youtube.com/watch?v=original', tab: tabs.get(1) });
-  const originalSender = { id: 'local', url: tabs.get(1).url, tab: tabs.get(1) };
+  const originalSender = { id: 'local', url: tabs.get(1).url, tab: tabs.get(1), documentId: 'doc-1' };
+  await send({ type: 'OBSERVE', observation, playerKey: 'original-player' }, originalSender);
   assert.equal((await send({ type: 'RECONNECT_MAIN' })).code, 'INJECTION_PERMISSION');
   injectionPermission = true; const reconnectStart = log.length;
   const nativeBefore = structuredClone({ tab: tabs.get(1), player: players.get(1) });
@@ -115,6 +116,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.deepEqual(log[creation + 1], { operation: 'update', id: 2, value: { muted: true } });
   assert.equal(log[creation + 2].value.muted, true); assert.equal(log[creation + 2].value.url, observation.guide[0].target!.url);
   const snapshot = await send({ type: 'GET_SNAPSHOT' }); const paneId = snapshot.panes[1].id;
+  await send({ type: 'OBSERVE', observation: { ...observation, playback: { ...observation.playback, muted: true } }, playerKey: 'added-player' }, { id: 'local', url: tabs.get(2).url, tab: tabs.get(2), documentId: 'doc-2' });
   const managedSender = { id: 'local', url: tabs.get(2).url, tab: tabs.get(2) };
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, managedSender)).opened, false, 'new managed player does not inherit the original drawer state');
   assert.equal(snapshot.panes[0].id, 'main'); assert.equal(snapshot.playback.muted, false);
@@ -156,6 +158,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal(tabs.get(1).mutedInfo.muted, true); assert.equal(tabs.get(2).mutedInfo.muted, true);
   failFocus = false;
   assert.equal((await send({ type: 'SELECT_PANE', paneId: 'main' })).ok, true);
+  await send({ type: 'OBSERVE', observation, playerKey: 'original-player' }, originalSender);
   assert.equal((await send({ type: 'AUDIO', volume: .19 })).ok, true);
   assert.equal(players.get(1)!.volume, .19);
   assert.equal((await send({ type: 'AUDIO', volume: 2 })).ok, false);
@@ -228,6 +231,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal((await send({ type: 'REMOVE_PANE', paneId: 'main' })).ok, false);
   assert.equal((await send({ type: 'REMOVE_PANE', paneId })).ok, true);
   assert.equal(tabs.has(1), true); assert.equal(tabs.has(2), false);
+  await send({ type: 'OBSERVE', observation: { ...observation, observedAt: new Date().toISOString() }, playerKey: 'original-player' }, originalSender);
   assert.equal((await send({ type: 'AUDIO', muted: false })).ok, true);
   assert.equal(tabs.get(1).mutedInfo.muted, false);
   const normalRefresh = log.length; await send({ type: 'REFRESH' });

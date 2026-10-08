@@ -49,7 +49,6 @@ export function defaultPreferences(): Preferences {
     quadLayouts: [], lastQuad: null, ui: { denseGuide: true, theme: 'dark', lastSurface: 'GUIDE' }, nightMuteLock: false,
   };
 }
-export const DEFAULT_PREFERENCES = defaultPreferences();
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const identifier = (value: unknown): string | null => typeof value === 'string' && value.trim() && value.length <= 200 ? value : null;
 const ids = (value: unknown, limit = 500): string[] => Array.isArray(value) ? [...new Set(value.map(identifier).filter((id): id is string => id !== null))].slice(0, limit) : [];
@@ -103,14 +102,6 @@ export function recordConfirmedSwitch(preferences: Preferences, channelId: strin
   return { ...preferences, previousChannel: preferences.currentChannel, currentChannel: channelId,
     recentChannels: [channelId, ...preferences.recentChannels.filter(id => id !== channelId)].slice(0, RECENTS_LIMIT) };
 }
-export function toggleFavorite(preferences: Preferences, channelId: string): Preferences {
-  if (!identifier(channelId)) return preferences;
-  return { ...preferences, favorites: preferences.favorites.includes(channelId) ? preferences.favorites.filter(id => id !== channelId) : [...preferences.favorites, channelId] };
-}
-export function setChannelHidden(preferences: Preferences, channelId: string, hidden: boolean): Preferences {
-  if (!identifier(channelId)) return preferences;
-  return { ...preferences, hiddenChannels: hidden ? [...new Set([...preferences.hiddenChannels, channelId])] : preferences.hiddenChannels.filter(id => id !== channelId) };
-}
 export function orderGuide(entries: readonly GuideEntry[], preferences: Preferences, options: { query?: string; includeHidden?: boolean } = {}): GuideEntry[] {
   const query = normalizeText(options.query ?? ''); const tokens = query.split(' ').filter(Boolean);
   const order = new Map(preferences.channelOrder.map((id, index) => [id, index]));
@@ -142,13 +133,5 @@ export function createPreferencesStore(bridge: StorageBridge) {
       const write = writeQueue.catch(() => undefined).then(() => bridge.set(PREFERENCES_KEY, clean));
       writeQueue = write; return write;
     },
-    async reset(): Promise<Preferences> { const defaults = defaultPreferences(); await this.save(defaults); return defaults; },
   };
-}
-export function exportPreferences(preferences: Preferences): string { return JSON.stringify(sanitizePreferences(preferences), null, 2); }
-export function importPreferences(serialized: string): Preferences {
-  let raw: unknown; try { raw = JSON.parse(serialized); } catch { throw new Error('Preferences file is not valid JSON.'); }
-  const input = object(raw);
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 0) throw new Error('Unsupported preferences schema.');
-  return sanitizePreferences(input);
 }

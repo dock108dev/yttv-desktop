@@ -5,7 +5,7 @@ import {
 } from '../packages/core/src/index.js';
 import {
   defaultPreferences, sanitizePreferences, recordConfirmedSwitch, orderGuide, createPreferencesStore,
-  importPreferences, exportPreferences, RECENTS_LIMIT, PREFERENCES_KEY,
+  RECENTS_LIMIT, PREFERENCES_KEY,
 } from '../packages/storage/src/index.js';
 import {
   createIllustrativeFixtures, eventVisibility, normalizeEvent, searchEvents,
@@ -96,10 +96,8 @@ test('preferences validate corrupt/future data, drop secrets and cap deduplicate
     token: 'never-save-me', password: 'never-save-me', nightMuteLock: true };
   const prefs = sanitizePreferences(raw);
   assert.deepEqual(prefs.favorites, ['a']); assert.equal(prefs.recentChannels.length, RECENTS_LIMIT);
-  assert.equal(exportPreferences(prefs).includes('never-save-me'), false);
+  assert.equal(JSON.stringify(prefs).includes('never-save-me'), false);
   assert.deepEqual(sanitizePreferences({ schemaVersion: 99, favorites: ['x'] }), defaultPreferences());
-  assert.throws(() => importPreferences('{bad-json'), /valid JSON/);
-  assert.throws(() => importPreferences('{"schemaVersion":99}'), /Unsupported/);
 });
 test('Previous and recents change only on confirmed switch and repeated observations are ignored', () => {
   const initial = defaultPreferences();

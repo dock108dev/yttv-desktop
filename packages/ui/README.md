@@ -1,8 +1,8 @@
 # Shared UI
 
-`src/index.tsx` exports `DesktopApp` and `mountDesktop(element, bridge, options)`. The [asynchronous bridge](src/types.ts) supplies observations, preferences and confirmed action results. Components do not inspect service DOM or protected media. The interface mounts in a content drawer or extension page.
+`src/index.tsx` exports `DesktopApp` and `mountDesktop(element, bridge, options)`. The [asynchronous bridge](src/types.ts) supplies observations, preferences and confirmed action results. Components do not inspect service DOM or protected media. The interface mounts in a content drawer or extension page. `src/components.tsx` owns stateless icons, cards and presentation primitives; interaction state and mounting stay in the public entry point.
 
-Guide provides search, favorites/order/hide and confirmed recent/previous history. Sports searches guide programs with freshness guards; a separate Fixture Lab is illustrative and cannot Watch/Add. QuadBox controls two total separate original player windows. Selecting a feed transfers audio/focus; new windows start muted. `src/demo.ts` provides a labeled preview with separate local preference storage and disabled playback actions.
+Guide provides search, favorites/order/hide and confirmed recent/previous history. Sports searches guide programs with freshness guards; a separate Fixture Lab is illustrative and cannot Watch/Add. QuadBox controls up to four total native player windows, including the original. Selecting a feed transfers audio/focus; new windows start muted. `src/demo.ts` provides a labeled preview with separate local preference storage and disabled playback actions.
 
 Keyboard handling respects editable fields, native controls, browser chords and Shadow DOM composed paths. Narrow drawers use horizontal navigation and wrapping rows; larger pages use a navigation rail. Primary controls keep44px height; secondary audio/listing/build details are disclosed separately while current blockers remain visible.
 

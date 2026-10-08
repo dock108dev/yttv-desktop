@@ -64,13 +64,24 @@ raw-captures/
 /recordings/
 /screenshots/
 
-# Keep concise run notes in Git; retain all other run artifacts locally.
-# Includes copied bundles, rollback builds, images, JSON dumps, patches,
-# logs and prior-document snapshots. Do not ignore source/test fixtures.
-/docs/evidence/runs/**/*
-!/docs/evidence/runs/**/
-!/docs/evidence/runs/**/*.md
-/docs/evidence/runs/**/scratch/
+# Internal working material and generated reports are local only.
+/NEXT_TASK.md
+/docs/evidence/
+/docs/planning/
+/docs/personal-use.md
+/docs/PRODUCT.md
+/docs/ROADMAP.md
+/docs/BACKLOG.md
+/docs/PHASE0_FEASIBILITY.md
+/docs/PROVIDER_EVALUATION.md
+/docs/ACCEPTANCE_AND_TEST_PLAN.md
+/docs/RISKS_AND_OPEN_QUESTIONS.md
+/docs/DECISIONS.md
+/docs/SOURCES.md
+/docs/SETUP_VERIFICATION.md
+/docs/BETA_STATUS.md
+/docs/TV_WORKSPACE_BETA.md
+/docs/MULTI_SERVICE_BETA.md
+/docs/LEAD_ENGINEER_HANDOFF.md
 /docs/local-verification.json
-# Historical generated setup inventory remains locally available, not a source input.
 /docs/setup-validation.json

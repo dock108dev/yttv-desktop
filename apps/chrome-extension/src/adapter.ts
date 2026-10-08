@@ -5,14 +5,17 @@ import type { Preferences } from '../../../packages/storage/src/index';
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
   | { type: 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' }
-  | { type: 'CHOOSE_MAIN'; tabId: number }
+  | { type: 'CHOOSE_MAIN' | 'CONNECT_PANE'; tabId: number }
   | { type: 'FOCUS_PANE' | 'ACTIVE_PANE'; paneId: string }
   | { type: 'AUTO_ARRANGE'; enabled: boolean }
   | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string }
   | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
   | { type: 'WATCH_PROGRAM' | 'ADD_PROGRAM'; channelId: string; title: string; observedAt: string }
   | { type: 'REPLACE_PROGRAM'; paneId: string; channelId: string; title: string; observedAt: string }
-  | { type: 'AUDIO' | 'PLAYER_AUDIO'; muted?: boolean; volume?: number; playerKey?: string }
+  | { type: 'DUPLICATE_PANE'; paneId: string }
+  | { type: 'PLAYBACK'; paneId: string; playing: boolean }
+  | { type: 'PLAYER_PLAYBACK'; playerKey: string; playing: boolean; mutedStart?: boolean }
+  | { type: 'AUDIO' | 'PLAYER_AUDIO'; paneId?: string; muted?: boolean; volume?: number; playerKey?: string }
   | { type: 'NATIVE_VOLUME_INPUT'; playerKey: string; observation?: AdapterObservation }
   | { type: 'OBSERVE'; observation: AdapterObservation; playerKey?: string }
   | { type: 'NAVIGATE'; channelId: string }
@@ -43,7 +46,7 @@ export function validCommand(value: unknown): value is Command {
   };
   switch (row.type) {
     case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': return true;
-    case 'CHOOSE_MAIN': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
+    case 'CHOOSE_MAIN': case 'CONNECT_PANE': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
     case 'AUTO_ARRANGE': return typeof row.enabled === 'boolean';
     case 'SET_TV_AREA': return validRect(row.workArea) && validRect(row.area) && contains(row.workArea, row.area) && (row.displayId === undefined || id(row.displayId));
     case 'GET_SNAPSHOT': case 'PREVIOUS': case 'MUTE': case 'REFRESH':
@@ -51,7 +54,7 @@ export function validCommand(value: unknown): value is Command {
     case 'GET_OBSERVATION': return row.connectionNonce === undefined || id(row.connectionNonce);
     case 'STATE_CHANGED': case 'TOGGLE_DESKTOP': return true;
     case 'NAVIGATE': return id(row.channelId);
-    case 'ACTIVE_PANE': case 'FOCUS_PANE': case 'SELECT_PANE': case 'EXPAND_PANE': case 'REMOVE_PANE': return id(row.paneId);
+    case 'DUPLICATE_PANE': case 'ACTIVE_PANE': case 'FOCUS_PANE': case 'SELECT_PANE': case 'EXPAND_PANE': case 'REMOVE_PANE': return id(row.paneId);
     case 'CREATE_PANE': case 'REPLACE_PANE': return id(row.channelId) &&
       row.eventId === undefined && (row.type !== 'REPLACE_PANE' || id(row.paneId));
     case 'SET_DRAWER_STATE': return typeof row.opened === 'boolean';
@@ -59,7 +62,9 @@ export function validCommand(value: unknown): value is Command {
     case 'NATIVE_VOLUME_INPUT': return id(row.playerKey) && (row.observation === undefined || observation(row.observation));
     case 'WATCH_PROGRAM': case 'ADD_PROGRAM': case 'REPLACE_PROGRAM': return (row.type !== 'REPLACE_PROGRAM' || id(row.paneId)) && id(row.channelId) && typeof row.title === 'string' &&
       row.title.length > 0 && row.title.length <= 300 && typeof row.observedAt === 'string' && row.observedAt.length <= 40 && Number.isFinite(Date.parse(row.observedAt));
-    case 'AUDIO': case 'PLAYER_AUDIO': return (row.muted !== undefined || row.volume !== undefined) &&
+    case 'PLAYBACK': return id(row.paneId) && typeof row.playing === 'boolean';
+    case 'PLAYER_PLAYBACK': return id(row.playerKey) && typeof row.playing === 'boolean' && (row.mutedStart === undefined || row.mutedStart === true);
+    case 'AUDIO': case 'PLAYER_AUDIO': return (row.paneId === undefined || id(row.paneId)) && (row.muted !== undefined || row.volume !== undefined) &&
       (row.muted === undefined || typeof row.muted === 'boolean') && (row.playerKey === undefined || id(row.playerKey)) &&
       (row.volume === undefined || typeof row.volume === 'number' && Number.isFinite(row.volume) && row.volume >= 0 && row.volume <= 1);
     case 'PREFERENCE': {

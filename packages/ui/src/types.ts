@@ -23,11 +23,15 @@ export interface UIManagedPane {
   isMain?: boolean;
   windowId?: number;
   tabId?: number;
+  playbackState?: 'playing' | 'paused' | 'loading' | 'unavailable';
   status?: string;
   error?: string;
 }
 
 export interface DesktopSnapshot {
+  openPlayerWindowCount?: number;
+  unassignedPlayers?: { tabId: number; label: string }[];
+  guideSyncStatus?: 'idle' | 'loading' | 'ready' | 'unavailable';
   originalMissing?: boolean;
   originalCandidates?: { tabId: number; label: string }[];
   workspace?: { available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
@@ -80,6 +84,9 @@ export interface ClientBridge {
   openRemote?(): Promise<ActionResult>;
   focusOriginal?(): Promise<ActionResult>;
   setAudio?(change: { muted?: boolean; volume?: number }): Promise<ActionResult>;
+  setPaneAudio?(paneId: string, change: { muted?: boolean; volume?: number }): Promise<ActionResult>;
+  duplicatePane?(paneId: string): Promise<ActionResult>;
+  setPlayback?(paneId: string, playing: boolean): Promise<ActionResult>;
   mute?(): Promise<ActionResult>;
   removePane?(paneId: string): Promise<ActionResult>;
   recoverGuide?(): Promise<ActionResult>;

@@ -1,9 +1,15 @@
 # Tests
 
-`npm test` runs local fixture/unit, synthetic DOM and mocked Chrome cases; it has no live account/provider/player operations. Tests compile current source. `tests/ssot.test.ts` guards shared limits/navigation, unsupported commands/build options, inert saved schema and audio compensation/serialization. UI and worker tests protect guide program actions, cached/unavailable states, settings/history and keyboard isolation.
+`npm test` runs synthetic unit, DOM and mocked Chrome tests from the repository root. No live account, provider or player operations occur. For focused checks:
 
-Use `npm run typecheck` and `npm run build -- --check` for compilation/permission validation while the installed candidate remains frozen. `npm run build` writes output and is reserved for authorized candidate preparation.
+```sh
+node --import tsx --test tests/ssot.test.ts
+node --import tsx --test tests/window-recovery.test.ts
+node --import tsx --test packages/ui/src/behavior.test.ts
+```
 
-[Acceptance](../docs/ACCEPTANCE_AND_TEST_PLAN.md), [fixture catalog](fixtures/README.md), [module authority](../docs/ARCHITECTURE.md) and [run records](../docs/evidence/runs/README.md) distinguish local checks from actual playback and owner acceptance.
+Policy tests protect URL validation, capacity, cached-target refusal, saved-schema sanitation and audio compensation. Worker tests cover ownership, recovery, guide discovery and control cancellation; `helpers/viewing-worker.ts` supplies a reusable mocked browser. Adapter tests use synthetic DOM/player state. UI tests use Happy DOM and React `act` to settle effects and interactions.
 
-`tests/docs-check.test.ts` uses Python3 and disposable synthetic repositories to protect portable CI documentation checks, default repository-local checking and broken-link/anchor failures. Use Python3.14 for the CI runtime.
+`docs-check.test.ts` checks portable documentation validation, including ignored working notes and broken links. CI report tests live in `scripts/ci/test_reports.py`.
+
+[Fixtures](fixtures/README.md) are illustrative inputs. Mocks cannot prove entitlements, visible playback, heard audio or actual Chrome restoration. See [development](../docs/DEVELOPMENT.md) and [architecture](../docs/ARCHITECTURE.md).

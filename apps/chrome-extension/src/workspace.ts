@@ -1,3 +1,4 @@
+import { recoveredSession, saveWorkspaceSession } from './recovery';
 import { areaIntent, contains, planLayout, readIntent, resolveArea, validRect, MIN_PLAYER, type AreaIntent, type Rect } from '../../../packages/quadbox/src/geometry';
 import type { ActionResult } from '../../../packages/ui/src/types';
 export const AREA_KEY = 'yttv-desktop.tv-area.v1';
@@ -24,7 +25,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
   let remoteQueue: Promise<unknown> = Promise.resolve();
   const ready = (async () => {
     intent = readIntent((await api.storage.local.get(AREA_KEY))[AREA_KEY]);
-    const session = await api.storage.session.get([RETURN_KEY, REMOTE_KEY, EXPANDED_KEY, PLACEMENT_KEY]);
+    const session = await recoveredSession(api, [RETURN_KEY, REMOTE_KEY, EXPANDED_KEY, PLACEMENT_KEY]);
     const raw = session[RETURN_KEY] as Origin;
     if (raw && Number.isInteger(raw.tabId) && Number.isInteger(raw.windowId) && Number.isInteger(raw.index) && raw.index >= 0 && typeof raw.pinned === 'boolean' && validRect(raw.bounds) && (raw.dedicatedWindowId === undefined || Number.isInteger(raw.dedicatedWindowId))) {
       origin = { tabId: raw.tabId, windowId: raw.windowId, index: raw.index, pinned: raw.pinned, bounds: { ...raw.bounds }, dedicatedWindowId: raw.dedicatedWindowId };
@@ -37,8 +38,8 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       placement = placed.map(r => ({ player: { id: r.player.id, tabId: r.player.tabId, windowId: r.player.windowId }, rect: { left: r.rect.left, top: r.rect.top, width: r.rect.width, height: r.rect.height } }));
     if (Number.isInteger(session[REMOTE_KEY])) remoteId = session[REMOTE_KEY] as number;
   })().catch(() => { available = false; notice = 'Workspace storage unavailable; prior records preserved. Use native controls.'; });
-  const saveExpanded = () => api.storage.session.set({ [EXPANDED_KEY]: expanded ?? null });
-  const saveOrigin = () => api.storage.session.set({ [RETURN_KEY]: origin ?? null });
+  const saveExpanded = () => saveWorkspaceSession(api, { [EXPANDED_KEY]: expanded ?? null });
+  const saveOrigin = () => saveWorkspaceSession(api, { [RETURN_KEY]: origin ?? null });
   async function dedicated(p: Player) {
     const tab = await api.tabs.get(p.tabId);
     if (tab.windowId !== p.windowId) throw new Error('Player moved; reconnect explicitly before arranging.');
@@ -62,8 +63,17 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
     }
     return resolveArea(intent);
   }
+  async function focusRemote() {
+    if (!remoteId) return;
+    try {
+      const tabs = await api.tabs.query({ windowId: remoteId });
+      if (tabs.length === 1 && tabs[0].url === api.runtime.getURL('remote.html')) await api.windows.update(remoteId, { focused: true });
+    } catch { /* Closing the remote never recreates it. */ }
+  }
   async function apply(rows: Player[], targets: Rect[]) {
     const previous: { player: Player; rect: Rect; state?: chrome.windows.Window['state'] }[] = [];
+    let keepRemote = false;
+    try { if (remoteId) keepRemote = (await api.windows.get(remoteId)).focused === true; } catch { /* closed remote */ }
     try {
       for (const p of rows) { await dedicated(p); const w = await api.windows.get(p.windowId); previous.push({ player: p, rect: bounds(w), state: w.state }); }
       actual = [];
@@ -75,7 +85,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
         if (!contains(targets[i], rect, 2) || !contains(rect, targets[i], 2) || rect.width < MIN_PLAYER.width || rect.height < MIN_PLAYER.height) throw new Error('OS clamped player bounds. Enlarge the TV area or use fewer feeds.');
       }
       const nextPlacement = rows.map((player, i) => ({ player: { id: player.id, tabId: player.tabId, windowId: player.windowId }, rect: { ...actual[i].bounds } }));
-      await api.storage.session.set({ [PLACEMENT_KEY]: nextPlacement }); placement = nextPlacement;
+      await saveWorkspaceSession(api, { [PLACEMENT_KEY]: nextPlacement }); placement = nextPlacement;
       return success('Actual player bounds checked. Playback and audio choices preserved.');
     } catch (error) {
       const failures: string[] = [];
@@ -87,6 +97,9 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       } catch { failures.push(old.player.id); }
       actual = []; notice = `${error instanceof Error ? error.message : 'Arrangement failed.'}${failures.length ? ` Restoration incomplete for ${failures.join(', ')}; use native positioning.` : ' Previous bounds restored.'}`;
       return failure('LAYOUT_UNAVAILABLE', notice);
+    } finally {
+      // Chrome can focus a player during state/bounds changes. Preserve an initiating remote.
+      if (keepRemote) await focusRemote();
     }
   }
   async function arrange() {
@@ -108,7 +121,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
     if (result.ok) { expanded = undefined; await saveExpanded(); } return result;
   }
   return {
-    ready,
+    ready, focusRemote,
     snapshot: () => ({ available, intent, enrolled: Boolean(origin), notice, actual, expanded: Boolean(expanded) }),
     async releaseClosedOriginal() {
       await ready;
@@ -117,7 +130,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       // A failed get alone is not proof of closure. Confirm absence without adopting any tab.
       const live = await api.tabs.query({});
       if (live.some(tab => tab.id === origin!.tabId)) return failure('ORIGINAL_EXISTS', 'Previous original still exists. Return or reconnect it before choosing another player.');
-      await api.storage.session.set({
+      await saveWorkspaceSession(api, {
         'yttv-desktop.closed-original.v1': { origin, expanded: expanded ?? null, placement },
         [RETURN_KEY]: null, [EXPANDED_KEY]: null,
       });
@@ -134,7 +147,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
         } catch { /* closed */ }
         const w = await api.windows.create({ url: api.runtime.getURL('remote.html'), type: 'popup', width: 420, height: 640, focused: true });
         if (!w?.id) return failure('REMOTE_UNAVAILABLE', 'Remote could not be opened. Use the player controls.');
-        remoteId = w.id; await api.storage.session.set({ [REMOTE_KEY]: remoteId }); return success('Remote opened. Closing it leaves playback intact.');
+        remoteId = w.id; await saveWorkspaceSession(api, { [REMOTE_KEY]: remoteId }); return success('Remote opened. Closing it leaves playback intact.');
       }); remoteQueue = next; return next;
     },
     async setArea(work: Rect, area: Rect, displayId?: string) {
@@ -191,7 +204,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       await api.tabs.update(p.tabId, { pinned: origin.pinned });
       const returned = await api.tabs.get(p.tabId);
       if (!fallback && returned.windowId !== origin.windowId) return failure('RETURN_FAILED', 'Same-tab return was not confirmed.');
-      origin = undefined; expanded = undefined; placement = []; actual = []; await saveOrigin(); await saveExpanded(); await api.storage.session.set({ [PLACEMENT_KEY]: [] });
+      origin = undefined; expanded = undefined; placement = []; actual = []; await saveOrigin(); await saveExpanded(); await saveWorkspaceSession(api, { [PLACEMENT_KEY]: [] });
       return success(fallback ? 'Same original tab returned to a normal window; original parent no longer exists.' : 'Same original tab returned to its captured parent/index. Owner window bounds were untouched.');
     },
     arrange, restore,

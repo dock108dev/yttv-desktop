@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { Window } from 'happy-dom';
 import { resolve } from 'node:path';
+import { areaIntent } from '../packages/quadbox/src/geometry';
 import { createDemoBridge } from '../packages/ui/src/demo';
 const bundle = build({ stdin: { contents: "export { mountRemote } from './apps/chrome-extension/src/remote.tsx'; export { act } from 'react';", resolveDir: resolve(process.cwd()), loader: 'tsx' }, bundle: true, write: false, format: 'iife', globalName: 'RemoteUI', platform: 'browser', loader: { '.css': 'empty' }, define: { 'process.env.NODE_ENV': '"development"' } });
 test('compact remote reconnects snapshot, separates focus/audio, searches with keyboard-accessible controls and cancels area without writes', async () => {
@@ -22,14 +23,14 @@ test('compact remote reconnects snapshot, separates focus/audio, searches with k
   const click = async (text: string) => { const button = [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!; assert(button); await api.act(async () => button.click()); };
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    assert.match(window.document.body.textContent!, /1 \/ 4 feeds/); assert.equal(commands.length, 0);
-    await click('Focus feed'); assert.deepEqual(calls, ['focus:main']); await click('Select audio'); assert.deepEqual(calls, ['focus:main', 'audio:main']);
+    assert.match(window.document.body.textContent!, /1 \/ 4 windows/); assert.equal(commands.length, 0);
+    await click('Focus'); assert.deepEqual(calls, ['focus:main']); await click('Add window');
     const search = window.document.querySelector('input[type=search]')!;
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'nonmatching channel');
     await api.act(async () => search.dispatchEvent(new window.Event('input', { bubbles: true })));
-    assert.match(window.document.body.textContent!, /No observed matches/); assert.equal([...window.document.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'Guide / Sports')!.open, true);
+    assert.match(window.document.body.textContent!, /No available matches yet/); assert(window.document.querySelector('[aria-label="Content picker"]'));
     await click('TV area'); assert.equal(window.document.querySelectorAll('input[type=number]').length, 4);
-    assert.equal(window.document.activeElement?.textContent, 'This screen');
+    assert.equal(window.document.activeElement?.textContent, 'Cancel');
     assert(window.document.querySelector('[role=dialog]'));
     await click('Cancel'); assert.equal(commands.length, 0);
     assert.equal(window.document.activeElement?.textContent, 'TV area');
@@ -44,6 +45,65 @@ test('compact remote reconnects snapshot, separates focus/audio, searches with k
     await click('TV area'); await click('Choose monitor'); assert.deepEqual(commands, ['permission']); assert.match(window.document.body.textContent!, /denied/);
     await click('Cancel'); await api.act(async () => dispose());
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    assert.match(window.document.body.textContent!, /Original player/); assert.equal(calls.filter(x => x.startsWith('audio')).length, 1);
+    assert.match(window.document.body.textContent!, /Original player/); assert.equal(calls.filter(x => x.startsWith('audio')).length, 0);
+    await api.act(async () => dispose());
+    const monitorWork = { left: -1007, top: -1410, width: 3440, height: 1410 };
+    const custom = { left: -900, top: -1350, width: 3200, height: 1280 };
+    const intent = areaIntent(monitorWork, custom, false, 'saved-monitor')!;
+    (window as any).chrome.permissions.contains = async () => true;
+    (window as any).chrome.system = { display: { getInfo: async () => [{ id: 'first', name: 'Monitor', workArea: { left: 0, top: 30, width: 1440, height: 900 } }, { id: 'saved-monitor', name: 'Monitor', workArea: monitorWork }] } };
+    bridge.getSnapshot = async () => ({ ...base, workspace: { available: true, enrolled: false, expanded: false, actual: [], notice: 'Saved area', intent }, panes: [{ id: 'main', isMain: true, channelId: base.guide[0].channel.id, channelName: 'Original player', muted: true }], activePaneId: 'main' });
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    commands.length = 0; await click('TV area');
+    const values = () => [...window.document.querySelectorAll('input[type=number]')].map(x => Number((x as any).value));
+    assert.deepEqual(values(), [-900, -1350, 3200, 1280], 'opening editor retains saved monitor and custom rectangle');
+    assert.equal((window.document.querySelector('[role=dialog] select') as any).value, '1');
+    assert.match(window.document.body.textContent!, /Monitor 2/); assert.deepEqual(commands, [], 'granted display read requests no permission or writes');
+    await click('Cancel'); await click('TV area'); await click('Apply');
+    const applied = JSON.parse(JSON.stringify(commands))[0]; assert.equal(applied.displayId, 'saved-monitor'); assert.deepEqual(applied.area, custom);
+    assert.equal(commands.length, 1);
+    commands.length = 0; (window as any).chrome.permissions.contains = async () => false;
+    await click('TV area'); assert.deepEqual(values(), [-900, -1350, 3200, 1280]);
+    assert.match(window.document.body.textContent!, /Saved monitor unavailable/); await click('Cancel'); assert.deepEqual(commands, []);
+
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('remote keeps picker drafts and focus, uses observed playback toggles, and retains failures separately from success', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  const successTimers: (() => void)[] = [], originalTimer = window.setTimeout.bind(window);
+  window.setTimeout = ((fn: any, delay?: number, ...args: any[]) => { if (delay === 5000) successTimers.push(fn); return originalTimer(fn, delay, ...args); }) as typeof window.setTimeout;
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`);
+  window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  let state = { ...base, audioError: 'Native audio connection unavailable.', panes: [{ id: 'main', isMain: true, channelId: 'fixture-channel:espn', channelName: 'ESPN', muted: true, volume: .37, playbackState: 'paused' as 'paused' | 'playing' | 'unavailable' }] };
+  let listener = () => {}, dispose = () => {}; const playback: boolean[] = [];
+  bridge.getSnapshot = () => structuredClone(state);
+  bridge.subscribe = fn => { listener = fn; return () => {}; };
+  bridge.refresh = async () => { listener(); return { ok: true }; };
+  bridge.setPlayback = async (_, playing) => { playback.push(playing); state.panes[0].playbackState = playing ? 'playing' : 'paused'; return { ok: true, message: 'Playback updated.' }; };
+  bridge.setPaneAudio = async () => ({ ok: false, reason: 'Synthetic audio refusal. Use native controls.' });
+  bridge.duplicatePane = async () => ({ ok: true, message: 'Window added.' });
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  const click = async (text: string) => { assert(button(text)); await api.act(async () => button(text).click()); };
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.equal(button('Pause'), undefined, 'observed paused state needs only Play');
+    await click('Play'); assert.equal(button('Play'), undefined); assert(button('Pause')); assert.deepEqual(playback, [true]);
+    assert.match(window.document.querySelector('[role=alert]')!.textContent!, /Native audio connection unavailable/, 'routine success cannot hide audio errors');
+    await api.act(async () => successTimers.at(-1)!()); assert.equal(window.document.querySelector('.feedback.success'), null);
+    await click('Enable audio'); assert.match(window.document.querySelector('.feedback.error')!.textContent!, /Synthetic audio refusal/);
+    const timerCount = successTimers.length; await api.act(async () => listener()); assert.equal(successTimers.length, timerCount, 'failures are not automatically dismissed');
+    await click('Add window'); const search = window.document.querySelector('input[type=search]')!;
+    assert.equal(window.document.activeElement, search);
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'ESPN');
+    await api.act(async () => search.dispatchEvent(new window.Event('input', { bubbles: true })));
+    await api.act(async () => listener()); assert.equal((search as any).value, 'ESPN'); assert.equal(window.document.activeElement, search);
+    await api.act(async () => search.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    assert.equal(window.document.querySelector('[aria-label="Content picker"]'), null); assert.equal(window.document.activeElement, button('Add window'));
+    await click('Add window'); await click('Add current Original · ESPN'); assert.equal(window.document.activeElement, button('Add window'), 'successful asynchronous choice restores trigger focus after busy clears');
+    state.panes[0].playbackState = 'unavailable'; await api.act(async () => listener()); assert(button('Play')); assert(button('Pause'), 'unknown state keeps both native action choices');
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
 });
