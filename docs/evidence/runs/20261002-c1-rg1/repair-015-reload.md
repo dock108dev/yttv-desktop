@@ -1,5 +1,0 @@
-# C1-RG1 — native-volume repair015 reload
-
-014 installed identity PASS, selected-volume refresh FAIL. Native slider remained100% while Desktop/video showed99%; later state returned100%.015 updates the ordinary native control and requires its/player readback, preserving mute and surfacing refusal. Native DOM support awaits real qualification; no success inferred from93 passing local tests. Historical tab-mute caller remains UNKNOWN.
-
-Prepared **v0.1.15 / 01571356996c1b5b**, expected **idaaiiafgopfpaojpnhaoefbefllioab**. [Inventory](candidate-015.json), [run/failures](run.md), [012 rollback](rollback-012/build-identity.json). Owner Reloads existing entry once for this concrete repair per [Development](../../../DEVELOPMENT.md), retaining Loaded from `/Users/michaelfuscoletti/Desktop/yttv-desktop/dist/chrome-extension`, ID/storage/permissions. No remove/reinstall/reset. Chrome site mute must remain active. Then agent refreshes main, binds015 and checks affected muted paths. Audio enable/transfer stays deferred.
