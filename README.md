@@ -8,7 +8,7 @@ A Chrome extension with a compact remote for up to four native YouTube TV player
 - Recover known windows after extension Reload; explicitly connect other existing players.
 - Search native guide listings and discover sports programs from their text.
 
-Requires Google Chrome, Node.js 22 and Python 3 for development. Watching requires your own YouTube TV access. The four-window software limit does not establish your account's simultaneous playback allowance. Safari/native clients, other streaming services and independent sports scores are not implemented.
+Requires Google Chrome, Node.js 24 and Python 3 for development. Watching requires your own YouTube TV access. The four-window software limit does not establish your account's simultaneous playback allowance. Safari/native clients, other streaming services and independent sports scores are not implemented.
 
 ## Quickstart
 

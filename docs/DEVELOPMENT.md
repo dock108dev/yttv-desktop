@@ -1,6 +1,6 @@
 # Development
 
-Use Node.js 22 (`.nvmrc`), Python 3 and the root npm lockfile. Dependencies are installed once from the repository root:
+Use Node.js 24 (`.nvmrc`), Python 3 and the root npm lockfile. Dependencies are installed once from the repository root:
 
 ```sh
 npm ci

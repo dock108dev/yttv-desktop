@@ -1,6 +1,6 @@
 # Continuous integration
 
-`.github/workflows/ci.yml` runs on pull requests, main pushes, manual dispatch and a weekly schedule. Node 22 and Python 3.14 are the runner environments. The stable **Repository checks** job requires both source and security jobs to succeed; failure, cancellation or a skipped/missing job cannot pass it.
+`.github/workflows/ci.yml` runs on pull requests, main pushes, manual dispatch and a weekly schedule. Node 24 (`.nvmrc`) and Python 3.14 are the runner environments. The stable **Repository checks** job requires both source and security jobs to succeed; failure, cancellation or a skipped/missing job cannot pass it.
 
 ## Checks and reports
 
