@@ -1,3 +1,4 @@
+import type { LayoutMode } from '../../quadbox/src/geometry';
 import { normalizeText, type GuideEntry, type PlaybackTarget } from '../../core/src/index.js';
 
 export type KeyboardAction = 'watch' | 'search' | 'help' | 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
@@ -134,4 +135,12 @@ export function createPreferencesStore(bridge: StorageBridge) {
       writeQueue = write; return write;
     },
   };
+}
+
+/** Additive workspace preference. No targets, identities or audio authority. */
+export const WORKSPACE_LAYOUT_KEY = 'yttv-desktop.workspace-layout.v1';
+export interface WorkspaceLayoutPreference { version: 1; mode: LayoutMode }
+export function sanitizeWorkspaceLayout(value: unknown): WorkspaceLayoutPreference {
+  const raw = object(value);
+  return { version: 1, mode: raw.version === 1 && raw.mode === 'top-bottom' ? 'top-bottom' : 'auto' };
 }

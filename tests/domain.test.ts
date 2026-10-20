@@ -138,3 +138,17 @@ test('keyboard import disables invalid/duplicate mappings deterministically and 
   assert.equal(prefs.keyboardMappings.mute, ''); assert.equal(prefs.keyboardMappings.pane1, ''); assert.equal(prefs.keyboardMappings.pane2, '');
   assert.equal(prefs.keyboardMappings.up, 'ArrowUp'); assert.equal(prefs.keyboardMappings.watch, 'w');
 });
+
+test('workspace layout preference is additive, bounded and drops unrelated authority; commands reject invalid modes', async () => {
+  const { sanitizeWorkspaceLayout } = await import('../packages/storage/src/index');
+  const { validCommand } = await import('../apps/chrome-extension/src/adapter');
+  for (const raw of [undefined, null, [], {}, { mode: 'top-bottom' }, { version: 2, mode: 'top-bottom' }, { version: 1, mode: 'side-by-side' }]) assert.deepEqual(sanitizeWorkspaceLayout(raw), { version: 1, mode: 'auto' });
+  const clean = sanitizeWorkspaceLayout({ version: 1, mode: 'top-bottom', players: ['unknown'], url: 'secret', audioEnabled: true });
+  assert.deepEqual(clean, { version: 1, mode: 'top-bottom' }); assert.deepEqual(sanitizeWorkspaceLayout(JSON.parse(JSON.stringify(clean))), clean);
+  assert(validCommand({ type: 'SET_WORKSPACE_LAYOUT', mode: 'auto' })); assert(validCommand({ type: 'SET_WORKSPACE_LAYOUT', mode: 'top-bottom' }));
+  for (const mode of [undefined, null, {}, 'side-by-side', 'TOP_BOTTOM']) {
+    assert(!validCommand({ type: 'SET_WORKSPACE_LAYOUT', mode }));
+    if (mode !== undefined) assert(!validCommand({ type: 'SET_TV_AREA', workArea: { left: 0, top: 0, width: 1920, height: 1040 }, area: { left: 0, top: 0, width: 1000, height: 800 }, layout: mode }));
+  }
+  assert(validCommand({ type: 'APPLY_TOP_BOTTOM' }));
+});

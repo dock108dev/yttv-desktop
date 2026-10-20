@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { resolve } from 'node:path';
 import type { AdapterObservation } from '../packages/yttv-adapter/src/index';
 import type { GuideEntry } from '../packages/core/src/index';
+import { planLayout } from '../packages/quadbox/src/geometry';
 import { envelope } from '../apps/chrome-extension/src/adapter';
 
 test('real remote → bridge → worker journey targets four feeds, reflows, preserves manual placement and reopens truthfully', async () => {
@@ -66,7 +67,8 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   let dispose = () => {}, bridge: any;
   const mount = async () => { bridge = uiApi.createClientBridge(); await uiApi.act(async () => { dispose = uiApi.mountRemote(window.document.getElementById('test-root'), bridge); await bridge.refresh(); }); };
   const sync = async () => { await uiApi.act(async () => { await bridge.refresh(); }); };
-  const click = async (label: string, scope: any = window.document) => { const b = [...scope.querySelectorAll('button')].find((b: any) => b.textContent === label) as any; assert(b, label); assert.equal(b.disabled, false, label); await uiApi.act(async () => b.click()); await sync(); };
+  const interactions: string[] = [];
+  const click = async (label: string, scope: any = window.document) => { const b = [...scope.querySelectorAll('button')].find((b: any) => b.textContent === label) as any; assert(b, label); assert.equal(b.disabled, false, label); interactions.push(label); await uiApi.act(async () => b.click()); await sync(); };
   const row = (name: string) => [...window.document.querySelectorAll('.results article')].find(r => r.querySelector('strong')?.textContent === name)!;
   const card = (id: string) => { const pane = [...window.document.querySelectorAll('.window-cards article')].find(r => r.querySelector('strong')?.textContent?.includes(id))!; assert(pane); return pane; };
   const select = async (id: string) => { await send({ type: 'ACTIVE_PANE', paneId: id }); await sync(); };
@@ -95,6 +97,53 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal(log.slice(startBoundary).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 1, 'one start on delayed readiness');
     assert.equal((await snapshot()).panes[1].playbackState, 'playing');
     await observePlayer(extra.tabId); assert.equal(log.slice(startBoundary).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 1);
+    // One-time pair setup reuses the actual editor and two already-owned players.
+    const pairArea = { left: 900, top: 100, width: 1000, height: 950 };
+    const displayWork = { left: 0, top: 30, width: 1920, height: 1040 };
+    api.permissions.contains = async () => true; api.permissions.request = async () => true;
+    api.system = { display: { getInfo: async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }] } };
+    const pairSetupAt = log.length;
+    await click('Two shows · Top/bottom'); assert(window.document.querySelector('[role=dialog]'));
+    await click('Choose monitor');
+    const numeric = [...window.document.querySelectorAll('input[type=number]')];
+    for (const [index, key] of (['left', 'top', 'width', 'height'] as const).entries()) {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(numeric[index], String(pairArea[key]));
+      await uiApi.act(async () => numeric[index].dispatchEvent(new window.Event('input', { bubbles: true })));
+    }
+    const pairPlan = planLayout(pairArea, 2, 8, 'top-bottom'); assert(pairPlan.ok);
+    const preview = [...window.document.querySelectorAll('[role=dialog] .slot-preview')]; assert.equal(preview.length, 2);
+    assert.deepEqual(preview.map(p => p.textContent), ['Top (1)', 'Bottom (2)']);
+    assert.equal((preview[1] as any).style.top, `${100 * (pairPlan.bounds[1].top - displayWork.top) / displayWork.height}%`);
+    await click('Save Top/bottom area');
+    let pairState = await snapshot(); assert.equal(pairState.workspace.layout, 'top-bottom');
+    assert.deepEqual(JSON.parse(JSON.stringify(pairState.workspace.actual.map((r: any) => r.bounds))), pairPlan.bounds);
+    assert.match(card('Original').textContent!, /Top · Original/); assert.match(card('Beta').textContent!, /Bottom · Window 2/);
+    assert.equal(log.slice(pairSetupAt).filter(x => x[0] === 'bounds' && x[2]?.width).length, 2, 'confirming an enrolled pair arranges once');
+    assert(!log.slice(pairSetupAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'), 'setup reuses players and changes only geometry');
+    for (const slot of ['Original', 'Beta']) { await click('Expand', card(slot)); assert.deepEqual(JSON.parse(JSON.stringify((await snapshot()).workspace.actual[0].bounds)), pairArea); await click('Restore', card(slot)); }
+    const pairIds = Array.from(pairState.panes, (p: any) => p.id);
+    await click('Channel', card('Beta')); await click('Choose Beta', row('Beta'));
+    assert.deepEqual(Array.from((await snapshot()).panes, (p: any) => p.id), pairIds, 'replacement preserves Top/Bottom identity');
+    await uiApi.act(async () => dispose());
+    const interactionAt = interactions.length; interactions.push('toolbar'); await send({ type: 'OPEN_REMOTE' });
+    const reopenAt = log.length; await mount();
+    assert.equal(log.length, reopenAt, 'reopen has no physical mutation');
+    const repeatAt = log.length; await click('Two shows · Top/bottom');
+    pairState = await snapshot(); assert.deepEqual(JSON.parse(JSON.stringify(pairState.workspace.actual.map((r: any) => r.bounds))), pairPlan.bounds);
+    assert.equal(log.slice(repeatAt).filter(x => x[0] === 'bounds' && x[2]?.width).length, 2, 'one visible Apply action moves each player once');
+    assert(!log.slice(repeatAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'));
+    // Recorded ordinary repeat use: toolbar opens remote (1), visible shortcut applies (2).
+    // No settings, selection or modal confirmation is needed after genuine setup.
+    assert.deepEqual(interactions.slice(interactionAt), ['toolbar', 'Two shows · Top/bottom']);
+    assert.equal(interactions.length - interactionAt, 2);
+    api.system.display.getInfo = async () => [{ id: 'other-monitor', workArea: displayWork }];
+    const lostAt = log.length; await click('Two shows · Top/bottom');
+    assert.match(window.document.body.textContent!, /Saved monitor.*unavailable/); assert(log.slice(lostAt).every(x => x[0] === 'bounds' && Object.keys(x[2]).every(k => k === 'focused')), 'failure may focus remote, never move players');
+    assert(window.document.querySelector('button') && [...window.document.querySelectorAll('button')].some(b => b.textContent === 'Reselect TV area'));
+    const addLostAt = log.length; assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:2' })).code, 'AREA_UNAVAILABLE');
+    assert(!log.slice(addLostAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'), 'fixed-area Add also preflights before creation');
+    api.system.display.getInfo = async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }];
+    await click('Two shows · Top/bottom');
     const audioBefore = log.filter(x => x[2]?.type === 'PLAYER_AUDIO' || x[2]?.muted !== undefined).length;
     await click('Pause', card('Beta')); assert.equal((await snapshot()).panes[1].playbackState, 'paused');
     await click('Play', card('Beta')); assert.equal(playing.get(1), undefined, 'extra Play does not target original');
@@ -109,8 +158,10 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal((await send({ type: 'AUDIO', paneId: extra.id, muted: false })).ok, false);
     assert.equal(log.slice(handoffAt).some(x => x[2]?.muted === false), false, 'replacement during peer isolation cannot enable audio');
     await observePlayer(extra.tabId);
+    await click('Expand', card('Beta'));
     for (const name of ['Gamma', 'Delta']) { await click('Add window'); await click(`Choose ${name}`, row(name)); }
-    let s = await snapshot();
+    let s = await snapshot(); assert.equal(s.expandedPaneId, undefined, 'Add reflow clears expanded controls after restoring the arrangement'); assert.equal(s.workspace.expanded, false);
+    const mismatchAt = log.length; await click('Two shows · Top/bottom'); assert.equal(log.length, mismatchAt); assert.match(window.document.body.textContent!, /exactly two/); assert.equal((await send({ type: 'APPLY_TOP_BOTTOM' })).code, 'PAIR_REQUIRED');
     refusePlay = true; const gamma = s.panes[2]; const refusedAt = log.length;
     await observePlayer(gamma.tabId); await observePlayer(gamma.tabId);
     assert.equal(log.slice(refusedAt).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 1, 'refusal is not retried');

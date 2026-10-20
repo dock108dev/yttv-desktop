@@ -552,6 +552,10 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
   if (!mainTabId) return fail('MAIN_UNAVAILABLE', 'Select the original player explicitly before adding feeds.');
   // runManaged reserves pending creations by serializing the capacity check through completion/cleanup.
   if (!canAddManagedFeed(controlledIds().length + pendingFeedCreations)) return fail('SESSION_BOUND', 'Four total managed feeds are the software limit. Close an added feed first; account playback allowance is separate.');
+  if (workspace.snapshot().layout === 'top-bottom') {
+    const placement = await workspace.validateLayout(controlledIds().length + pendingFeedCreations + 1);
+    if (!placement.ok) return placement;
+  }
   if (workspace.snapshot().intent && !workspace.snapshot().enrolled) {
     const start = await moveOriginal(false); if (!start.ok) return start;
   }
@@ -573,7 +577,7 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
     if (!audioFocusId && audioReadback(mainTabId).muted === false) audioFocusId = 'main';
     panes.push(pane); const start = { pane, deadline: Date.now() + 15_000, url: entry.target.url }; addStarts.set(tabId, start);
     setTimeout(() => { if (addStarts.get(tabId) === start) void runManaged(() => startAdded(tabId)); }, 15_000);
-    if (!activePaneId) activePaneId = 'main'; await saveSessions(); const layout = await workspace.reflow(); void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); await notify();
+    if (!activePaneId) activePaneId = 'main'; await saveSessions(); const layout = await reflowWorkspace(); void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); await notify();
     if (!layout.ok) return ok(`Feed created muted. ${layout.reason}`);
     return ok('Window added muted; waiting for its native player.');
   } catch (error) {
@@ -679,21 +683,29 @@ async function removePane(paneId: string): Promise<ActionResult> {
   try { await chrome.tabs.remove(pane.tabId); } catch (error) { requestedClosures.delete(pane.tabId); throw error; }
   panes = panes.filter(item => item.id !== paneId);
   if (activePaneId === paneId) activePaneId = 'main'; if (expandedPaneId === paneId) expandedPaneId = undefined;
-  await saveSessions(); const layout = await workspace.reflow(); await notify(); return ok(layout.ok ? 'Closed only the selected added feed.' : `Feed closed. ${layout.reason}`);
+  await saveSessions(); const layout = await reflowWorkspace(); await notify(); return ok(layout.ok ? 'Closed only the selected added feed.' : `Feed closed. ${layout.reason}`);
 }
-async function moveOriginal(returning: boolean): Promise<ActionResult> {
+async function syncWorkspaceExpansion(result: ActionResult) {
+  if (result.ok && !workspace.snapshot().expanded && expandedPaneId) { expandedPaneId = undefined; await saveControlIdentity(); }
+  return result;
+}
+async function reflowWorkspace() {
+  const result = await workspace.reflow();
+  return workspace.snapshot().enrolled ? syncWorkspaceExpansion(result) : result;
+}
+async function moveOriginal(returning: boolean, arrangeAfter = true): Promise<ActionResult> {
   const pane = await mainPane(); if (!pane) return fail('MAIN_UNAVAILABLE', 'Original player unavailable.');
   const beforeTab = await chrome.tabs.get(pane.tabId);
   const before = await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'GET_OBSERVATION' })).catch(() => undefined) as PlayerCapture | undefined;
   if (!captureUsable(before)) return fail('PRESERVATION_UNAVAILABLE', 'Current player identity, paused position and audio readback are unavailable. Use native controls; original tab was not moved.');
-  const result = returning ? await workspace.returnMain() : await workspace.enroll();
+  const result = returning ? await workspace.returnMain() : await workspace.enroll(arrangeAfter);
   const after = await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'GET_OBSERVATION' })).catch(() => undefined) as PlayerCapture | undefined;
   const afterTab = await chrome.tabs.get(pane.tabId);
   if (!continuity(before, after) || beforeTab.mutedInfo?.muted !== afterTab.mutedInfo?.muted) {
     const rollback = returning ? undefined : await workspace.returnMain();
     return fail('PRESERVATION_UNCONFIRMED', `Same-tab move did not confirm the captured program, position and audio state. ${rollback?.message ?? rollback?.reason ?? 'Inspect the native player before further workspace actions.'} No program was navigated or replaced.`);
   }
-  return result;
+  return syncWorkspaceExpansion(result);
 }
 async function handle(command: Command, sender: chrome.runtime.MessageSender): Promise<unknown> {
   await init; await workspace.ready;
@@ -707,7 +719,7 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
   if (!managedSessionReadable && (['CONNECT_PANE', 'DUPLICATE_PANE', 'CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'REPLACE_PROGRAM', 'SELECT_PANE'].includes(command.type) ||
       (command.type === 'AUDIO' && command.muted === false)))
     return fail('STORAGE_UNAVAILABLE', 'Managed sessions could not be recovered. Use native mute and existing windows; audio enable and new feeds remain unavailable.');
-  if (['START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE'].includes(command.type) && !workspace.snapshot().available)
+  if (['START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE', 'APPLY_TOP_BOTTOM', 'SET_WORKSPACE_LAYOUT'].includes(command.type) && !workspace.snapshot().available)
     return fail('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.');
   switch (command.type) {
     case 'CONNECT_PANE': return runManaged(async () => {
@@ -763,9 +775,16 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     case 'OPEN_REMOTE': { const result = await workspace.openRemote(); remoteGuideRequested = true; void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); return result; }
     case 'START_WORKSPACE': return runManaged(async () => { const result = await moveOriginal(false); await notify(); return result; });
     case 'RETURN_MAIN': return runManaged(async () => { const result = await moveOriginal(true); await notify(); return result; });
-    case 'ARRANGE': return runManaged(async () => { const result = await workspace.arrange(); await notify(); return result; });
-    case 'SET_TV_AREA': return runManaged(async () => { const result = await workspace.setArea(command.workArea, command.area, command.displayId); await notify(); return result; });
-    case 'AUTO_ARRANGE': return runManaged(async () => { const result = await workspace.setAuto(command.enabled); await notify(); return result; });
+    case 'APPLY_TOP_BOTTOM': return runManaged(async () => {
+      if (pendingFeedCreations) return fail('PAIR_PENDING', 'Wait for the pending player before applying Top/bottom.');
+      const checked = await workspace.validatePair(); if (!checked.ok) return checked;
+      if (!workspace.snapshot().enrolled) { const enrolled = await moveOriginal(false, false); if (!enrolled.ok) { await notify(); return enrolled; } }
+      const result = await workspace.arrange(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result;
+    });
+    case 'SET_WORKSPACE_LAYOUT': return runManaged(async () => { const result = await workspace.setLayout(command.mode); await notify(); return result; });
+    case 'ARRANGE': return runManaged(async () => { const result = await workspace.arrange(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
+    case 'SET_TV_AREA': return runManaged(async () => { const result = await workspace.setArea(command.workArea, command.area, command.displayId, command.layout); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
+    case 'AUTO_ARRANGE': return runManaged(async () => { const result = await workspace.setAuto(command.enabled); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
     case 'ACTIVE_PANE': return runManaged(async () => { const pane = await requirePane(command.paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'Player unavailable.'); activePaneId = pane.id; await saveSessions(); await notify(); return ok('Selected controls; window focus and audio choice preserved.'); });
     case 'FOCUS_PANE': return runManaged(async () => {
       const pane = await requirePane(command.paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'Player unavailable.');
@@ -865,8 +884,8 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     case 'CREATE_PANE': return runManaged(() => createPane(command.channelId));
     case 'REPLACE_PANE': return runManaged(() => replacePane(command.paneId, command.channelId));
     case 'SELECT_PANE': return runManaged(() => selectPane(command.paneId));
-    case 'EXPAND_PANE': return runManaged(async () => { const result = workspace.snapshot().enrolled ? await workspace.expand(command.paneId) : await expandPane(command.paneId); if (result.ok) { expandedPaneId = command.paneId; await saveControlIdentity(); } await notify(); return result; });
-    case 'RESTORE_LAYOUT': return runManaged(async () => { const result = workspace.snapshot().enrolled ? await workspace.restore() : await restoreLayout(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
+    case 'EXPAND_PANE': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout === 'top-bottom') ? await workspace.expand(command.paneId) : await expandPane(command.paneId); if (result.ok) { expandedPaneId = command.paneId; await saveControlIdentity(); } await notify(); return result; });
+    case 'RESTORE_LAYOUT': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout === 'top-bottom') ? await workspace.restore() : await restoreLayout(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
     case 'REMOVE_PANE': return runManaged(() => removePane(command.paneId));
     case 'MUTE': return runManaged(() => muteAll());
     case 'PLAYBACK': {
@@ -927,7 +946,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // A newly created/moved popup may take focus before geometry starts. Return control
     // to the initiating remote for operations that do not explicitly focus a player.
     if (sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('remote.html') &&
-        ['START_WORKSPACE', 'ARRANGE', 'RESTORE_LAYOUT', 'SET_TV_AREA', 'AUTO_ARRANGE', 'CREATE_PANE', 'DUPLICATE_PANE', 'ADD_PROGRAM', 'REMOVE_PANE'].includes(message.type))
+        ['START_WORKSPACE', 'ARRANGE', 'APPLY_TOP_BOTTOM', 'RESTORE_LAYOUT', 'SET_TV_AREA', 'AUTO_ARRANGE', 'CREATE_PANE', 'DUPLICATE_PANE', 'ADD_PROGRAM', 'REMOVE_PANE'].includes(message.type))
       await workspace.focusRemote();
     sendResponse(result);
   }, () => {
@@ -953,7 +972,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
     const results = await Promise.allSettled([saveVolumeChoices(),
       openDrawers.delete(tabId) ? saveDrawers() : Promise.resolve(), removed || removedMain ? saveSessions() : Promise.resolve()]);
     if (results.some(result => result.status === 'rejected')) failures.record('TAB_CLOSE_FAILED');
-    if (removed || removedMain) { if (!explicitClose) await workspace.reflow(); await notify(); }
+    if (removed || removedMain) { if (!explicitClose) await reflowWorkspace(); await notify(); }
   })).catch(() => failures.record('TAB_CLOSE_FAILED'));
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
@@ -965,4 +984,4 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 chrome.action?.onClicked?.addListener(() => { void init.then(async () => { await workspace.openRemote(); await chooseTab(); remoteGuideRequested = true; await syncGuide(); }).catch(() => failures.record('COMMAND_FAILED')); });
-chrome.system?.display?.onDisplayChanged?.addListener(() => { void init.then(() => runManaged(async () => { await workspace.reflow(); await notify(); })).catch(() => failures.record('COMMAND_FAILED')); });
+chrome.system?.display?.onDisplayChanged?.addListener(() => { void init.then(() => runManaged(async () => { await reflowWorkspace(); await notify(); })).catch(() => failures.record('COMMAND_FAILED')); });

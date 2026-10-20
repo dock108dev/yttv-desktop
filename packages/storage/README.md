@@ -1,3 +1,5 @@
 # Local persistence
 
 `src/index.ts` owns version1 preference/history/layout sanitation, ordering and serialized storage writes. Failed writes preserve prior visible choices; invalid serialized records are not silently reset. `createPreferencesStore` exposes load/save through the supported storage bridge; preference-file import/export and reset have no supported entry point. Defaults are created per caller. Legacy identifiers remain readable but grant no navigation/audio authority. `src/guide-cache.ts` stores sanitized listing metadata without watch targets, with bounded optional retries/counters. [Domain tests](../../tests/domain.test.ts) and [guide-cache tests](../../tests/guide-cache.test.ts) cover synthetic records; [failure recovery](../../docs/ERROR_HANDLING.md) describes limits.
+
+`sanitizeWorkspaceLayout` allowlists the separate additive `yttv-desktop.workspace-layout.v1` preference to Auto (legacy default) or Top/bottom. It stores no player, URL or audio authority and leaves the existing area and version 1 preference schemas unchanged. The worker serializes its writes with workspace mutations.

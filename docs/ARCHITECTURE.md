@@ -36,6 +36,10 @@ Version 1 preferences store history, channel customization, shortcuts and saved 
 
 Session records and durable local backups recover known owned windows, Return information and geometry. Recorded ordinary page URLs verify identity, never become eligible guide targets. Recovery observes current audio routing rather than replaying saved enable or mute commands. Missing or changed tab identities require explicit Connect; no unrelated tab is silently adopted or given historical Return authority.
 
+The additive `yttv-desktop.workspace-layout.v1` record stores only version and allowlisted mode (`auto` or `top-bottom`), sanitized by storage. The area schema remains unchanged. Quadbox owns deterministic pair geometry shared by preview and execution; one fills and three/four use legacy automatic geometry while remembering the pair choice. Worker-owned ordering is original first, then the persisted added/connected identity order; channel replacement keeps identity and never reassigns a slot.
+
+`APPLY_TOP_BOTTOM` is validated and serialized by the worker. It requires exactly two connected identities and a monitor-bound area, preflights geometry and any existing dedicated windows, and uses the original continuity/enrollment path when needed. It never adopts an unassigned player or creates a second playback tab. Fixed-mode Add preflights the prospective layout before creating its usual muted player. Monitor identity and the saved logical work area must still match; missing access, changed work areas or missing monitors require deliberate area confirmation, without legacy display fallback. Auto keeps the existing fallback behavior. No new permission is introduced.
+
 Workspace bounds are applied transactionally with readback and rollback. Manual placement stays manual. Return uses supported original placement or reports a normal-window fallback when the former parent is unavailable. Storage writes and physical browser changes are separate operations, so a failed command does not imply a complete rollback.
 
 ## Limits

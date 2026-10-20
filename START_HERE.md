@@ -12,6 +12,22 @@ The limit is four total managed players, including the original and pending crea
 
 Known windows recover after remote reopen or extension Reload. Open players without surviving ownership records require **Connect existing player**. Connecting does not move, navigate or change audio. A restored tab with a different ID cannot inherit a historical original Return position.
 
+## Two shows, top and bottom
+
+For this update, close the remote and Reload the existing extension entry at `chrome://extensions`, then reopen the remote from the toolbar. Version **0.2.13** appears under **Settings & layout → Connection**. Keep the existing entry and its settings.
+
+Press **Two shows · Top/bottom**, then **Choose monitor**, allow monitor access if prompted, and select **Philips** in the Monitor list. Draw the right-hand rectangle from your reference image, leaving the left desktop available, or adjust **left, top, width, height** under **Adjust area precisely**. Check the Top (1)/Bottom (2) preview, then press **Save Top/bottom area**. Confirm an existing saved rectangle if it matches. No full-monitor area is assumed for a new pair. Reference-image pixels must be calibrated to Chrome’s logical coordinates; native video can letterbox.
+
+Save the area once. The original is **Top**, and the second connected player is **Bottom**. Connect the intended existing player explicitly, or use the ordinary Add picker for another show. Connecting preserves position/audio; a connected player sharing a window with other tabs must first be moved to its own Chrome window using native controls. Change channels on the cards to keep their slots. No additional player is created simply to arrange a pair.
+
+With two players connected, the visible shortcut reapplies the remembered rectangle in one action. A synthetic journey records two actions including opening the remote; actual ordinary-use effort remains an owner check. **Reselect TV area** is available next to the preview. Expand fills only this rectangle; Restore returns both players to their prior bounds. Explicit application works in manual mode without enabling automatic Add/Close reflow.
+
+For the first try, confirm both shows visibly advance, press the shortcut again, try Expand/Restore on each player, then close and reopen the remote and reapply the shortcut. Keep your current mute/volume choices; newly added players start muted. Report the first concrete problem, which action triggered it, and what happened versus what you expected. That feedback determines the next fix.
+
+Top/bottom is saved separately from the area; Auto remains the legacy default and is available under Settings & layout. One player fills the area. Three/four players use the existing automatic geometry and remember Top/bottom, while the two-show shortcut refuses the count mismatch. It never closes or selects extra players silently.
+
+The fixed arrangement requires the existing optional monitor access. If that monitor/access is missing or its logical work area changes, placement stops for deliberate reselection. It never chooses a different monitor or switches to side-by-side. Bounds refusal reports rollback limits and retains native positioning/Return. Opening the remote does not itself rearrange players or change playback/audio.
+
 ## Playback and audio
 
 Added windows are muted before navigation. Startup waits up to 15 seconds for a ready player and requests its unique native Play control once. If that request is unavailable or unconfirmed, use native Play. A worker restart cancels waiting startup rather than retrying it.

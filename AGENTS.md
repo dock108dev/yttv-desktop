@@ -9,3 +9,9 @@ Do not decrypt DRM, proxy protected streams, extract credentials or bypass accou
 Preserve current player mute/volume choices. Focus, placement and recovery must not enable or transfer audio. Live account/player operations, capture, installation, extension Reload and publishing require a task that includes them. Do not attach browser automation to protected playback; live feedback is user-operated. Preserve the existing extension ID/storage during authorized updates; do not reinstall or clear storage as a recovery shortcut.
 
 Run `npm run docs:check` for documentation changes. For behavior changes, use strict typecheck and meaningful focused tests. `npm run build -- --check` compiles without replacing a retained build. Avoid full CI, live-service or release campaigns unless warranted by the task. Do not commit or push unless requested.
+
+## Local development workflow
+
+This is a local development project on the owner's machine. Prioritize working code, a usable local build, and normal Git commits/pushes when requested. Git is the recovery path for source; generated builds are disposable and can be rebuilt in place. Use checks proportional to the change and reuse passing results when the tested code is unchanged. Routine work needs no build archives, file-by-file backup verification, fingerprint handoffs or repeated validation campaigns.
+
+Protect meaningful live data that cannot be recovered from Git: credentials, browser/account state, and irreplaceable user data. Apply backup or migration care when an actual change risks that data. Keep ordinary engineering handoffs short and focused on the next working outcome.

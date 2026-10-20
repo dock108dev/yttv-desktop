@@ -8,7 +8,7 @@ npm ci
 
 ## Build and preview
 
-`npm run build` bundles the content script, worker, remote and panel into `dist/chrome-extension`, audits manifest permissions and records the build's source fingerprint. It replaces that output, so retain any needed existing bundle first.
+`npm run build` bundles the content script, worker, remote and panel into `dist/chrome-extension`, audits manifest permissions and records the build's source fingerprint. It replaces that generated output as part of normal local development. Git retains source; rebuildable bundles need no separate backup.
 
 `npm run build -- --check` performs the same compilation and permission audit in memory without writing build files. It does not prepare files for preview or installation.
 

@@ -22,25 +22,29 @@ export function readIntent(raw: unknown): AreaIntent | null {
 }
 export function resolveArea(intent: AreaIntent, workArea = intent.workArea): Rect {
   const n = intent.normalized;
+  // Normalization can round an integer edge just below itself (e.g. -20.000000000000114).
+  // Snap only floating-point noise before containing the outer logical bounds.
+  const edge = (v: number) => Math.abs(v - Math.round(v)) <= Number.EPSILON * Math.max(1, Math.abs(v), workArea.width, workArea.height) * 8 ? Math.round(v) : Math.floor(v);
   const left = Math.round(workArea.left + n.left * workArea.width), top = Math.round(workArea.top + n.top * workArea.height);
-  return { left, top, width: Math.floor(workArea.left + (n.left + n.width) * workArea.width) - left, height: Math.floor(workArea.top + (n.top + n.height) * workArea.height) - top };
+  return { left, top, width: edge(workArea.left + (n.left + n.width) * workArea.width) - left, height: edge(workArea.top + (n.top + n.height) * workArea.height) - top };
 }
+export type LayoutMode = 'auto' | 'top-bottom';
 export type LayoutResult = { ok: true; bounds: Rect[]; description: string } | { ok: false; reason: string };
-export function planLayout(area: Rect, count: number, gap = 8): LayoutResult {
-  if (!validRect(area) || !Number.isInteger(count) || count < 1 || count > 4 || !Number.isFinite(gap) || gap < 0 || gap > 100) return { ok: false, reason: 'TV area or feed count is unavailable.' };
+export function planLayout(area: Rect, count: number, gap = 8, mode: LayoutMode = 'auto'): LayoutResult {
+  if (!validRect(area) || !Number.isInteger(count) || count < 1 || count > 4 || !Number.isFinite(gap) || gap < 0 || gap > 100 || !['auto', 'top-bottom'].includes(mode)) return { ok: false, reason: 'TV area or feed count is unavailable.' };
   const a = { left: Math.ceil(area.left), top: Math.ceil(area.top), width: Math.floor(area.left + area.width) - Math.ceil(area.left), height: Math.floor(area.top + area.height) - Math.ceil(area.top) };
   const split = (r: Rect, vertical: boolean): Rect[] => {
     const first = Math.floor(((vertical ? r.width : r.height) - gap) / 2);
     return vertical ? [{ ...r, width: first }, { ...r, left: r.left + first + gap, width: r.width - first - gap }]
       : [{ ...r, height: first }, { ...r, top: r.top + first + gap, height: r.height - first - gap }];
   };
-  const candidates: Rect[][] = count === 1 ? [[a]] : count === 2 ? [split(a, true), split(a, false)] : count === 3
+  const candidates: Rect[][] = count === 1 ? [[a]] : count === 2 ? (mode === 'top-bottom' ? [split(a, false)] : [split(a, true), split(a, false)]) : count === 3
     ? [true, false].map(v => { const [main, side] = split(a, v); return [main, ...split(side, !v)]; })
     : [[...split(a, false).flatMap(row => split(row, true))]];
   const readable = candidates.filter(rows => rows.every(r => r.width >= MIN_PLAYER.width && r.height >= MIN_PLAYER.height && contains(area, r)));
   if (!readable.length) return { ok: false, reason: `TV area is too small for ${count} feeds. Enlarge the area or close a feed (minimum outer player ${MIN_PLAYER.width} × ${MIN_PLAYER.height}).` };
   // Maximize useful 16:9 video area after a conservative native-frame allowance.
   readable.sort((x, y) => score(y) - score(x));
-  return { ok: true, bounds: readable[0], description: count === 3 ? 'Main/first feed with two balanced companions' : count === 4 ? '2 × 2 grid' : count === 2 ? 'Balanced pair' : 'Fill TV area' };
+  return { ok: true, bounds: readable[0], description: mode === 'top-bottom' && count > 2 ? 'Automatic layout for three/four players; Top/bottom remembered' : count === 3 ? 'Main/first feed with two balanced companions' : count === 4 ? '2 × 2 grid' : count === 2 ? (mode === 'top-bottom' ? 'Top/bottom' : 'Balanced pair') : 'Fill TV area' };
 }
 function score(rows: Rect[]) { return rows.reduce((total, r) => total + Math.min(r.width, (r.height - 48) * 16 / 9) ** 2 * 9 / 16, 0); }

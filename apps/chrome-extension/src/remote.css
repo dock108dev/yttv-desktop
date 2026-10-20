@@ -118,3 +118,9 @@ details .actions { margin-top: 8px; }
   .window-cards article { background: #fff; }
   .area-backdrop { background: #52647b; }
 }
+
+.pair-shortcut { padding: 10px 0; margin-bottom: 10px; border-bottom: 1px solid #c3cedd; }
+.pair-shortcut > .primary { width: 100%; }
+.pair-shortcut small { margin-top: 6px; }
+.slot-preview { position: absolute; pointer-events: none; display: grid; place-items: center; border: 1px solid var(--blue); background: #d6e6fc; color: #153e74; font-size: 12px; overflow: hidden; }
+.saved-preview { max-width: 220px; }

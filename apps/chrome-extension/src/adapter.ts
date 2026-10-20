@@ -4,11 +4,12 @@ import type { AdapterObservation } from '../../../packages/yttv-adapter/src/inde
 import type { Preferences } from '../../../packages/storage/src/index';
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
-  | { type: 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' }
+  | { type: 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' | 'APPLY_TOP_BOTTOM' }
   | { type: 'CHOOSE_MAIN' | 'CONNECT_PANE'; tabId: number }
   | { type: 'FOCUS_PANE' | 'ACTIVE_PANE'; paneId: string }
+  | { type: 'SET_WORKSPACE_LAYOUT'; mode: import('../../../packages/quadbox/src/geometry').LayoutMode }
   | { type: 'AUTO_ARRANGE'; enabled: boolean }
-  | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string }
+  | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string; layout?: import('../../../packages/quadbox/src/geometry').LayoutMode }
   | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
   | { type: 'WATCH_PROGRAM' | 'ADD_PROGRAM'; channelId: string; title: string; observedAt: string }
   | { type: 'REPLACE_PROGRAM'; paneId: string; channelId: string; title: string; observedAt: string }
@@ -45,10 +46,11 @@ export function validCommand(value: unknown): value is Command {
       raw.observedAt.length <= 40 && Number.isFinite(Date.parse(raw.observedAt)) && Boolean(raw.playback && typeof raw.playback === 'object');
   };
   switch (row.type) {
-    case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': return true;
+    case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': case 'APPLY_TOP_BOTTOM': return true;
     case 'CHOOSE_MAIN': case 'CONNECT_PANE': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
+    case 'SET_WORKSPACE_LAYOUT': return row.mode === 'auto' || row.mode === 'top-bottom';
     case 'AUTO_ARRANGE': return typeof row.enabled === 'boolean';
-    case 'SET_TV_AREA': return validRect(row.workArea) && validRect(row.area) && contains(row.workArea, row.area) && (row.displayId === undefined || id(row.displayId));
+    case 'SET_TV_AREA': return validRect(row.workArea) && validRect(row.area) && contains(row.workArea, row.area) && (row.displayId === undefined || id(row.displayId)) && (row.layout === undefined || row.layout === 'auto' || row.layout === 'top-bottom');
     case 'GET_SNAPSHOT': case 'PREVIOUS': case 'MUTE': case 'REFRESH':
     case 'RESTORE_LAYOUT': case 'OPEN_NATIVE_GUIDE': case 'FOCUS_MAIN': case 'GET_DRAWER_STATE':
     case 'GET_OBSERVATION': return row.connectionNonce === undefined || id(row.connectionNonce);

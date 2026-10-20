@@ -201,3 +201,77 @@ test('extension session loss restores saved placement and original Return from d
   assert.equal((await recovered.returnMain()).ok, true); assert.equal(h.tabs.get(1).windowId, 10); assert.equal(h.tabs.get(1).index, 1);
   assert(h.tabs.has(9)); assert(h.tabs.has(30)); assert(h.tabs.has(31));
 });
+
+test('explicit Top/bottom never scores sideways, including odd logical bounds and cases where only Auto fits', () => {
+  for (const a of [{ left: -1701, top: -47, width: 1401, height: 801 }, { left: 40, top: 60, width: 600, height: 1301 }]) {
+    const plan = planLayout(a, 2, 8, 'top-bottom'); assert(plan.ok);
+    const [top, bottom] = plan.bounds;
+    assert.equal(top.left, bottom.left); assert.equal(top.width, a.width); assert.equal(bottom.width, a.width);
+    assert.equal(bottom.top, top.top + top.height + 8); assert(Math.abs(top.height - bottom.height) <= 1);
+    assert(contains(a, top)); assert(contains(a, bottom)); assert(!overlap(top, bottom));
+    assert.deepEqual(planLayout(a, 1, 8, 'top-bottom'), planLayout(a, 1));
+  }
+  const wide = { left: 0, top: 0, width: 1920, height: 600 };
+  assert(planLayout(wide, 2).ok); assert.equal(planLayout(wide, 2, 8, 'top-bottom').ok, false);
+  for (const count of [3, 4]) {
+    const explicit = planLayout(area, count, 8, 'top-bottom'), legacy = planLayout(area, count);
+    assert(explicit.ok && legacy.ok); assert.deepEqual(explicit.bounds, legacy.bounds); assert.match(explicit.description, /Automatic.*remembered/);
+  }
+});
+
+test('saved pair order, manual positions, repeated Expand/Restore and session-loss recovery preserve exact stacked bounds and Return', async () => {
+  const h = harness(), w = h.make(); h.permission(true);
+  const chosen = { left: -1000, top: 100, width: 980, height: 800 };
+  assert.equal((await w.setArea(area, chosen, 'monitor', 'top-bottom')).ok, true);
+  assert.equal((await w.enroll()).ok, true); assert.deepEqual(w.snapshot().actual[0].bounds, chosen, 'one fills without erasing pair intent');
+  h.add(30); assert.equal((await w.reflow()).ok, true);
+  const plan = planLayout(chosen, 2, 8, 'top-bottom'); assert(plan.ok);
+  assert.deepEqual(w.snapshot().actual, [{ id: 'main', bounds: plan.bounds[0] }, { id: 'pane-30', bounds: plan.bounds[1] }]);
+  await w.setAuto(false);
+  for (const id of ['main', 'pane-30', 'main', 'pane-30']) {
+    assert.equal((await w.expand(id)).ok, true); assert.deepEqual(w.snapshot().actual[0].bounds, chosen);
+    for (const key of Object.keys(h.session)) delete h.session[key];
+    const at = h.log.length, recovered = h.make(); await recovered.ready;
+    assert.equal(h.log.length, at); assert.equal(recovered.snapshot().layout, 'top-bottom'); assert(recovered.snapshot().expanded);
+    assert.equal((await recovered.restore()).ok, true); assert.deepEqual(recovered.snapshot().actual.map(r => r.bounds), plan.bounds);
+    // Restore the original instance's expansion record as well before the next cycle.
+    assert.equal((await w.restore()).ok, true);
+  }
+  h.windows.get(30).left += 35; const manual = { ...h.windows.get(30) }, at = h.log.length;
+  await w.reflow(); assert.equal(h.log.length, at); assert.deepEqual(h.windows.get(30), manual);
+  assert.equal((await w.arrange()).ok, true); assert.deepEqual(w.snapshot().actual.map(r => r.bounds), plan.bounds);
+  assert.equal(w.snapshot().intent?.autoArrange, false);
+  const returnAt = h.log.length; assert.equal((await w.returnMain()).ok, true); assert.equal(h.tabs.get(1).windowId, 10); assert(h.tabs.has(9));
+  assert(h.log.slice(0, returnAt).filter(x => x[0] === 'tab').every(x => Object.keys(x[2]).every(k => k === 'pinned')));
+});
+
+test('fixed pair rejects monitor loss, denied access and changed logical work area before any mutation, even while expanded', async () => {
+  for (const unavailable of ['missing', 'denied', 'changed'] as const) {
+    const h = harness(), w = h.make(); h.permission(true); await w.setArea(area, area, 'monitor', 'top-bottom'); await w.enroll(); h.add(30); await w.arrange(); await w.expand('pane-30');
+    const saved = structuredClone(h.local), at = h.log.length;
+    if (unavailable === 'missing') h.displays([{ id: 'other', workArea: area }]);
+    if (unavailable === 'denied') h.permission(false);
+    if (unavailable === 'changed') h.displays([{ id: 'monitor', workArea: { ...area, width: 1800 } }]);
+    for (const operation of [() => w.validatePair(), () => w.arrange(), () => w.expand('main'), () => w.restore(), () => w.enroll(), () => w.reflow(), () => w.setAuto(true)]) assert.equal((await operation()).ok, false);
+    assert.equal(h.log.length, at, unavailable); assert.deepEqual(h.local, saved, 'failure preserves saved intent and expansion');
+    h.permission(true); h.displays([{ id: 'monitor', workArea: area }]); assert.equal((await w.restore()).ok, true);
+  }
+});
+
+test('fixed pair setup refuses unbound, tiny or stale areas; clamping/partial failure preserves intent and mismatch leaves players intact', async () => {
+  const h = harness(), w = h.make(); h.permission(true);
+  assert.equal((await w.setArea(area, area, undefined, 'top-bottom')).code, 'DISPLAY_REQUIRED');
+  assert.equal((await w.setArea(area, { ...area, height: 640 }, 'monitor', 'top-bottom')).code, 'AREA_TOO_SMALL');
+  assert.equal((await w.setArea({ ...area, width: 1800 }, { ...area, width: 1800 }, 'monitor', 'top-bottom')).code, 'DISPLAY_CHANGED');
+  assert.equal(h.log.length, 0); assert.equal(w.snapshot().intent, null);
+  await w.setArea(area, area, 'monitor', 'top-bottom'); await w.enroll(); h.add(30); await w.arrange();
+  const saved = structuredClone(h.local), before = structuredClone([...h.windows]);
+  for (const fail of [() => h.clamp(), () => h.fail(30)]) { fail(); assert.equal((await w.arrange()).ok, false); assert.deepEqual([...h.windows], before); assert.deepEqual(h.local, saved); }
+  const update = h.api.windows.update; let changeDuringMove = true;
+  h.api.windows.update = async (id: number, value: any) => { const result = await update(id, value); if (changeDuringMove && value.width) { changeDuringMove = false; h.displays([{ id: 'other', workArea: area }]); } return result; };
+  const changed = await w.arrange(); assert.equal(changed.ok, false); assert.match(changed.reason!, /changed during placement.*Previous bounds restored/); assert.deepEqual([...h.windows], before); assert.deepEqual(h.local, saved);
+  h.displays([{ id: 'monitor', workArea: area }]);
+  h.add(31); const at = h.log.length; assert.equal((await w.validatePair()).code, 'PAIR_REQUIRED'); assert.equal(h.log.length, at);
+  assert.equal((await w.reflow()).ok, true); assert.equal(w.snapshot().layout, 'top-bottom'); assert.match(w.snapshot().notice, /Automatic.*remembered/);
+  h.extra.pop(); h.tabs.delete(31); assert.equal((await w.reflow()).ok, true); assert.equal(w.snapshot().actual[1].bounds.left, area.left);
+});

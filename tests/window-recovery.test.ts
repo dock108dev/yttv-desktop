@@ -69,3 +69,22 @@ test('browser restoration with changed IDs still reports all open player windows
   assert.equal(state.originalCandidates.length, 3); assert.equal(state.unassignedPlayers.length, 3);
   assert(h.tabs.has(999)); assert(!state.originalCandidates.some((row: any) => row.tabId === 999));
 });
+
+test('two known identities recover in Top/Bottom order with additive saved area/layout; changed IDs still require Connect', async () => {
+  const h = await harness(); await h.observe(); await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
+  const prior = await h.send({ type: 'GET_SNAPSHOT' });
+  h.local['yttv-desktop.workspace-layout.v1'] = { version: 1, mode: 'top-bottom' };
+  h.local['yttv-desktop.tv-area.v1'] = { version: 1, displayId: 'fixed', workArea: { left: -1920, top: 20, width: 1920, height: 1040 }, normalized: { left: .5, top: .1, width: .5, height: .8 }, autoArrange: false };
+  for (const key of Object.keys(h.session)) delete h.session[key];
+  const before = h.log.length; h.start(); const state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.deepEqual(Array.from(state.panes, (p: any) => [p.id, p.tabId]), Array.from(prior.panes, (p: any) => [p.id, p.tabId]));
+  assert.equal(state.workspace.layout, 'top-bottom'); assert.equal(state.workspace.intent.displayId, 'fixed'); assert.equal(state.workspace.intent.autoArrange, false);
+  assert.equal(h.log.length, before, 'recovery emits no create, navigation, playback or audio mutations');
+  const old = prior.panes[1].tabId, tab = h.tabs.get(old); h.tabs.delete(old); h.tabs.set(50, { ...tab, id: 50, windowId: 50 }); h.players.set(50, h.players.get(old));
+  for (const key of Object.keys(h.session)) delete h.session[key]; h.start();
+  const changed = await h.send({ type: 'GET_SNAPSHOT' }); assert.equal(changed.panes.length, 1); assert.equal(changed.unassignedPlayers[0].tabId, 50);
+  assert.equal((await h.send({ type: 'APPLY_TOP_BOTTOM' })).code, 'PAIR_REQUIRED');
+  assert.equal((await h.send({ type: 'CONNECT_PANE', tabId: 50 })).ok, true);
+  assert.equal((await h.send({ type: 'CONNECT_PANE', tabId: 50 })).ok, false, 'cannot connect twice');
+  assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).workspace.layout, 'top-bottom');
+});

@@ -10,6 +10,8 @@ node --import tsx --test packages/ui/src/behavior.test.ts
 
 Policy tests protect URL validation, capacity, cached-target refusal, saved-schema sanitation and audio compensation. Worker tests cover ownership, recovery, guide discovery and control cancellation; `helpers/viewing-worker.ts` supplies a reusable mocked browser. Adapter tests use synthetic DOM/player state. UI tests use Happy DOM and React `act` to settle effects and interactions.
 
+The workspace, domain, remote UI/journey and window-recovery suites cover the fixed Top/bottom preference, shared preview geometry, precise-area calibration, a measured two-action repeat journey, explicit Connect, Add preflight, count mismatch, channel replacement, logical bounds/rollback, manual mode, Expand/Restore and durable pair identity/order. These are synthetic outcomes; physical monitor fit and two visible advancing shows remain owner checks.
+
 `docs-check.test.ts` checks portable documentation validation, including ignored working notes and broken links. CI report tests live in `scripts/ci/test_reports.py`.
 
 [Fixtures](fixtures/README.md) are illustrative inputs. Mocks cannot prove entitlements, visible playback, heard audio or actual Chrome restoration. See [development](../docs/DEVELOPMENT.md) and [architecture](../docs/ARCHITECTURE.md).

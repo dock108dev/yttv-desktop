@@ -34,7 +34,7 @@ export interface DesktopSnapshot {
   guideSyncStatus?: 'idle' | 'loading' | 'ready' | 'unavailable';
   originalMissing?: boolean;
   originalCandidates?: { tabId: number; label: string }[];
-  workspace?: { available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
+  workspace?: { layout?: import('../../quadbox/src/geometry').LayoutMode; available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
   feedLimit?: number;
   pendingFeedCreations?: number;
   mode: 'extension' | 'demo';
