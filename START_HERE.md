@@ -46,3 +46,16 @@ With focus in the workspace or guide rows, default shortcuts are `w` Watch, `g` 
 Cached or expired listings cannot authorize navigation. Native controls and Add current content may remain available. **Open native guide for other channels** changes the original view and cannot promise restoration of a paused position. A discovery tab moved or navigated elsewhere is left alone.
 
 Connection can request optional, narrowly scoped reconnect access. Without it, use native controls or a normal page refresh. Do not clear extension storage or reinstall to recover metadata. See [troubleshooting](docs/ERROR_HANDLING.md).
+
+## Personal-use scope and review
+
+The supported goal is a Chrome YouTube TV remote that starts without a pre-opened player, manages one to four shows, saves preset or custom positions on a selected monitor, and retains native playback/account controls. The Philips right-hand top/bottom setup is one supported arrangement. Existing saved settings, player identities, Return behavior, unrelated tabs and current audio choices must remain intact. A transparent desktop overlay, other services/platforms and independent sports scores are outside this goal.
+
+After following the [existing-entry update instructions](docs/DEVELOPMENT.md#chrome-installation-and-updates), review the flow through ordinary use:
+
+1. When convenient, try New show from an empty session; finish any sign-in in YouTube TV. Choose/add the shows you want within your account's allowance.
+2. Choose a preset or draw custom positions on your monitor. Reapply the saved layout, change a channel, and try Expand/Restore and Return where useful. Count selection saves a plan; it does not create players.
+3. Reopen the remote and, during an update, Reload the existing extension with known players still open. Check that the open-window count/cards recover, positions remain useful, and mute/volume choices remain as selected. Explicitly Connect players whose ownership records or browser IDs no longer match; do not close/re-add them to repair a count.
+4. Report the first problem with the action, expected result and actual result, or confirm that the update is useful as delivered. The owner decides acceptance or requests a concrete correction. This is ordinary feedback, not a requirement to exhaust every layout combination.
+
+The earlier owner report covered the initial 0.2.13 top/bottom setup. It does not establish acceptance of the expanded 0.2.15 flow. [Verification](docs/CI.md#verified-execution) covers the committed source; native picture, heard audio, physical placement and actual setup effort require user-operated observation.

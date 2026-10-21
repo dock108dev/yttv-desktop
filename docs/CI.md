@@ -45,6 +45,12 @@ Health reports separate first-attempt results, rerun recovery and cancellations.
 
 Medians use available samples; p95 requires at least 20 samples per event. Missing metadata remains null or PARTIAL with a reason. Requests have time and size limits, a 240-second overall deadline and a one-page run limit. Recovery on rerun alone does not identify a flaky test, and historical runs across revisions are not a regression baseline. Account quota, billing and unavailable coverage/size comparisons are not inferred.
 
+## Verified execution
+
+On October 20, 2026, [main CI run 39526646940](https://github.com/dock108dev/yttv-desktop/actions/runs/39526646940) completed successfully for commit `f9c85f1` (extension 0.2.15). Source and fixture checks, workflow/security checks and the Repository checks aggregate passed. Both finalizers and diagnostic uploads succeeded; source and security artifacts were present. This establishes hosted Ubuntu execution of the committed implementation, including the UI/geometry cleanup. Job-summary rendering was not visually reviewed.
+
+That push did not select the scheduled/manual macOS job. No CI health runs existed when checked. Neither result can be inferred from the Ubuntu pass or earlier local macOS checks. CI health remains advisory; observing it is separate from the product's correctness gate. These records do not establish installed playback or owner acceptance.
+
 ## Local reproduction
 
 For everyday changes, use the focused commands in [development](DEVELOPMENT.md). To reproduce the CI runners, install dependencies and create a fresh output directory:

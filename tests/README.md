@@ -21,3 +21,9 @@ The UI suite also verifies shortcut draft discard, focus trapping and return to 
 `docs-check.test.ts` checks portable documentation validation, including exclusion of ignored working notes and detection of broken links. `scripts/ci/test_*.py` covers report validation, the actual aggregate gate, failure/missing/setup outcomes, recursive test discovery, drawing assets and bounded history metrics. Source CI runs these contract tests before the product tests; the workflow and check map is in [CI](../docs/CI.md).
 
 [Fixtures](fixtures/README.md) are illustrative inputs. Mocks cannot prove entitlements, visible playback, heard audio or actual Chrome restoration. See [development](../docs/DEVELOPMENT.md) and [architecture](../docs/ARCHITECTURE.md).
+
+## Verification status
+
+The committed 0.2.15 implementation, including the shortcut-dialog and geometry cleanup, passed [hosted Ubuntu CI](../docs/CI.md#verified-execution) on October 20, 2026. That run exercised the shared product-test inventory, Python reporting contracts, strict types, in-memory build, documentation checks and a clean install/build/fixture smoke check. It supersedes local planning notes that said the integration regression cases were still unexecuted. Security ran in its separate passing job.
+
+Earlier local CI reproduction passed 163 product tests and 17 reporting-contract tests before the final cleanup; those counts describe that earlier run. Subsequent focused cleanup checks and a disposable build passed locally. Neither those results nor hosted Ubuntu establish the unselected hosted macOS leg, CI health execution, installed Chrome recovery, physical monitor behavior or owner acceptance. Follow the [ordinary-use review](../START_HERE.md#personal-use-scope-and-review) for the latter.

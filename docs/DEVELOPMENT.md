@@ -20,6 +20,10 @@ Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and
 
 For updates, close the remote, build, Reload the existing extension entry, then reopen the remote. Keep the same extension entry/ID and storage. Known surviving windows are recovered; changed tab IDs or missing ownership require deliberate existing-player connection. If controls remain disconnected, use Connection or refresh the player normally. Do not reinstall or clear storage as a repair.
 
+## Local build status
+
+As checked on October 20, 2026, source 0.2.15 is committed as `f9c85f1` and has passed [hosted Ubuntu CI](CI.md#verified-execution). The retained `dist/chrome-extension` also reports 0.2.15 but predates the SSOT and UI/geometry maintenance changes. Matching version numbers alone do not mean that generated output contains the current source. Rebuild normally before the next local update, then follow the existing-entry update procedure above. This documentation review did not rebuild, install or Reload the extension.
+
 ## Tests
 
 ```sh
