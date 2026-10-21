@@ -2,8 +2,10 @@
 
 A Chrome extension with a compact remote for up to four native YouTube TV player windows, including the original. It keeps video and account controls in YouTube TV while managing playback controls, audio and window placement.
 
-- Add/remove windows, change channels, and use native Play/Pause and volume controls.
-- Use **Two shows · Top/bottom** to save a monitor rectangle and reapply a stacked pair in one action.
+- Press **New show** to open YouTube TV on your last channel, or the first available live channel—even with no player open. Add up to four shows from the remote.
+- Remove windows, change channels, and use native Play/Pause and volume controls.
+- Use **Arrange shows** for one to four shows: stacked, side by side, grid, a larger main show, or your own positions.
+- Draw your TV area or each show’s box at full size on the chosen monitor, then reuse the saved layout.
 - Choose a TV area, arrange windows automatically or manually, and Expand/Restore them.
 - Return the original to its previous window where supported.
 - Recover known windows after extension Reload; explicitly connect other existing players.
@@ -23,7 +25,7 @@ npm run preview
 
 Open `http://127.0.0.1:4173` for the illustrative fixture preview. It cannot sign in or play video. Building writes `dist/chrome-extension`; rebuild it in place during local development.
 
-For the extension, open `chrome://extensions`, enable Developer mode, and load `dist/chrome-extension` with **Load unpacked**. Open YouTube TV normally, then click the extension toolbar icon for the remote. To update an existing installation, Reload its existing entry to retain its ID and local settings. See [usage](START_HERE.md) and [development](docs/DEVELOPMENT.md).
+Load or update the extension from `dist/chrome-extension` following [development](docs/DEVELOPMENT.md#chrome-installation-and-updates). See [usage](START_HERE.md) for the remote and native sign-in flow.
 
 ## Checks
 

@@ -1,4 +1,5 @@
-import type { LayoutMode } from '../../quadbox/src/geometry';
+import { isLayoutMode, validCustomSlots, type LayoutMode, type Rect } from '../../quadbox/src/geometry';
+import { MANAGED_FEED_COUNTS } from '../../quadbox/src/policy';
 import { normalizeText, type GuideEntry, type PlaybackTarget } from '../../core/src/index.js';
 
 export type KeyboardAction = 'watch' | 'search' | 'help' | 'guide' | 'sports' | 'quadbox' | 'previous' | 'mute' | 'pane1' |
@@ -97,6 +98,12 @@ export function sanitizePreferences(value: unknown): Preferences {
     nightMuteLock: false, // The temporary overnight hold is retired; this field conveys no audio authority.
   };
 }
+/** Editable choices share one merge policy; confirmed history and schema remain storage-owned. */
+export function patchPreferences(preferences: Preferences, patch: Partial<Preferences>): Preferences {
+  const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent,
+    schemaVersion: _schema, nightMuteLock: _mute, ...editable } = patch;
+  return sanitizePreferences({ ...preferences, ...editable, ui: { ...preferences.ui, ...editable.ui } });
+}
 /** Call only after the adapter confirms the new channel; attempts and repeated observations are ignored. */
 export function recordConfirmedSwitch(preferences: Preferences, channelId: string, confirmed = true): Preferences {
   if (!confirmed || !identifier(channelId) || channelId === preferences.currentChannel) return preferences;
@@ -116,7 +123,7 @@ export function orderGuide(entries: readonly GuideEntry[], preferences: Preferen
     (order.get(a.entry.channel.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.entry.channel.id) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index)
     .map(({ entry }) => entry);
 }
-export interface StorageBridge { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void>; remove?(key: string): Promise<void> }
+export interface StorageBridge { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> }
 export function createPreferencesStore(bridge: StorageBridge) {
   let writeQueue: Promise<void> = Promise.resolve();
   return {
@@ -139,8 +146,15 @@ export function createPreferencesStore(bridge: StorageBridge) {
 
 /** Additive workspace preference. No targets, identities or audio authority. */
 export const WORKSPACE_LAYOUT_KEY = 'yttv-desktop.workspace-layout.v1';
-export interface WorkspaceLayoutPreference { version: 1; mode: LayoutMode }
+export interface WorkspaceLayoutPreference { version: 1; mode: LayoutMode; customLayouts?: Record<string, Rect[]> }
 export function sanitizeWorkspaceLayout(value: unknown): WorkspaceLayoutPreference {
   const raw = object(value);
-  return { version: 1, mode: raw.version === 1 && raw.mode === 'top-bottom' ? 'top-bottom' : 'auto' };
+  const result: WorkspaceLayoutPreference = { version: 1, mode: raw.version === 1 && isLayoutMode(raw.mode) ? raw.mode : 'auto' };
+  const layouts = object(raw.customLayouts), customLayouts: Record<string, Rect[]> = {};
+  if (raw.version === 1) for (const count of MANAGED_FEED_COUNTS) {
+    const slots = layouts[String(count)];
+    if (validCustomSlots(slots, count)) customLayouts[String(count)] = slots.map(r => ({ left: r.left, top: r.top, width: r.width, height: r.height }));
+  }
+  if (Object.keys(customLayouts).length) result.customLayouts = customLayouts;
+  return result;
 }

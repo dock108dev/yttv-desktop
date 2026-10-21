@@ -71,7 +71,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   const click = async (label: string, scope: any = window.document) => { const b = [...scope.querySelectorAll('button')].find((b: any) => b.textContent === label) as any; assert(b, label); assert.equal(b.disabled, false, label); interactions.push(label); await uiApi.act(async () => b.click()); await sync(); };
   const row = (name: string) => [...window.document.querySelectorAll('.results article')].find(r => r.querySelector('strong')?.textContent === name)!;
   const card = (id: string) => { const pane = [...window.document.querySelectorAll('.window-cards article')].find(r => r.querySelector('strong')?.textContent?.includes(id))!; assert(pane); return pane; };
-  const select = async (id: string) => { await send({ type: 'ACTIVE_PANE', paneId: id }); await sync(); };
+  const select = async (id: string) => { await send({ type: 'FOCUS_PANE', paneId: id }); await sync(); };
   const snapshot = () => send({ type: 'GET_SNAPSHOT' });
   // Opening Live must retain the paused original's native choices for its next watch player.
   await send({ type: 'OPEN_NATIVE_GUIDE' });
@@ -85,7 +85,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   try {
     await mount(); await click('TV area'); await click('Apply');
     assert.equal((await snapshot()).workspace.enrolled, false);
-    deferNavigation = true; await click('Add window'); await click('Choose Beta', row('Beta'));
+    deferNavigation = true; await click('Pick a channel'); await click('Choose Beta', row('Beta'));
     let pending = await snapshot(); assert.equal(pending.workspace.enrolled, true, 'Add automatically enrolls/arranges in saved area'); assert.notEqual(tabs.get(1).windowId, 10); assert.equal(pending.panes.length, 2, 'pending watch navigation retains owned feed');
     assert.equal(pending.workspace.actual.length, 2, 'pending feed participates in arrangement');
     const loading = tabs.get(pending.panes[1].tabId); assert.equal(loading.url, 'about:blank');
@@ -103,8 +103,11 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     api.permissions.contains = async () => true; api.permissions.request = async () => true;
     api.system = { display: { getInfo: async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }] } };
     const pairSetupAt = log.length;
-    await click('Two shows · Top/bottom'); assert(window.document.querySelector('[role=dialog]'));
+    await click('Change layout'); assert(window.document.querySelector('[role=dialog]'));
     await click('Choose monitor');
+    const layoutSelect = window.document.querySelector('select[aria-label="Show layout"]')!;
+    (layoutSelect as any).value = 'top-bottom'; await uiApi.act(async () => layoutSelect.dispatchEvent(new window.Event('change', { bubbles: true })));
+    (window.document.querySelector('.mini-area-editor summary') as any).click();
     const numeric = [...window.document.querySelectorAll('input[type=number]')];
     for (const [index, key] of (['left', 'top', 'width', 'height'] as const).entries()) {
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(numeric[index], String(pairArea[key]));
@@ -112,9 +115,9 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     }
     const pairPlan = planLayout(pairArea, 2, 8, 'top-bottom'); assert(pairPlan.ok);
     const preview = [...window.document.querySelectorAll('[role=dialog] .slot-preview')]; assert.equal(preview.length, 2);
-    assert.deepEqual(preview.map(p => p.textContent), ['Top (1)', 'Bottom (2)']);
+    assert.deepEqual(preview.map(p => p.textContent), ['Show 1', 'Show 2']);
     assert.equal((preview[1] as any).style.top, `${100 * (pairPlan.bounds[1].top - displayWork.top) / displayWork.height}%`);
-    await click('Save Top/bottom area');
+    await click('Save layout');
     let pairState = await snapshot(); assert.equal(pairState.workspace.layout, 'top-bottom');
     assert.deepEqual(JSON.parse(JSON.stringify(pairState.workspace.actual.map((r: any) => r.bounds))), pairPlan.bounds);
     assert.match(card('Original').textContent!, /Top · Original/); assert.match(card('Beta').textContent!, /Bottom · Window 2/);
@@ -128,22 +131,22 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     const interactionAt = interactions.length; interactions.push('toolbar'); await send({ type: 'OPEN_REMOTE' });
     const reopenAt = log.length; await mount();
     assert.equal(log.length, reopenAt, 'reopen has no physical mutation');
-    const repeatAt = log.length; await click('Two shows · Top/bottom');
+    const repeatAt = log.length; await click('Arrange shows');
     pairState = await snapshot(); assert.deepEqual(JSON.parse(JSON.stringify(pairState.workspace.actual.map((r: any) => r.bounds))), pairPlan.bounds);
     assert.equal(log.slice(repeatAt).filter(x => x[0] === 'bounds' && x[2]?.width).length, 2, 'one visible Apply action moves each player once');
     assert(!log.slice(repeatAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'));
     // Recorded ordinary repeat use: toolbar opens remote (1), visible shortcut applies (2).
     // No settings, selection or modal confirmation is needed after genuine setup.
-    assert.deepEqual(interactions.slice(interactionAt), ['toolbar', 'Two shows · Top/bottom']);
+    assert.deepEqual(interactions.slice(interactionAt), ['toolbar', 'Arrange shows']);
     assert.equal(interactions.length - interactionAt, 2);
     api.system.display.getInfo = async () => [{ id: 'other-monitor', workArea: displayWork }];
-    const lostAt = log.length; await click('Two shows · Top/bottom');
+    const lostAt = log.length; await click('Arrange shows');
     assert.match(window.document.body.textContent!, /Saved monitor.*unavailable/); assert(log.slice(lostAt).every(x => x[0] === 'bounds' && Object.keys(x[2]).every(k => k === 'focused')), 'failure may focus remote, never move players');
-    assert(window.document.querySelector('button') && [...window.document.querySelectorAll('button')].some(b => b.textContent === 'Reselect TV area'));
+    assert(window.document.querySelector('button') && [...window.document.querySelectorAll('button')].some(b => b.textContent === 'Change layout'));
     const addLostAt = log.length; assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:2' })).code, 'AREA_UNAVAILABLE');
     assert(!log.slice(addLostAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'), 'fixed-area Add also preflights before creation');
     api.system.display.getInfo = async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }];
-    await click('Two shows · Top/bottom');
+    await click('Arrange shows');
     const audioBefore = log.filter(x => x[2]?.type === 'PLAYER_AUDIO' || x[2]?.muted !== undefined).length;
     await click('Pause', card('Beta')); assert.equal((await snapshot()).panes[1].playbackState, 'paused');
     await click('Play', card('Beta')); assert.equal(playing.get(1), undefined, 'extra Play does not target original');
@@ -158,10 +161,11 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal((await send({ type: 'AUDIO', paneId: extra.id, muted: false })).ok, false);
     assert.equal(log.slice(handoffAt).some(x => x[2]?.muted === false), false, 'replacement during peer isolation cannot enable audio');
     await observePlayer(extra.tabId);
+    assert.equal((await send({ type: 'SET_TV_AREA', workArea: displayWork, area: pairArea, displayId: 'fixed-monitor', layout: 'grid', plannedCount: 4 })).ok, true);
     await click('Expand', card('Beta'));
-    for (const name of ['Gamma', 'Delta']) { await click('Add window'); await click(`Choose ${name}`, row(name)); }
+    for (const name of ['Gamma', 'Delta']) { await click('Pick a channel'); await click(`Choose ${name}`, row(name)); }
     let s = await snapshot(); assert.equal(s.expandedPaneId, undefined, 'Add reflow clears expanded controls after restoring the arrangement'); assert.equal(s.workspace.expanded, false);
-    const mismatchAt = log.length; await click('Two shows · Top/bottom'); assert.equal(log.length, mismatchAt); assert.match(window.document.body.textContent!, /exactly two/); assert.equal((await send({ type: 'APPLY_TOP_BOTTOM' })).code, 'PAIR_REQUIRED');
+    await click('Arrange shows'); assert.equal((await snapshot()).workspace.actual.length, 4);
     refusePlay = true; const gamma = s.panes[2]; const refusedAt = log.length;
     await observePlayer(gamma.tabId); await observePlayer(gamma.tabId);
     assert.equal(log.slice(refusedAt).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 1, 'refusal is not retried');
@@ -194,6 +198,25 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     await uiApi.act(async () => api.tabs.remove(s.panes[1].tabId)); await sync(); s = await snapshot(); assert.equal(s.panes.length, 2); assert.equal(s.workspace.actual.length, 2);
     await uiApi.act(async () => dispose()); await mount(); assert.match(window.document.body.textContent!, /2 \/ 4 windows/);
     await click('Arrange now'); failPlacement = true; await click('Arrange now'); assert.match(window.document.body.textContent!, /Previous bounds restored/);
+    // The full-size picker saves real screen coordinates through the worker, not the small preview.
+    const customBoxes = [{ left: 50, top: 100, width: 850, height: 450 }, { left: 1000, top: 600, width: 850, height: 400 }];
+    const customSlots = customBoxes.map(r => ({ left: (r.left - displayWork.left) / displayWork.width, top: (r.top - displayWork.top) / displayWork.height, width: r.width / displayWork.width, height: r.height / displayWork.height }));
+    await send({ type: 'AUTO_ARRANGE', enabled: false });
+    assert.equal((await send({ type: 'OPEN_AREA_PICKER', workArea: displayWork, displayId: 'fixed-monitor', mode: 'custom', count: 2 })).ok, true);
+    const pickerTab = [...tabs.values()].find(t => t.url === 'chrome-extension://local/area-picker.html')!;
+    const pickerSender = { id: 'local', url: pickerTab.url, tab: pickerTab };
+    const pickerSend = (command: any) => new Promise<any>(res => workerListener(envelope(command), pickerSender, res));
+    assert.equal((await send({ type: 'GET_AREA_PICKER' })).ok, false, 'only the drawing window reads its pending configuration');
+    assert.equal((await pickerSend({ type: 'GET_AREA_PICKER' })).picker.count, 2);
+    assert.equal((await send({ type: 'SAVE_AREA_PICKER', area: displayWork, customSlots })).ok, false, 'another extension page cannot save a drawing');
+    const drawnAt = log.length;
+    assert.equal((await pickerSend({ type: 'SAVE_AREA_PICKER', area: displayWork, customSlots })).ok, true);
+    s = await snapshot(); assert.equal(s.workspace.layout, 'custom');
+    assert.deepEqual(JSON.parse(JSON.stringify(s.workspace.actual.map((r: any) => r.bounds))), customBoxes);
+    assert.equal(tabs.has(pickerTab.id), false, 'successful save closes the owned drawing window');
+    assert.equal(s.workspace.intent.autoArrange, false, 'explicit Save applies positions without switching manual mode back on');
+    assert(!log.slice(drawnAt).some(x => x[0] === 'player' || x[0] === 'tab'), 'drawing only changes geometry');
+    await send({ type: 'AUTO_ARRANGE', enabled: true });
     await click('Arrange now'); const remaining = (await snapshot()).panes[1]; windows.get(remaining.windowId).left += 45;
     assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:2' })).ok, true); await sync();
     const timedOut = (await snapshot()).panes.at(-1); const timeoutBoundary = log.length; clockOffset = 16_000;
@@ -212,7 +235,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     await click('Start TV workspace');
     clockOffset = 31 * 60_000; await observePlayer(1); await sync(); const duplicateAt = log.length;
     assert((await snapshot()).guide.every((e: any) => !e.available), 'expired guide remains unavailable');
-    await click('Add window'); const originalNow = (await snapshot()).panes[0];
+    await click('Pick a channel'); const originalNow = (await snapshot()).panes[0];
     await click(`Add current Original · ${originalNow.channelName}`);
     const duplicated = (await snapshot()).panes.at(-1); assert.equal(tabs.get(duplicated.tabId).url, tabs.get(1).url);
     assert.equal(log.slice(duplicateAt).some(x => x[1] === 1 && x[2]?.url), false, 'current-content Add never navigates original to guide');

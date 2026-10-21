@@ -3,21 +3,22 @@ import { createRoot } from 'react-dom/client';
 import { createClientBridge } from './bridge';
 import { envelope, type Command } from './adapter';
 import { chooseMonitors, grantedMonitors, mapPoint, thisScreen, type Monitor } from './display';
-import { contains, planLayout, resolveArea, validRect, type LayoutMode, type Rect } from '../../../packages/quadbox/src/geometry';
-import { CURRENT_MANAGED_FEED_LIMIT, canAddManagedFeed } from '../../../packages/quadbox/src/policy';
+import { contains, LAYOUT_OPTIONS, planLayout, resolveArea, validRect, type LayoutMode, type Rect } from '../../../packages/quadbox/src/geometry';
+import { CURRENT_MANAGED_FEED_LIMIT, MANAGED_FEED_COUNTS, canAddManagedFeed } from '../../../packages/quadbox/src/policy';
 import { freshLiveTarget } from '../../../packages/yttv-adapter/src/index';
 import { sportsListings, listingPlayable } from '../../../packages/sports-engine/src/guide';
 import type { ActionResult, DesktopSnapshot, ClientBridge } from '../../../packages/ui/src/types';
 import './remote.css';
-function SlotPreview({ work, area, mode, count }: { work: Rect; area: Rect; mode: LayoutMode; count: number }) {
-  const plan = planLayout(area, count, 8, mode);
-  return plan.ok ? <>{plan.bounds.map((r, i) => <div key={i} className="slot-preview" style={{ left: `${100 * (r.left - work.left) / work.width}%`, top: `${100 * (r.top - work.top) / work.height}%`, width: `${100 * r.width / work.width}%`, height: `${100 * r.height / work.height}%` }}>{mode === 'top-bottom' && count === 2 ? (i === 0 ? 'Top (1)' : 'Bottom (2)') : i + 1}</div>)}</> : null;
+function SlotPreview({ work, area, mode, count, slots }: { work: Rect; area: Rect; mode: LayoutMode; count: number; slots?: Rect[] }) {
+  const plan = planLayout(area, count, 8, mode, slots);
+  return plan.ok ? <>{plan.bounds.map((r, i) => <div key={i} className="slot-preview" style={{ left: `${100 * (r.left - work.left) / work.width}%`, top: `${100 * (r.top - work.top) / work.height}%`, width: `${100 * r.width / work.width}%`, height: `${100 * r.height / work.height}%` }}>{`Show ${i + 1}`}</div>)}</> : null;
 }
 function Remote({ bridge }: { bridge: ClientBridge }) {
   const [state, setState] = useState<DesktopSnapshot | null>(null), [query, setQuery] = useState(''), [sports, setSports] = useState(false);
   const [picker, setPicker] = useState<string | null>(null);
-  const [pairSetup, setPairSetup] = useState(false);
-  const pairButtonRef = useRef<HTMLButtonElement>(null), areaTrigger = useRef<HTMLButtonElement | null>(null);
+  const [layoutSetup, setLayoutSetup] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('auto'), [layoutCount, setLayoutCount] = useState(1);
+  const layoutButtonRef = useRef<HTMLButtonElement>(null), areaTrigger = useRef<HTMLButtonElement | null>(null);
   const [candidateTab, setCandidateTab] = useState('');
   const [message, setMessage] = useState(''), [messageError, setMessageError] = useState(false), [busy, setBusy] = useState(false), [areaOpen, setAreaOpen] = useState(false);
   const [monitors, setMonitors] = useState<Monitor[]>([]), [monitorIndex, setMonitorIndex] = useState(0), [area, setArea] = useState<Rect | null>(null);
@@ -50,7 +51,14 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
     const escape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setAreaOpen(false); (areaTrigger.current ?? areaButtonRef.current)?.focus(); }
       if (e.key === 'Tab') {
-        const controls = Array.from(areaRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary') ?? []).filter(el => !el.closest('details:not([open])') || el.tagName === 'SUMMARY');
+        const controls = Array.from(areaRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary') ?? []).filter(el => {
+          let closed = el.closest('details:not([open])');
+          while (closed) {
+            if (closed.firstElementChild !== el) return false;
+            closed = closed.parentElement?.closest('details:not([open])') ?? null;
+          }
+          return true;
+        });
         const first = controls[0], last = controls.at(-1);
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
@@ -67,12 +75,14 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
     if (busy) return; setBusy(true);
     try { const result = await operation(); setMessage(result.reason ?? result.message ?? (result.ok ? 'Done.' : 'Unavailable.')); setMessageError(!result.ok); return result; }
     catch { setMessage('Action unavailable. Check the player before retrying, or use its native controls.'); setMessageError(true); }
-    finally { setBusy(false); await bridge.refresh?.(); }
+    finally { setBusy(false); try { await bridge.refresh?.(); } catch { setMessage('Could not refresh the remote. Reopen it to see the latest state.'); setMessageError(true); } }
   }
   const command = (c: Command) => chrome.runtime.sendMessage(envelope(c)) as Promise<ActionResult>;
-  async function openArea(pair = false) {
-    setPairSetup(pair || state?.workspace?.layout === 'top-bottom');
-    areaTrigger.current = pair ? pairButtonRef.current : areaButtonRef.current;
+  async function openArea(setupLayout = false, mode?: LayoutMode) {
+    setLayoutSetup(setupLayout);
+    setLayoutMode(mode ?? state?.workspace?.layout ?? 'auto');
+    setLayoutCount(Math.max(1, Math.min(CURRENT_MANAGED_FEED_LIMIT, state?.panes.length ?? 1)));
+    areaTrigger.current = setupLayout ? layoutButtonRef.current : areaButtonRef.current;
     const fallback = thisScreen(window.screen), saved = state?.workspace?.intent;
     const available = saved?.displayId ? await grantedMonitors(chrome) : [];
     const index = available.findIndex(m => m.id === saved?.displayId);
@@ -83,7 +93,7 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
       // Keep the saved preview until the user deliberately chooses a replacement screen.
       const savedMonitor = saved?.displayId ? { id: saved.displayId, name: 'Saved monitor unavailable', workArea: saved.workArea } : null;
       if (savedMonitor) { setMonitors([savedMonitor]); setArea(resolveArea(saved!)); setMessage('Saved monitor unavailable. Choose This screen or another monitor before applying.'); setMessageError(true); }
-      else setArea(saved ? resolveArea(saved, fallback.workArea) : pair ? { ...fallback.workArea, width: 0, height: 0 } : fallback.workArea);
+      else setArea(saved ? resolveArea(saved, fallback.workArea) : setupLayout ? { ...fallback.workArea, width: 0, height: 0 } : fallback.workArea);
     }
     setAreaOpen(true);
   }
@@ -93,17 +103,22 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
     const saved = state?.workspace?.intent;
     const found = result.monitors.findIndex(m => m.id && m.id === saved?.displayId), index = Math.max(0, found);
     setMonitors(result.monitors); setMonitorIndex(index);
-    setArea(found >= 0 ? resolveArea(saved!, result.monitors[index].workArea) : pairSetup ? { ...result.monitors[index].workArea, width: 0, height: 0 } : result.monitors[index].workArea); setMessage(result.notice); setMessageError(true);
+    setArea(found >= 0 ? resolveArea(saved!, result.monitors[index].workArea) : layoutSetup ? { ...result.monitors[index].workArea, width: 0, height: 0 } : result.monitors[index].workArea);
+    if (layoutSetup && result.monitors[index].id) { setMessage(''); setMessageError(false); }
+    else { setMessage(layoutSetup ? 'Allow monitor access to choose your screen, then try again.' : result.notice); setMessageError(true); }
   }
   async function applyArea(start: boolean) {
     if (!work || !area) return { ok: false, reason: 'Choose a TV area first.' };
-    const result = await command({ type: 'SET_TV_AREA', workArea: work, area, displayId: monitors[monitorIndex].id, ...(pairSetup ? { layout: 'top-bottom' as const } : {}) });
+    const result = await command({ type: 'SET_TV_AREA', workArea: work, area: layoutSetup && layoutMode === 'custom' ? work : area, displayId: monitors[monitorIndex].id, ...(layoutSetup ? { layout: layoutMode, plannedCount: layoutCount } : {}) });
     if (!result.ok) return result;
     setAreaOpen(false); (areaTrigger.current ?? areaButtonRef.current)?.focus();
-    if (pairSetup) {
-      if (state?.panes.length === 2) return state.workspace?.enrolled && state.workspace.intent?.autoArrange ? result : command({ type: 'APPLY_TOP_BOTTOM' });
-      if (state?.panes.length === 1 && !state.unassignedPlayers?.length) await openPicker('add', pairButtonRef.current!);
-      return { ok: true, message: 'Top/bottom area saved. Connect your second existing player below, or choose a show with Add window.' };
+    if (result.code === 'LAYOUT_SAVED') return result;
+    if (state?.openingDefaultShow) return { ok: true, message: 'Layout saved. Wait for the first show to finish opening, then Arrange shows.' };
+    if (layoutSetup) {
+      const applied = state?.workspace?.enrolled && state.workspace.intent?.autoArrange ? result : await command({ type: 'APPLY_LAYOUT' });
+      if (!applied.ok) return applied;
+      const missing = layoutCount - (state?.panes.length ?? 0);
+      return { ok: true, message: missing > 0 ? `Layout saved. Add or connect ${missing} more ${missing === 1 ? 'show' : 'shows'} when you’re ready.` : 'Layout saved. Use Arrange shows to put them back here.' };
     }
     return start ? command({ type: 'START_WORKSPACE' }) : result;
   }
@@ -119,38 +134,43 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
   const hasMain = state?.panes.some(p => p.id === 'main');
   const targetReason = (e: DesktopSnapshot['guide'][number]) => freshLiveTarget(e) ? '' : e.metadataSource === 'CACHED' ? 'Saved listing. Waiting for current channel data.' : e.programs?.[0]?.context !== undefined && e.programs[0].context !== 'CURRENT' ? 'Upcoming program. Choose a current listing.' : !e.available || !e.target ? 'This listing cannot be opened from the remote.' : 'Listing out of date. Waiting for channels to update.';
   const work = monitors[monitorIndex]?.workArea;
-  const editorMode = pairSetup ? 'top-bottom' : state?.workspace?.layout ?? 'auto';
-  const editorCount = pairSetup ? Math.max(2, state?.panes.length ?? 0) : Math.max(1, state?.panes.length ?? 0);
-  const preview = area ? planLayout(area, editorCount, 8, editorMode) : null;
+  const editorMode = layoutSetup ? layoutMode : state?.workspace?.layout ?? 'auto';
+  const editorCount = layoutSetup ? layoutCount : Math.max(1, state?.panes.length ?? 0);
+  const customSlots = state?.workspace?.customLayouts?.[editorCount];
+  const preview = area ? planLayout(area, editorCount, 8, editorMode, customSlots) : null;
   const savedArea = state?.workspace?.intent ? resolveArea(state.workspace.intent) : null;
-  async function twoShows() {
-    if ((state?.panes.length ?? 0) > 2 || state?.pendingFeedCreations) { await run(() => Promise.resolve({ ok: false, reason: 'Top/bottom needs exactly two connected players. Remove extra players deliberately; no windows were changed.' })); return; }
-    if (!state?.workspace?.intent || state.workspace.layout !== 'top-bottom') { await openArea(true); return; }
-    if (state.panes.length === 1) {
-      if (state.unassignedPlayers?.length) { setMessage('Connect your intended second player below. No duplicate was created.'); setMessageError(false); document.querySelector('[aria-label="Existing windows"] button')?.scrollIntoView?.({ block: 'center' }); }
-      else await openPicker('add', pairButtonRef.current!);
-      return;
-    }
-    await run(() => command({ type: 'APPLY_TOP_BOTTOM' }));
+  const currentCount = Math.max(1, state?.panes.length ?? 1);
+  const currentMode = state?.workspace?.layout ?? 'auto';
+  const layoutLabel = LAYOUT_OPTIONS.find(option => option.value === currentMode)?.label ?? 'Best fit';
+  async function arrangeShows() {
+    if (state?.pendingFeedCreations) { await run(() => Promise.resolve({ ok: false, reason: 'Wait for the new show to finish opening, then try again.' })); return; }
+    if (!hasMain || !state?.workspace?.intent) { await openArea(true); return; }
+    await run(async () => { const result = await command({ type: 'APPLY_LAYOUT' }); return result.ok ? { ok: true, message: 'Shows arranged.' } : result; });
+  }
+  async function drawOnMonitor() {
+    const monitor = monitors[monitorIndex]; if (!monitor?.id) return { ok: false, reason: 'Choose monitor first, then draw your layout on it.' };
+    const result = await command({ type: 'OPEN_AREA_PICKER', workArea: monitor.workArea, displayId: monitor.id, mode: editorMode, count: editorCount, ...(editorMode === 'custom' ? { area: monitor.workArea } : area && validRect(area) && contains(monitor.workArea, area) ? { area } : {}), ...(customSlots && editorMode === 'custom' ? { slots: customSlots } : {}) });
+    if (result.ok) setAreaOpen(false);
+    return result;
   }
   const sportsRows = state ? sportsListings(state.guide, query) : [];
   const rows = state?.guide.filter(e => `${e.channel.name} ${e.programTitle ?? ''}`.toLowerCase().includes(query.toLowerCase())) ?? [];
   const unavailableReasons = [...new Set((sports ? sportsRows.map(r => r.entry) : rows).map(targetReason))];
   const sharedTargetReason = unavailableReasons.length === 1 && unavailableReasons[0] ? unavailableReasons[0] : '';
   return <main aria-busy={busy}>
-    <header className="remote-header"><h1>TV remote</h1><span className="window-count">{Math.max(state?.panes.length ?? 0, state?.openPlayerWindowCount ?? 0)} / {state?.feedLimit ?? CURRENT_MANAGED_FEED_LIMIT} windows{hasMain && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) && <span className="full-label"> · Full</span>}</span>{hasMain && <button ref={addButtonRef} className="primary" aria-expanded={picker === 'add'} aria-controls="content-picker" title={!canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) ? 'Four-window limit reached. Remove a window to add another.' : undefined} disabled={busy || !hasMain || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={e => void openPicker('add', e.currentTarget)}>Add window</button>}</header>
-    <section className="pair-shortcut" aria-label="Two-show layout"><button ref={pairButtonRef} className="primary" disabled={busy || !state || !hasMain} onClick={() => void twoShows()}>Two shows · Top/bottom</button>
-      <small>{state?.panes.length && state.panes.length > 2 ? `Three/four players use automatic layout. ${state.workspace?.layout === 'top-bottom' ? 'Top/bottom stays remembered; ' : ''}this shortcut needs exactly two.` : 'Top: original player · Bottom: second connected player. Choose channels on their cards.'}</small>
-      {savedArea && state?.workspace?.layout === 'top-bottom' && <div className="area-map saved-preview" aria-label="Saved Top/bottom preview" style={{ aspectRatio: `${state.workspace.intent!.workArea.width} / ${state.workspace.intent!.workArea.height}` }}><SlotPreview work={state.workspace.intent!.workArea} area={savedArea} mode="top-bottom" count={2} /></div>}
-      {state?.workspace?.layout === 'top-bottom' && <button disabled={busy} className="quiet" onClick={() => void openArea(true)}>Reselect TV area</button>}
+    <header className="remote-header"><h1>TV remote</h1><span className="window-count">{Math.max(state?.panes.length ?? 0, state?.openPlayerWindowCount ?? 0)} / {state?.feedLimit ?? CURRENT_MANAGED_FEED_LIMIT} windows{hasMain && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) && <span className="full-label"> · Full</span>}</span><div className="actions"><button className="primary" disabled={busy || !state || state.openingDefaultShow || !canAddManagedFeed((state.panes.length) + (state.pendingFeedCreations ?? 0))} onClick={() => void run(() => command({ type: 'NEW_SHOW' }))}>{state?.openingDefaultShow ? 'Opening…' : 'New show'}</button>{hasMain && <button ref={addButtonRef} className="quiet" aria-expanded={picker === 'add'} aria-controls="content-picker" title={!canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) ? 'Four-window limit reached. Remove a window to add another.' : undefined} disabled={busy || state?.openingDefaultShow || !hasMain || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={e => void openPicker('add', e.currentTarget)}>Pick a channel</button>}</div></header>
+    <section className="pair-shortcut" aria-label="Layout controls"><button ref={layoutButtonRef} className="primary" disabled={busy || !state || state.openingDefaultShow} onClick={() => void arrangeShows()}>Arrange shows</button>
+      <small>{!hasMain ? 'Press New show to start watching.' : !savedArea ? 'One to four shows. Choose a layout or draw where each show goes.' : currentMode === 'custom' && !state?.workspace?.customLayouts?.[currentCount] ? `Choose positions for ${currentCount} shows with Change layout. Best fit is used for now.` : `${currentCount} ${currentCount === 1 ? 'show' : 'shows'} · ${layoutLabel}. Put them back in your saved spot.`}</small>
+      {savedArea && <div className="area-map saved-preview" aria-label="Saved layout preview" style={{ aspectRatio: `${state!.workspace!.intent!.workArea.width} / ${state!.workspace!.intent!.workArea.height}` }}><SlotPreview work={state!.workspace!.intent!.workArea} area={savedArea} mode={currentMode} count={currentCount} slots={state?.workspace?.customLayouts?.[currentCount]} /></div>}
+      {savedArea && <button disabled={busy} className="quiet" onClick={() => void openArea(true)}>Change layout</button>}
     </section>
     {message && <div role={messageError ? 'alert' : 'status'} className={`feedback ${messageError ? 'error' : 'success'}`}><span>{message}</span><button aria-label="Dismiss notification" onClick={() => setMessage('')}>Dismiss</button></div>}
     {state?.audioError && <p role="alert" className="feedback error">{state.audioError}</p>}
-    {state?.originalMissing && <section className="recovery" role="alert"><h2>Choose an original player</h2><p>The previous original player was closed. Choose an existing player to start a new workspace.</p>{state.originalCandidates?.length ? <><label>Existing player<select value={candidateTab || String(state.originalCandidates[0].tabId)} onChange={e => setCandidateTab(e.target.value)}>{state.originalCandidates.map(c => <option key={c.tabId} value={c.tabId}>{c.label}</option>)}</select></label><button disabled={busy} onClick={() => void run(() => command({ type: 'CHOOSE_MAIN', tabId: Number(candidateTab || state.originalCandidates![0].tabId) }))}>Use this player</button></> : <p>Open a YouTube TV watch player normally, then return here.</p>}</section>}
+    {state?.originalMissing && <section className="recovery" role="alert"><h2>Choose an original player</h2><p>The previous original player was closed. Choose an existing player to start a new workspace.</p>{state.originalCandidates?.length ? <><label>Existing player<select value={candidateTab || String(state.originalCandidates[0].tabId)} onChange={e => setCandidateTab(e.target.value)}>{state.originalCandidates.map(c => <option key={c.tabId} value={c.tabId}>{c.label}</option>)}</select></label><button disabled={busy} onClick={() => void run(() => command({ type: 'CHOOSE_MAIN', tabId: Number(candidateTab || state.originalCandidates![0].tabId) }))}>Use this player</button></> : <p>Press New show above to start again.</p>}</section>}
     {!state && <p role="status">Connecting to your players…</p>}
-    {state && !hasMain && !state.originalMissing && <section className="first-use"><h2>Connect your first player</h2><p>Open a YouTube TV watch player in Chrome, then reopen this remote. Your windows and controls will appear here.</p></section>}
+    {state && !hasMain && !state.originalMissing && <section className="first-use"><h2>Start watching</h2><p>Press New show. We’ll open YouTube TV and start your last channel, or the first available live channel.</p></section>}
     {Boolean(state?.unassignedPlayers?.length) && <section aria-label="Existing windows"><p>{state!.unassignedPlayers!.length} existing player{state!.unassignedPlayers!.length === 1 ? '' : 's'} available to connect.</p>{!hasMain && <small>Choose the original above before connecting other windows.</small>}{state!.unassignedPlayers!.map(p => <button key={p.tabId} disabled={busy || !hasMain || !canAddManagedFeed(state?.panes.length ?? 0)} onClick={() => void run(() => command({ type: 'CONNECT_PANE', tabId: p.tabId }))}>Connect {p.label}</button>)}</section>}
-    {picker && <section id="content-picker" aria-label="Content picker" className="content-picker"><div className="picker-heading"><h2>{picker === 'add' ? 'Add window' : `Change ${state?.panes.find(p => p.id === picker)?.channelName ?? 'window'}`}</h2><button className="quiet" onClick={() => setPicker(null)}>Cancel picker</button></div>
+    {picker && <section id="content-picker" aria-label="Content picker" className="content-picker"><div className="picker-heading"><h2>{picker === 'add' ? 'Pick a channel' : `Change ${state?.panes.find(p => p.id === picker)?.channelName ?? 'window'}`}</h2><button className="quiet" onClick={() => setPicker(null)}>Cancel picker</button></div>
       {picker === 'add' && <div className="current-content"><small>Add the same content in a muted window. Its position may differ.</small>{state?.panes.map(p => <button key={p.id} disabled={busy || !bridge.duplicatePane || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={() => void run(async () => { const result = await bridge.duplicatePane!(p.id); if (result.ok) setPicker(null); return result; })}>Add current {feedLabel(p)}</button>)}</div>}
       <label>Search channels or programs<input ref={searchRef} type="search" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <label><input type="checkbox" checked={sports} onChange={e => setSports(e.target.checked)} /> Sports listings</label>
@@ -178,28 +198,30 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
     </article>)}</section>
     <details><summary>Settings &amp; layout</summary><section aria-label="TV workspace"><h2>{state?.workspace?.enrolled ? 'Workspace ready' : 'Set up your TV workspace'}</h2>{!state?.workspace?.enrolled && <small>Add arranges in your saved TV area automatically. Choose TV area here to change placement.</small>}<div className="actions"><button disabled={busy || state?.workspace?.enrolled || !state?.workspace?.intent || !state?.panes.some(p => p.id === 'main')} onClick={() => void run(() => command({ type: 'START_WORKSPACE' }))}>Start TV workspace</button></div>
       <div className="actions"><button ref={areaButtonRef} disabled={busy} onClick={() => void openArea()}>TV area</button><button disabled={busy || !hasMain || !state?.workspace?.enrolled} onClick={() => void run(() => command({ type: 'ARRANGE' }))}>Arrange now</button><button disabled={busy || !state?.workspace?.expanded} onClick={() => void run(bridge.restoreLayout)}>Restore</button></div>
-      <label>Layout<select aria-label="Layout" disabled={busy} value={state?.workspace?.layout ?? 'auto'} onChange={e => { if (e.target.value === 'top-bottom') void openArea(true); else void run(() => command({ type: 'SET_WORKSPACE_LAYOUT', mode: 'auto' })); }}><option value="auto">Auto</option><option value="top-bottom">Top/bottom</option></select></label>
+      <label>Layout<select aria-label="Layout" disabled={busy} value={currentMode} onChange={e => void openArea(true, e.target.value as LayoutMode)}>{LAYOUT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label><input type="checkbox" disabled={busy || !state?.workspace?.intent} checked={state?.workspace?.intent?.autoArrange ?? false} onChange={e => void run(() => command({ type: 'AUTO_ARRANGE', enabled: e.target.checked }))} /> Auto arrange on Add/Close</label>
       <small>{state?.workspace?.notice}</small>
     </section>
     <details><summary>Controls help</summary><p>Enable audio mutes the other windows. Changing volume keeps the current mute setting.</p><p>Return original restores its tab to the previous window when available, or to a normal window if it closed. The player stays in the remote.</p></details>
     <details><summary>Connection</summary><small>Version {typeof __YTTV_VERSION__ === 'string' ? __YTTV_VERSION__ : 'source'} · Build {typeof __YTTV_BUILD__ === 'string' ? __YTTV_BUILD__ : 'source'}</small><p>Reconnect controls to the existing original tab without refreshing playback. Requests optional script-injection access on this action only.</p><button disabled={busy} onClick={() => void run(async () => { if (!await chrome.permissions.request({ permissions: ['scripting'] })) return { ok: false, reason: 'Reconnect access denied. Use native player controls.' }; return command({ type: 'RECONNECT_MAIN' }); })}>Reconnect original player</button></details>
 </details>
-    {areaOpen && work && area && <div className="area-backdrop"><section ref={areaRef} role="dialog" aria-modal="true" aria-label="TV area editor"><div className="area-heading"><h2>Choose your TV area</h2><button className="quiet" onClick={() => { setAreaOpen(false); (areaTrigger.current ?? areaButtonRef.current)?.focus(); }}>Cancel</button></div>{pairSetup ? <p>Choose monitor, then draw the right-hand rectangle or adjust it precisely. Confirm a matching saved area once. Leave the left desktop available. Reference image pixels need calibration to Chrome’s logical coordinates; native video may letterbox.</p> : <p>Choose a screen or draw a smaller area. Apply saves it; Apply and start also arranges your windows.</p>}<div className="actions"><button onClick={() => { const fallback = thisScreen(window.screen); setMonitors([fallback]); setMonitorIndex(0); setArea(pairSetup ? { ...fallback.workArea, width: 0, height: 0 } : fallback.workArea); }}>This screen</button><button onClick={() => void monitorsClick()}>Choose monitor</button></div><small>Choose monitor asks for optional access to monitor names and placement. Denial keeps This screen available.</small>
-      <label>Monitor<select value={monitorIndex} onChange={e => { const index = Number(e.target.value); setMonitorIndex(index); setArea(pairSetup ? { ...monitors[index].workArea, width: 0, height: 0 } : monitors[index].workArea); }}>{monitors.map((m, i) => <option key={m.id ?? i} value={i}>{m.name}</option>)}</select></label>
+    {areaOpen && work && area && <div className="area-backdrop"><section ref={areaRef} role="dialog" aria-modal="true" aria-label="TV area editor"><div className="area-heading"><h2>{layoutSetup ? 'Set up your shows' : 'Choose your TV area'}</h2><button className="quiet" onClick={() => { setAreaOpen(false); (areaTrigger.current ?? areaButtonRef.current)?.focus(); }}>Cancel</button></div>{layoutSetup ? <><h3 className="setup-step">1. Choose your layout</h3><div className="numeric"><label>Shows<select aria-label="Number of shows" value={layoutCount} onChange={e => setLayoutCount(Number(e.target.value))}>{MANAGED_FEED_COUNTS.map(count => <option key={count} value={count}>{count}</option>)}</select></label><label>Layout<select aria-label="Show layout" value={layoutMode} onChange={e => setLayoutMode(e.target.value as LayoutMode)}>{LAYOUT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div><small>This plans their positions. Use New show to add shows.</small><h3 className="setup-step">2. Choose your monitor</h3></> : <p>Choose a screen or draw a smaller area. Apply saves it; Apply and start also arranges your windows.</p>}<div className="actions">{!layoutSetup && <button onClick={() => { const fallback = thisScreen(window.screen); setMonitors([fallback]); setMonitorIndex(0); setArea(fallback.workArea); }}>This screen</button>}<button onClick={() => void monitorsClick()}>Choose monitor</button></div>{(!layoutSetup || !monitors[monitorIndex].id) && <small>{layoutSetup ? 'Allow access when Chrome asks, then pick your monitor below.' : 'Choose monitor lets Chrome show your connected screens.'}</small>}
+      <label>Monitor<select value={monitorIndex} onChange={e => { const index = Number(e.target.value); setMonitorIndex(index); setArea(layoutSetup ? { ...monitors[index].workArea, width: 0, height: 0 } : monitors[index].workArea); }}>{monitors.map((m, i) => <option key={m.id ?? i} value={i}>{m.name}</option>)}</select></label>
       {monitors.length > 1 && <div className="monitor-map" aria-label="Proportional monitor map">{monitors.map((m, i) => {
         const left = Math.min(...monitors.map(d => d.workArea.left)), top = Math.min(...monitors.map(d => d.workArea.top));
         const width = Math.max(...monitors.map(d => d.workArea.left + d.workArea.width)) - left, height = Math.max(...monitors.map(d => d.workArea.top + d.workArea.height)) - top;
-        return <button key={i} className="monitor" style={{ left: `${100 * (m.workArea.left - left) / width}%`, top: `${100 * (m.workArea.top - top) / height}%`, width: `${100 * m.workArea.width / width}%`, height: `${100 * m.workArea.height / height}%` }} onClick={() => { setMonitorIndex(i); setArea(pairSetup ? { ...m.workArea, width: 0, height: 0 } : m.workArea); }}>{m.name}</button>;
+        return <button key={i} className="monitor" style={{ left: `${100 * (m.workArea.left - left) / width}%`, top: `${100 * (m.workArea.top - top) / height}%`, width: `${100 * m.workArea.width / width}%`, height: `${100 * m.workArea.height / height}%` }} onClick={() => { setMonitorIndex(i); setArea(layoutSetup ? { ...m.workArea, width: 0, height: 0 } : m.workArea); }}>{m.name}</button>;
       })}</div>}
-      <div className="area-map" style={{ aspectRatio: `${work.width} / ${work.height}` }} aria-label="Draw TV rectangle" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setDrag(mapPoint(work, { x: e.clientX, y: e.clientY }, e.currentTarget.getBoundingClientRect())); }} onPointerMove={e => { if (!drag) return; const end = mapPoint(work, { x: e.clientX, y: e.clientY }, e.currentTarget.getBoundingClientRect()); setArea({ left: Math.min(drag.x, end.x), top: Math.min(drag.y, end.y), width: Math.abs(end.x - drag.x), height: Math.abs(end.y - drag.y) }); }} onPointerUp={() => setDrag(null)} onPointerCancel={() => setDrag(null)}>
+      {layoutSetup && <><h3 className="setup-step">3. Draw and save</h3><button className="primary" disabled={busy || !monitors[monitorIndex].id} onClick={() => void run(drawOnMonitor)}>Draw on monitor</button><p id="pair-area-help">Draw at full size on that monitor. Choose a preset area or a separate box for each show.</p></>}
+      {(!layoutSetup || editorMode !== 'custom') && <details className="mini-area-editor" open={layoutSetup ? undefined : true}><summary>Use small preview instead</summary>
+      <div className="area-map" style={{ aspectRatio: `${work.width} / ${work.height}` }} aria-label="Draw TV rectangle" aria-describedby={layoutSetup ? 'pair-area-help' : undefined} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); if (editorMode === 'custom') return; setDrag(mapPoint(work, { x: e.clientX, y: e.clientY }, e.currentTarget.getBoundingClientRect())); }} onPointerMove={e => { if (!drag || editorMode === 'custom') return; const end = mapPoint(work, { x: e.clientX, y: e.clientY }, e.currentTarget.getBoundingClientRect()); setArea({ left: Math.min(drag.x, end.x), top: Math.min(drag.y, end.y), width: Math.abs(end.x - drag.x), height: Math.abs(end.y - drag.y) }); }} onPointerUp={() => setDrag(null)} onPointerCancel={() => setDrag(null)}>
         <div className="area-selection" style={{ left: `${100 * (area.left - work.left) / work.width}%`, top: `${100 * (area.top - work.top) / work.height}%`, width: `${100 * area.width / work.width}%`, height: `${100 * area.height / work.height}%` }} />
-        <SlotPreview work={work} area={area} mode={editorMode} count={editorCount} />
+        <SlotPreview work={work} area={area} mode={editorMode} count={editorCount} slots={customSlots} />
       </div>
-      <details><summary>Adjust area precisely</summary><div className="numeric">{(['left', 'top', 'width', 'height'] as const).map(key => <label key={key}>{key}<input type="number" step="1" value={area[key]} onChange={e => setArea({ ...area, [key]: Number(e.target.value) })} /></label>)}</div></details>
-      <small>{preview?.ok ? `${preview.description}; ${preview.bounds.map(r => `${r.width} × ${r.height}`).join(', ')}` : preview?.reason}</small>
-      {pairSetup && !monitors[monitorIndex].id && <p role="status">Choose monitor to bind this fixed area. Without monitor access, use native positioning.</p>}
-      <div className="actions area-footer"><button disabled={busy} onClick={() => setArea(work)}>Full monitor reset</button><button disabled={busy || (pairSetup && !monitors[monitorIndex].id) || !preview?.ok || !validRect(area) || !contains(work, area)} onClick={() => void run(() => applyArea(false))}>{pairSetup ? 'Save Top/bottom area' : 'Apply'}</button>{!pairSetup && !state?.workspace?.enrolled && <button className="primary" disabled={busy || !hasMain || !preview?.ok || !validRect(area) || !contains(work, area)} onClick={() => void run(() => applyArea(true))}>Apply and start workspace</button>}</div>
+      {editorMode !== 'custom' && <details><summary>Fine-tune position</summary><div className="numeric">{(['left', 'top', 'width', 'height'] as const).map(key => <label key={key}>{key}<input type="number" step="1" value={area[key]} onChange={e => setArea({ ...area, [key]: Number(e.target.value) })} /></label>)}</div></details>}
+      {layoutSetup ? <small role="status">{!validRect(area) ? 'Draw a spot to see the preview.' : !contains(work, area) ? 'Keep the spot inside the selected monitor.' : editorMode === 'custom' && !customSlots ? 'Use Draw on monitor to place each show.' : !preview?.ok ? 'Make the spot bigger or choose another layout.' : 'Your shows will fit like this.'}</small> : <small>{preview?.ok ? `${preview.description}; ${preview.bounds.map(r => `${r.width} × ${r.height}`).join(', ')}` : preview?.reason}</small>}
+      <div className="actions area-footer"><button disabled={busy} onClick={() => setArea(work)}>Use whole screen</button><button className={layoutSetup ? 'primary' : undefined} disabled={busy || (layoutSetup && editorMode !== 'auto' && !monitors[monitorIndex].id) || (layoutSetup && editorMode === 'custom' && !customSlots) || !preview?.ok || !validRect(area) || !contains(work, area)} onClick={() => void run(() => applyArea(false))}>{layoutSetup ? 'Save layout' : 'Apply'}</button>{!layoutSetup && !state?.workspace?.enrolled && <button className="primary" disabled={busy || !hasMain || !preview?.ok || !validRect(area) || !contains(work, area)} onClick={() => void run(() => applyArea(true))}>Apply and start workspace</button>}</div>
+      </details>}
       <p role="status">{message}</p>
     </section></div>}
   </main>;

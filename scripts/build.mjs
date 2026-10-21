@@ -14,7 +14,7 @@ if (JSON.stringify(manifest.optional_permissions) !== JSON.stringify(['system.di
 const expectedHosts = ['https://tv.youtube.com/*'];
 if (JSON.stringify(manifest.host_permissions) !== JSON.stringify(expectedHosts)) throw new Error('Unexpected host expansion');
 // Stable runtime identity for the actual inputs, including uncommitted repairs.
-const inputs = ['scripts/build.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html'];
+const inputs = ['scripts/build.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html', 'apps/chrome-extension/area-picker.html'];
 for (const folder of ['apps/chrome-extension/src', 'packages']) {
   for (const file of await readdir(resolve(root, folder), { recursive: true })) {
     if (/\.(ts|tsx|css)$/.test(file) && !file.includes('node_modules') && !file.endsWith('.test.ts')) inputs.push(`${folder}/${file}`);
@@ -37,10 +37,10 @@ const inlineCSS = {
   },
 };
 if (!checkOnly) await mkdir(outdir, { recursive: true });
-for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['panel', 'iife'], ['remote', 'iife']]) {
+for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['panel', 'iife'], ['remote', 'iife'], ['area-picker', 'esm']]) {
   await build({
     absWorkingDir: root,
-    entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' ? 'ts' : 'tsx'}`],
+    entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' || name === 'area-picker' ? 'ts' : 'tsx'}`],
     outfile: `${outdir}/${name}.js`, bundle: true, format, write: !checkOnly,
     platform: 'browser', target: 'chrome120', minify: false,
     define: { 'process.env.NODE_ENV': '"production"', __YTTV_VERSION__: JSON.stringify(manifest.version), __YTTV_BUILD__: JSON.stringify(sourceFingerprint.slice(0, 16)) },
@@ -48,9 +48,10 @@ for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['pane
   });
 }
 if (!checkOnly) {
-  for (const file of ['panel.html', 'demo.html', 'remote.html']) {
+  for (const file of ['panel.html', 'demo.html', 'remote.html', 'area-picker.html']) {
     await copyFile(resolve(root, 'apps/chrome-extension', file), resolve(outdir, file));
   }
+  await copyFile(resolve(root, 'apps/chrome-extension/src/area-picker.css'), resolve(outdir, 'area-picker.css'));
   await writeFile(resolve(outdir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   await writeFile(resolve(outdir, 'build-identity.json'), JSON.stringify({ version: manifest.version, sourceFingerprint, sourceInputs }, null, 2) + '\n');
 }

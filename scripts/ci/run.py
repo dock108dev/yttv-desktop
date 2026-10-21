@@ -7,6 +7,7 @@ import datetime as dt
 import hashlib
 import html
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -19,9 +20,13 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+REQUIRED = {
+    'source': ('report-contract', 'typecheck', 'tests', 'build-permissions', 'docs', 'scripts', 'fresh-build'),
+    'security': ('actionlint', 'dependencies', 'secrets'),
+}
 
 
-def junit(path):
+def junit(path, expected_files=None):
     tree = ET.parse(path)
     cases = list(tree.iter('testcase'))
     if not cases:
@@ -30,28 +35,48 @@ def junit(path):
     skipped = [c for c in cases if c.find('skipped') is not None]
     if len(skipped) == len(cases):
         raise ValueError('All tests skipped')
+    times = [float(c.get('time', '0')) for c in cases]
+    if any(not math.isfinite(value) or value < 0 for value in times):
+        raise ValueError('Invalid testcase duration')
+    if expected_files is not None:
+        if not expected_files or len(expected_files) != len(set(expected_files)):
+            raise ValueError('Missing or duplicate test-file inventory')
+        collected = {str(Path(c.get('file', '')).resolve()) for c in cases if c not in skipped}
+        missing = [name for name in expected_files if str((ROOT / name).resolve()) not in collected]
+        if missing:
+            raise ValueError('Missing or fully skipped test files: ' + ', '.join(missing))
     return dict(total=len(cases), passed=len(cases)-len(failed)-len(skipped),
                 failed=len(failed), skipped=len(skipped),
-                case_seconds=sum(float(c.get('time', '0')) for c in cases),
+                case_seconds=sum(times),
                 failures=[c.get('name', 'unnamed')[:240] for c in failed][:10])
 
 
 def coverage(path):
-    values = {k: 0 for k in ('LF', 'LH', 'BRF', 'BRH')}
-    files = 0
+    values = {key: 0 for key in ('LF', 'LH', 'BRF', 'BRH')}
+    records, current = [], None
     for line in path.read_text().splitlines():
         key, _, value = line.partition(':')
         if key == 'SF':
-            files += 1
-        if key in values:
-            values[key] += int(value)
-    if not files or not values['LF']:
+            if current is not None:
+                records.append(current)
+            current = {}
+        elif key in values:
+            if current is None or key in current:
+                raise ValueError('Coverage counters outside a file or duplicated')
+            current[key] = int(value)
+    if current is not None:
+        records.append(current)
+    for record in records:
+        if not {'LF', 'LH'} <= record.keys() or any(n < 0 for n in record.values()) or record['LH'] > record['LF']:
+            raise ValueError('Invalid per-file coverage counts')
+        if ('BRF' in record) != ('BRH' in record) or record.get('BRH', 0) > record.get('BRF', 0):
+            raise ValueError('Invalid branch coverage counts')
+        for key in values:
+            values[key] += record.get(key, 0)
+    if not records or not values['LF']:
         raise ValueError('Empty/malformed required coverage')
-    if any(n < 0 for n in values.values()) or values['LH'] > values['LF'] or values['BRH'] > values['BRF']:
-        raise ValueError('Invalid coverage counts')
-    return dict(files=files, lines_percent=100*values['LH']/values['LF'],
-                branches_percent=100*values['BRH']/values['BRF'] if values['BRF'] else None,
-                **values)
+    return dict(files=len(records), lines_percent=100*values['LH']/values['LF'],
+                branches_percent=100*values['BRH']/values['BRF'] if values['BRF'] else None, **values)
 
 
 def audit(path):
@@ -60,9 +85,26 @@ def audit(path):
         raise ValueError('Audit unavailable or unsupported report')
     counts = data['metadata']['vulnerabilities']
     for severity in ('info', 'low', 'moderate', 'high', 'critical'):
-        if not isinstance(counts[severity], int) or counts[severity] < 0:
+        if type(counts[severity]) is not int or counts[severity] < 0:
             raise ValueError('Malformed severity count')
     return counts
+
+
+def bundle(path):
+    data = json.loads(path.read_text())
+    if not re.fullmatch(r'[a-f0-9]{64}', data.get('source_fingerprint', '')) or data.get('fixture_smoke') != 'PASS':
+        raise ValueError('Missing/malformed required build report')
+    assets = data.get('assets', {})
+    required = ('manifest.json', 'background.js', 'content.js', 'panel.html', 'panel.js', 'remote.html', 'remote.js',
+                'demo.html', 'area-picker.html', 'area-picker.js', 'area-picker.css', 'build-identity.json')
+    if not all(name in assets for name in required):
+        raise ValueError('Missing required distribution assets')
+    for info in assets.values():
+        if type(info.get('bytes')) is not int or info['bytes'] <= 0 or not re.fullmatch(r'[a-f0-9]{64}', info.get('sha256', '')):
+            raise ValueError('Invalid asset measurements')
+    if data.get('total_bytes') != sum(info['bytes'] for info in assets.values()):
+        raise ValueError('Invalid bundle total')
+    return data
 
 
 def unittest_counts(path):
@@ -102,14 +144,14 @@ def summary(report):
     for check in report['checks']:
         rows.append(f"| {escaped(check['name'])} | {check['result']} | {check['seconds']:.2f} | {escaped(check.get('detail', ''))} |")
     for key in ('tests', 'report_contract_tests', 'coverage', 'dependencies', 'secrets'):
-        if key in report:
+        if report.get(key) is not None:
             rows.extend(['', f"{key}: {escaped(json.dumps(report[key]))}"])
-    if 'bundle' in report:
+    if report.get('bundle') is not None:
         rows.extend(['', f"Bundle: {report['bundle']['total_bytes']} bytes; fixture smoke: {report['bundle']['fixture_smoke']}; baseline unavailable."])
     blocker = next((c['name'] for c in report['checks'] if c['result'] != 'PASS'), None)
     rows.extend(['', f"Next action: inspect {escaped(blocker)} diagnostics." if blocker else
                  'All applicable checks passed. Hosted/browser playback and owner acceptance are separate.',
-                 'Full logs, JUnit, LCOV and metrics.json: this job’s run-specific artifact (7 days).',
+                 f"Reports: artifact {escaped(report.get('artifact_name') or 'local output directory')} (7 days in Actions). Full logs and metrics.json; source jobs also retain JUnit/LCOV.",
                  'Coverage is V8 executed-source instrumentation via tsx, without a TS source-map baseline; no coverage/size budget or trend claim.'])
     return '\n'.join(rows) + '\n'
 
@@ -130,7 +172,8 @@ def run(mode, output):
                                 inputs_sha256=input_identity(),
                                 event=env.get('GITHUB_EVENT_NAME', 'local'), pr_head=env.get('PR_HEAD_SHA') or None,
                                 run_url=(f"{env.get('GITHUB_SERVER_URL', 'https://github.com')}/{env.get('GITHUB_REPOSITORY')}/actions/runs/{env.get('GITHUB_RUN_ID')}" if env.get('GITHUB_RUN_ID') else None)),
-                  checks=[])
+                  artifact_name=env.get('CI_ARTIFACT_NAME'),
+                  checks=[], tests=None, coverage=None, dependencies=None, secrets=None, bundle=None)
     lock = json.loads((ROOT / 'package-lock.json').read_text())
     report['tools']['locked'] = {name: lock['packages'][f'node_modules/{name}']['version']
                                 for name in ('typescript', 'tsx', 'esbuild', 'react', 'happy-dom')}
@@ -165,21 +208,16 @@ def run(mode, output):
         check('report-contract', [sys.executable, '-m', 'unittest', 'discover', '-s', 'scripts/ci', '-p', 'test_*.py'],
               validate=lambda: report.update(report_contract_tests=unittest_counts(output / 'report-contract.log')))
         check('typecheck', ['npm', 'run', 'typecheck'])
-        files = sorted(ROOT.glob('tests/*.test.ts')) + sorted(ROOT.glob('packages/ui/src/*.test.ts'))
-        report['test_files'] = [str(p.relative_to(ROOT)) for p in files]
-        if not files:
-            check('tests', validate=lambda: junit(output / 'missing.xml'))
-        else:
-            def test_reports():
-                report['tests'] = junit(output / 'junit.xml')
-                report['coverage'] = coverage(output / 'lcov.info')
-                if report['tests']['failed']:
-                    raise ValueError('JUnit reports failing/cancelled tests')
-            check('tests', ['node', '--import', 'tsx', '--test', '--test-timeout=60000',
-                  '--experimental-test-coverage', '--test-coverage-include=apps/**', '--test-coverage-include=packages/**',
-                  '--test-coverage-exclude=**/*.test.ts', '--test-reporter=junit',
-                  f'--test-reporter-destination={output / "junit.xml"}', '--test-reporter=lcov',
-                  f'--test-reporter-destination={output / "lcov.info"}', *map(str, files)], validate=test_reports, timeout=300)
+        def test_reports():
+            files = json.loads((output / 'test-files.json').read_text())
+            if not isinstance(files, list) or any(not isinstance(name, str) or not (ROOT / name).resolve().is_relative_to(ROOT) for name in files):
+                raise ValueError('Invalid test-file inventory')
+            report['test_files'] = files
+            report['tests'] = junit(output / 'junit.xml', files)
+            report['coverage'] = coverage(output / 'lcov.info')
+            if report['tests']['failed']:
+                raise ValueError('JUnit reports failing/cancelled tests')
+        check('tests', ['node', 'scripts/test.mjs', '--reports-dir', str(output)], validate=test_reports, timeout=300)
         check('build-permissions', ['npm', 'run', 'build', '--', '--check'])
         check('docs', ['npm', 'run', 'docs:check', '--', '--repository-only'])
         def syntax():
@@ -189,10 +227,13 @@ def run(mode, output):
                 compile(path.read_text(), str(path), 'exec')
         check('scripts', validate=syntax)
         check('fresh-build', [sys.executable, str(ROOT / 'scripts/ci/fresh_build.py'), str(output / 'bundle.json')],
-              validate=lambda: report.update(bundle=json.loads((output / 'bundle.json').read_text())), timeout=180)
+              validate=lambda: report.update(bundle=bundle(output / 'bundle.json')), timeout=240)
     else:
         for name, args in [('actionlint', ['-version']), ('gitleaks', ['version'])]:
-            report['tools'][name] = subprocess.check_output([name, *args], text=True, timeout=10).strip().splitlines()[0]
+            try:
+                report['tools'][name] = subprocess.check_output([name, *args], text=True, timeout=10).strip().splitlines()[0]
+            except (OSError, subprocess.SubprocessError, IndexError):
+                report['tools'][name] = None  # Each independent check below still runs and fails visibly if unavailable.
         check('actionlint', ['actionlint', '-color', '-shellcheck='])
         check('dependencies', ['npm', 'audit', '--json', '--audit-level=high'],
               validate=lambda: report.update(dependencies=audit(output / 'dependencies.log')), timeout=90)
@@ -216,16 +257,13 @@ def run(mode, output):
                 license_name = package.get('license', 'UNKNOWN')
                 licenses[license_name] = licenses.get(license_name, 0) + 1
         report['license_inventory'] = licenses
-    report['result'] = 'PASS' if all(c['result'] == 'PASS' for c in report['checks']) else 'FAIL'
+    report['result'] = 'PASS' if {c['name'] for c in report['checks']} == set(REQUIRED[mode]) and all(c['result'] == 'PASS' for c in report['checks']) else 'FAIL'
     report['seconds'] = round(time.monotonic()-started, 3)
     report['baseline'] = None
     report['artifact_bytes_before_metrics'] = sum(p.stat().st_size for p in output.iterdir() if p.is_file())
     (output / 'metrics.json').write_text(json.dumps(report, indent=2) + '\n')
     rendered = summary(report)
     (output / 'summary.md').write_text(rendered)
-    if env.get('GITHUB_STEP_SUMMARY'):
-        with open(env['GITHUB_STEP_SUMMARY'], 'a') as stream:
-            stream.write(rendered)
     return 0 if report['result'] == 'PASS' else 1
 
 

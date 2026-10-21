@@ -1,10 +1,12 @@
 # Using the Chrome client
 
-Install or update the extension as described in [development](docs/DEVELOPMENT.md). Open YouTube TV normally and use the extension toolbar icon to open the remote.
+Install or update the extension as described in [development](docs/DEVELOPMENT.md). Click the extension toolbar icon, then **New show**. You do not need to open YouTube TV first.
 
 ## Windows and placement
 
-Choose an original player when prompted. **Add window** opens a searchable channel/program picker. Native listings load automatically through a short-lived inactive, muted Live tab; this helper is not a managed player. **Add current content** can duplicate an owned player's current watch page when other listings are unavailable; playback position may differ.
+**New show** opens a new player and starts your last channel when available, otherwise the first available live channel. With no player open, it first loads YouTube TV's Live page to find a channel. If sign-in is needed, finish it in that window and press **New show** again. Further presses add shows up to four.
+
+**Pick a channel** opens a searchable channel/program picker. Native listings load automatically through a short-lived inactive, muted Live tab; this helper is not a managed player. **Add current content** can duplicate an owned player's current watch page when other listings are unavailable; playback position may differ. Existing windows can still be chosen or connected.
 
 The limit is four total managed players, including the original and pending creation. Account concurrency is separate. Each card offers Play/Pause, audio, volume, Change channel, Focus, Expand/Restore and Remove (Return for the original).
 
@@ -12,25 +14,22 @@ The limit is four total managed players, including the original and pending crea
 
 Known windows recover after remote reopen or extension Reload. Open players without surviving ownership records require **Connect existing player**. Connecting does not move, navigate or change audio. A restored tab with a different ID cannot inherit a historical original Return position.
 
-## Two shows, top and bottom
+## Arrange one to four shows
 
-For this update, close the remote and Reload the existing extension entry at `chrome://extensions`, then reopen the remote from the toolbar. Version **0.2.13** appears under **Settings & layout → Connection**. Keep the existing entry and its settings.
+Press **Arrange shows**. You can plan and save positions before opening any shows. To change a saved setup, press **Change layout**.
 
-Press **Two shows · Top/bottom**, then **Choose monitor**, allow monitor access if prompted, and select **Philips** in the Monitor list. Draw the right-hand rectangle from your reference image, leaving the left desktop available, or adjust **left, top, width, height** under **Adjust area precisely**. Check the Top (1)/Bottom (2) preview, then press **Save Top/bottom area**. Confirm an existing saved rectangle if it matches. No full-monitor area is assumed for a new pair. Reference-image pixels must be calibrated to Chrome’s logical coordinates; native video can letterbox.
+1. Choose **1–4 shows** and a layout: Best fit, Stacked, Side by side, Grid, a larger show on one side, or **Place each show myself**.
+2. Press **Choose monitor** and select the screen you want.
+3. Press **Draw on monitor**. A full-size drawing window opens on that screen. Draw one TV area for a preset, or one box for each show in a custom layout. You can fine-tune the numbers and copy the coordinates there. Use **Move controls to bottom/top** when the panel covers the place you want to draw; it fades during a drag. This is a monitor-sized canvas rather than a see-through desktop overlay.
+4. Press **Save layout**. Use **New show**, **Pick a channel** or Connect to fill any remaining show slots. Changing the show count in setup plans the layout; it does not create extra players. A saved plan remains available when no shows are open. If the current show count cannot fit the planned layout, the current windows stay in place; add/remove shows or choose another layout, then press Arrange shows. Saving during first-show startup waits for you to arrange after startup finishes.
 
-Save the area once. The original is **Top**, and the second connected player is **Bottom**. Connect the intended existing player explicitly, or use the ordinary Add picker for another show. Connecting preserves position/audio; a connected player sharing a window with other tabs must first be moved to its own Chrome window using native controls. Change channels on the cards to keep their slots. No additional player is created simply to arrange a pair.
+For presets, the small preview and precise fields remain available as an alternative. With **Place each show myself**, saved positions are remembered separately for one, two, three and four shows. Counts without custom positions use Best fit until you draw them.
 
-With two players connected, the visible shortcut reapplies the remembered rectangle in one action. A synthetic journey records two actions including opening the remote; actual ordinary-use effort remains an owner check. **Reselect TV area** is available next to the preview. Expand fills only this rectangle; Restore returns both players to their prior bounds. Explicit application works in manual mode without enabling automatic Add/Close reflow.
-
-For the first try, confirm both shows visibly advance, press the shortcut again, try Expand/Restore on each player, then close and reopen the remote and reapply the shortcut. Keep your current mute/volume choices; newly added players start muted. Report the first concrete problem, which action triggered it, and what happened versus what you expected. That feedback determines the next fix.
-
-Top/bottom is saved separately from the area; Auto remains the legacy default and is available under Settings & layout. One player fills the area. Three/four players use the existing automatic geometry and remember Top/bottom, while the two-show shortcut refuses the count mismatch. It never closes or selects extra players silently.
-
-The fixed arrangement requires the existing optional monitor access. If that monitor/access is missing or its logical work area changes, placement stops for deliberate reselection. It never chooses a different monitor or switches to side-by-side. Bounds refusal reports rollback limits and retains native positioning/Return. Opening the remote does not itself rearrange players or change playback/audio.
+Press **Arrange shows** to put the current shows back in place. **Channel** changes a show without moving it to another slot. The original player is show 1. Expand fills the saved TV area (the bounding area of your custom positions); Restore returns the windows to their prior positions. A second player sharing a window with unrelated tabs needs its own Chrome window before arranging.
 
 ## Playback and audio
 
-Added windows are muted before navigation. Startup waits up to 15 seconds for a ready player and requests its unique native Play control once. If that request is unavailable or unconfirmed, use native Play. A worker restart cancels waiting startup rather than retrying it.
+New windows start muted; existing windows keep their audio and volume. Startup waits up to 15 seconds for a ready player and requests its unique native Play control once. Starting the first show also allows 15 seconds for its Live listings. If the show needs attention, use Play or finish setup in its YouTube TV window. A worker restart cancels waiting startup rather than retrying it.
 
 Volume changes never unmute. **Enable audio** explicitly transfers audio through mute-all-before-enable-one policy at the selected player's existing volume. Focus, Play/Pause and placement do not transfer audio. Player mute and Chrome tab mute are separate; site mute can be unknown. Readback and advancing clocks do not prove a visible picture or heard sound.
 

@@ -158,6 +158,35 @@ test('managed window screen makes separate original players and audio selection 
   } finally { unmount(); await window.happyDOM.abort(); }
 });
 
+test('shortcut dialog traps and restores focus and discards unsaved drafts when reopened', async () => {
+  const { window, bridge, unmount } = await setup();
+  try {
+    const document = window.document;
+    const launcher = document.querySelector('[aria-label="Keyboard shortcuts"]') as any;
+    launcher.focus();
+    await settle(window, async () => { launcher.click(); });
+    const dialog = document.querySelector('[role="dialog"]')!;
+    const close = dialog.querySelector('[aria-label="Close keyboard shortcuts"]') as any;
+    const save = [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Save shortcuts') as any;
+    assert.equal(document.activeElement, close);
+    save.focus();
+    await settle(window, async () => { save.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true })); });
+    assert.equal(document.activeElement, close);
+    await settle(window, async () => { close.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true })); });
+    assert.equal(document.activeElement, save);
+    const input = dialog.querySelector('input[aria-label="Sports key"]') as any;
+    await settle(window, async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(input, 'z');
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await settle(window, async () => { close.click(); });
+    assert.equal(document.activeElement, launcher);
+    await settle(window, async () => { launcher.click(); });
+    assert.equal((document.querySelector('input[aria-label="Sports key"]') as any).value, 's');
+    assert.equal((await bridge.getSnapshot()).preferences.keyboardMappings.sports, 's');
+  } finally { unmount(); await window.happyDOM.abort(); }
+});
+
 test('saved bindings drive dispatch and help; conflicts are rejected without losing saved keys', async () => {
   const { window, bridge, unmount } = await setup();
   try {

@@ -83,7 +83,6 @@ test('two known identities recover in Top/Bottom order with additive saved area/
   const old = prior.panes[1].tabId, tab = h.tabs.get(old); h.tabs.delete(old); h.tabs.set(50, { ...tab, id: 50, windowId: 50 }); h.players.set(50, h.players.get(old));
   for (const key of Object.keys(h.session)) delete h.session[key]; h.start();
   const changed = await h.send({ type: 'GET_SNAPSHOT' }); assert.equal(changed.panes.length, 1); assert.equal(changed.unassignedPlayers[0].tabId, 50);
-  assert.equal((await h.send({ type: 'APPLY_TOP_BOTTOM' })).code, 'PAIR_REQUIRED');
   assert.equal((await h.send({ type: 'CONNECT_PANE', tabId: 50 })).ok, true);
   assert.equal((await h.send({ type: 'CONNECT_PANE', tabId: 50 })).ok, false, 'cannot connect twice');
   assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).workspace.layout, 'top-bottom');

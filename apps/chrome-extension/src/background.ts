@@ -3,11 +3,14 @@ import { MANAGED_RECOVERY_KEY } from './recovery';
 import { createGuideSync, isGuideSyncURL } from './guide-sync';
 import { captureUsable, continuity, type PlayerCapture } from './continuity';
 import { createWorkspace } from './workspace';
-import { canAddManagedFeed, CURRENT_MANAGED_FEED_LIMIT } from '../../../packages/quadbox/src/policy';
+import { defaultChannel } from './default-channel';
+import { createAreaPickerSession } from './area-picker-session';
+import { contains, planLayout } from '../../../packages/quadbox/src/geometry';
+import { canAddManagedFeed, CURRENT_MANAGED_FEED_LIMIT, MANAGED_FEED_COUNTS } from '../../../packages/quadbox/src/policy';
 import { sportsListings, listingPlayable } from '../../../packages/sports-engine/src/guide';
 import { createAudioFocusController, createAudioState, type AudioState } from '../../../packages/quadbox/src/index';
 import { watchNavigationUrl, type GuideEntry } from '../../../packages/core/src/index';
-import { createPreferencesStore, defaultPreferences, sanitizePreferences, recordConfirmedSwitch, PREFERENCES_KEY, type Preferences } from '../../../packages/storage/src/index';
+import { createPreferencesStore, defaultPreferences, patchPreferences, recordConfirmedSwitch, type Preferences } from '../../../packages/storage/src/index';
 import { createGuideMetadataStore } from '../../../packages/storage/src/guide-cache';
 import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
 import type { ActionResult, DesktopSnapshot, UIManagedPane } from '../../../packages/ui/src/types';
@@ -76,6 +79,10 @@ const guideMetadata = createGuideMetadataStore({
   get: async key => (await chrome.storage.local.get(key))[key],
   set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
 });
+const preferencesStore = createPreferencesStore({
+  get: async key => (await chrome.storage.local.get(key))[key],
+  set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
+});
 let preferences = defaultPreferences();
 let preferencesReadable = true;
 const confirmedTabs = new Set<number>();
@@ -83,8 +90,8 @@ let panes: Pane[] = []; let activePaneId: string | undefined; let expandedPaneId
 let mainTabId: number | undefined;
 const requestedClosures = new Set<number>();
 let mainWasDesignated = false;
+let mainWasCreated = false;
 let mainEvent: { eventId: string; channelId: string } | undefined;
-let mainBounds: Bounds | undefined;
 let audioFocusId: string | undefined;
 let audioError: string | undefined;
 let handoffRunning = false;
@@ -104,12 +111,12 @@ const observations = new Map<number, AdapterObservation>();
 const openDrawers = new Set<number>();
 let pendingFeedCreations = 0;
 let managedQueue: Promise<unknown> = Promise.resolve();
-let preferenceWriteQueue: Promise<void> = Promise.resolve();
 let drawerWriteQueue: Promise<void> = Promise.resolve();
 function runManaged<T>(operation: () => Promise<T>): Promise<T> {
   const next = managedQueue.catch(() => undefined).then(operation); managedQueue = next; return next;
 }
 const workspace = createWorkspace(chrome, controlledPanes);
+const areaPicker = createAreaPickerSession(chrome);
 const ok = (message?: string): ActionResult => ({ ok: true, message });
 const fail = (code: string, reason: string): ActionResult => ({ ok: false, code, reason });
 const validId = (value: unknown): value is string => typeof value === 'string' && Boolean(value.trim()) && value.length <= 200;
@@ -128,10 +135,7 @@ async function lookupOwnedTab(tabId: number, windowId: number): Promise<chrome.t
 }
 const init = (async () => {
   try {
-    preferences = await createPreferencesStore({
-      get: async key => (await chrome.storage.local.get(key))[key],
-      set: async (key, value) => { await chrome.storage.local.set({ [key]: value }); },
-    }).load();
+    preferences = await preferencesStore.load();
   } catch { preferencesReadable = false; preferencePersistence = 'unavailable'; failures.record('PREFERENCES_READ_FAILED'); }
   await guideMetadata.load();
 
@@ -144,7 +148,7 @@ const init = (async () => {
   if (Array.isArray(priorLog)) audioDiagnostics = priorLog.slice(-16).filter(row => row &&
     typeof row.at === 'string' && row.at.length <= 40 && Number.isFinite(Date.parse(row.at)) &&
     typeof row.workerStartedAt === 'string' && row.workerStartedAt.length <= 40 && Number.isFinite(Date.parse(row.workerStartedAt)) &&
-    typeof row.muted === 'boolean' && Number.isInteger(row.feeds) && row.feeds >= 0 && row.feeds <= 4 &&
+    typeof row.muted === 'boolean' && Number.isInteger(row.feeds) && row.feeds >= 0 && row.feeds <= CURRENT_MANAGED_FEED_LIMIT &&
     ['main', 'added'].includes(row.source) && ['main', 'added', 'none'].includes(row.authority) &&
     ['requested', 'confirmed', 'failed'].includes(row.result)).map(row => ({ at: row.at, workerStartedAt: row.workerStartedAt,
       source: row.source, cause: 'restored audio request', muted: row.muted, feeds: row.feeds, authority: row.authority, result: row.result }));
@@ -162,7 +166,7 @@ const init = (async () => {
         return Boolean(tab && isYTTV(tab.url) && backup.ownedUrls?.[id] === tab.url);
       };
       const recovered = [];
-      for (const pane of backup.panes.slice(0, 3)) if (await matches(pane?.tabId)) recovered.push(pane);
+      for (const pane of backup.panes.slice(0, CURRENT_MANAGED_FEED_LIMIT - 1)) if (await matches(pane?.tabId)) recovered.push(pane);
       session = { ...backup, panes: recovered, mainTabId: await matches(backup.mainTabId) ? backup.mainTabId : undefined };
     }
   }
@@ -170,7 +174,7 @@ const init = (async () => {
   const restoredEvent = session?.mainEvent as typeof mainEvent;
   if (restoredEvent && validId(restoredEvent.eventId) && validId(restoredEvent.channelId)) mainEvent = restoredEvent;
   if (session && Array.isArray(session.panes)) {
-    for (const raw of session.panes.slice(0, 3)) {
+    for (const raw of session.panes.slice(0, CURRENT_MANAGED_FEED_LIMIT - 1)) {
       if (!raw || typeof raw !== 'object') continue;
       const pane = raw as Pane;
       if (!validId(pane.id) || pane.id === 'main' || !validId(pane.channelId) || !Number.isInteger(pane.tabId) || !Number.isInteger(pane.windowId) ||
@@ -180,7 +184,7 @@ const init = (async () => {
         if (!tab) continue;
         if (isYTTV(tab.url) || pendingWatch(tab) || !tab.url || tab.url === 'about:blank') {
           panes.push({ id: pane.id, channelId: pane.channelId, channelName: typeof pane.channelName === 'string' ? pane.channelName.slice(0, 150) : 'Added feed',
-            feedNumber: Number.isInteger(pane.feedNumber) && pane.feedNumber! >= 2 && pane.feedNumber! <= 4 && !panes.some(p => p.feedNumber === pane.feedNumber) ? pane.feedNumber : [2, 3, 4].find(n => !panes.some(p => p.feedNumber === n)),
+            feedNumber: Number.isInteger(pane.feedNumber) && pane.feedNumber! >= 2 && pane.feedNumber! <= CURRENT_MANAGED_FEED_LIMIT && !panes.some(p => p.feedNumber === pane.feedNumber) ? pane.feedNumber : MANAGED_FEED_COUNTS.slice(1).find(n => !panes.some(p => p.feedNumber === n)),
             eventId: validId(pane.eventId) ? pane.eventId : undefined, tabId: pane.tabId, windowId: tab.windowId, muted: null,
             savedBounds: restoredBounds(pane.savedBounds), error: pane.id === `cleanup-${pane.tabId}` && tab.url === 'about:blank' && !pendingWatch(tab) ? 'Automatic cleanup failed.' : undefined, status: pane.id === `cleanup-${pane.tabId}` && tab.url === 'about:blank' && !pendingWatch(tab) ? 'Creation failed; close this added window' : 'Restored window; playback not yet confirmed' });
           await readTabAudio(pane.tabId);
@@ -191,6 +195,7 @@ const init = (async () => {
     if (Number.isInteger(session.mainTabId)) {
       try { const tab = await chrome.tabs.get(session.mainTabId as number); if (isYTTV(tab.url) && !panes.some(p => p.tabId === tab.id)) mainTabId = tab.id; mainWasDesignated = true; } catch { /* closed */ }
     }
+    mainWasCreated = Boolean(mainTabId && session.mainWasCreated === true);
     if (mainTabId) await readTabAudio(mainTabId);
     const routed = controlledIds().filter(id => tabAudio.get(id)?.tabMuted === false);
     // Observe existing routing rather than replaying a saved enable or muting on reopen.
@@ -222,7 +227,7 @@ async function mainPane(): Promise<Pane | null> {
     const requested = guideFor(mainTabId).find(e => e.target?.url === tab.url);
     const channelId = observed?.currentChannelId ?? requested?.channel.id ?? preferences.currentChannel ?? 'main-player';
     const name = guideFor(mainTabId).find(e => e.channel.id === channelId)?.channel.name ?? 'Original player';
-    return { id: 'main', isMain: true, channelId, channelName: name, eventId: mainEvent?.eventId, tabId: mainTabId, windowId: tab.windowId, savedBounds: mainBounds, ...audioReadback(mainTabId), status: observed?.currentChannelId === channelId ? (confirmedTabs.has(mainTabId) ? 'Player observed advancing' : observed.playback.playing === false ? 'Player paused' : 'Player observed; playback not confirmed') : 'Original player; playback not confirmed' };
+    return { id: 'main', isMain: true, channelId, channelName: name, eventId: mainEvent?.eventId, tabId: mainTabId, windowId: tab.windowId, ...audioReadback(mainTabId), status: observed?.currentChannelId === channelId ? (confirmedTabs.has(mainTabId) ? 'Player observed advancing' : observed.playback.playing === false ? 'Player paused' : 'Player observed; playback not confirmed') : 'Original player; playback not confirmed' };
   } catch { return null; }
 }
 async function controlledPanes(): Promise<Pane[]> { const main = await mainPane(); return [...(main ? [main] : []), ...panes]; }
@@ -333,16 +338,13 @@ async function saveDrawers() {
 
 async function savePreferences(value: Preferences = preferences) {
   if (!preferencesReadable) throw new Error('Preferences storage could not be read; existing values preserved.');
-  const clean = sanitizePreferences(value);
-  const next = preferenceWriteQueue.catch(() => undefined).then(() => chrome.storage.local.set({ [PREFERENCES_KEY]: clean }));
-  preferenceWriteQueue = next;
-  try { await next; preferencePersistence = 'saved'; }
+  try { await preferencesStore.save(value); preferencePersistence = 'saved'; }
   catch { preferencePersistence = 'unavailable'; failures.record('PREFERENCES_WRITE_FAILED'); throw new Error('Preferences were not saved.'); }
 }
 async function saveControlIdentity() {
   if (!managedSessionReadable) throw new Error('Managed sessions could not be read; existing records preserved.');
   try {
-    const record = { panes, mainTabId, mainWasDesignated, mainEvent, activePaneId, expandedPaneId };
+    const record = { panes, mainTabId, mainWasDesignated, mainWasCreated, mainEvent, activePaneId, expandedPaneId };
     await chrome.storage.session.set({ [SESSION_KEY]: record });
     const ownedUrls: Record<number, string> = {};
     for (const id of controlledIds()) { const tab = await chrome.tabs.get(id).catch(() => undefined); if (isYTTV(tab?.url)) ownedUrls[id] = tab!.url!; }
@@ -465,14 +467,14 @@ async function snapshot(requestingTabId?: number): Promise<DesktopSnapshot> {
     if (generation !== expirySyncGeneration) { expirySyncGeneration = generation; void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); }
   }
   const originalCandidates = originalMissing ? (await chrome.tabs.query({ url: 'https://tv.youtube.com/*' })).filter(t => t.id && isYTTV(t.url) && !guideSync.owns(t.id) && !isGuideSyncURL(t.url) && new URL(t.url!).pathname.startsWith('/watch') && !panes.some(p => p.tabId === t.id)).slice(0, 50).map((t, i) => ({ tabId: t.id!, label: `Player ${i + 1} · ${(observations.get(t.id!)?.currentProgram || t.title || 'YouTube TV').slice(0, 150)}` })) : [];
-  return { openPlayerWindowCount, unassignedPlayers, guideSyncStatus: guideSync.status, originalMissing, originalCandidates, workspace: { ...workspace.snapshot(), enrolled: workspace.snapshot().enrolled && Boolean(tabId) }, pendingFeedCreations, feedLimit: CURRENT_MANAGED_FEED_LIMIT, mode: 'extension', connection: observation ? 'connected' : 'waiting',
+  return { openingDefaultShow: Boolean(firstStart), openPlayerWindowCount, unassignedPlayers, guideSyncStatus: guideSync.status, originalMissing, originalCandidates, workspace: { ...workspace.snapshot(), enrolled: workspace.snapshot().enrolled && Boolean(tabId) }, pendingFeedCreations, feedLimit: CURRENT_MANAGED_FEED_LIMIT, mode: 'extension', connection: observation ? 'connected' : 'waiting',
     failureDiagnostics: failures.snapshot(), preferencePersistence, guideCacheDiagnostics: guideMetadata.diagnostics,
     guideObservedAt: guide.length ? new Date(Math.max(...guide.map(row => Date.parse(row.observedAt)))).toISOString() : undefined,
     currentConfirmed: Boolean(tabId && confirmedTabs.has(tabId) && observation?.currentChannelId === preferences.currentChannel),
     statusMessage: guideSync.status === 'loading' ? 'Loading channels automatically; current playback stays unchanged.' : guideSync.status === 'unavailable' ? 'Automatic channel loading unavailable. Add current content or use native Live as fallback.' : guide.length && !guide.some(entry => entry.target) ? 'Awaiting fresh native channel data; saved listings cannot authorize navigation.' : guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Audio labels describe player and tab routing; listening is a separate check.' : 'Channels load automatically when the remote opens or an owned player starts. Normal playback remains available.',
     currentChannelId: preferences.currentChannel ?? undefined, currentProgram: observation?.currentChannelId === preferences.currentChannel ? observation.currentProgram : undefined,
     playback: { playing: observation?.playback.playing ?? null, ...audioReadback(tabId) }, guide, preferences,
-    panes: [...(tabId ? [await mainPane()] : []), ...panes].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, ...audioReadback(pane.tabId), playbackState: addStarts.has(pane.tabId) ? 'loading' : !observations.get(pane.tabId) || observations.get(pane.tabId)?.route !== 'watch' ? 'unavailable' : (observations.get(pane.tabId)?.playback.readyState ?? 0) < 2 ? 'loading' : observations.get(pane.tabId)?.playback.playing === true ? 'playing' : observations.get(pane.tabId)?.playback.playing === false ? 'paused' : 'unavailable', error: playbackErrors.get(pane.tabId)?.reason ?? pane.error })), activePaneId, expandedPaneId, audioFocusId, audioError: [audioError, ...controlledIds().map(id => observations.get(id)?.route === 'watch' ? volumeAttempts.get(id)?.error : undefined)].filter(Boolean).join(' ') || undefined, audioDiagnostics, volumeDiagnostics,
+    panes: [...(tabId ? [await mainPane()] : []), ...panes].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, ...audioReadback(pane.tabId), playbackState: addStarts.has(pane.tabId) || firstStart?.tabId === pane.tabId ? 'loading' : !observations.get(pane.tabId) || observations.get(pane.tabId)?.route !== 'watch' ? 'unavailable' : (observations.get(pane.tabId)?.playback.readyState ?? 0) < 2 ? 'loading' : observations.get(pane.tabId)?.playback.playing === true ? 'playing' : observations.get(pane.tabId)?.playback.playing === false ? 'paused' : 'unavailable', error: playbackErrors.get(pane.tabId)?.reason ?? pane.error })), activePaneId, expandedPaneId, audioFocusId, audioError: [audioError, ...controlledIds().map(id => observations.get(id)?.route === 'watch' ? volumeAttempts.get(id)?.error : undefined)].filter(Boolean).join(' ') || undefined, audioDiagnostics, volumeDiagnostics,
     volumeRecovery: { savedVolume: volumeChoices.get(tabId!)?.volume ?? null, playerTracked: playerIdentities.has(tabId!), documentBound: Boolean(playerIdentities.get(tabId!)?.documentId), attempts: volumeAttempts.get(tabId!)?.count ?? 0, failure: volumeAttempts.get(tabId!)?.failure, status: volumeRecoveryStatus.get(tabId!) ?? 'No recovery request in this worker' },
     capabilities: { navigation: guide.some(entry => Boolean(entry.target)), guide: guide.length > 0, managedWindows: managedSessionReadable, audio: managedSessionReadable && observation?.playback.muted !== null && observation?.playback.muted !== undefined }, observedAt: observation?.observedAt };
 }
@@ -531,7 +533,7 @@ async function playback(paneId: string, playing: boolean, mutedStart = false, ex
 }
 async function startAdded(tabId: number) {
   const start = addStarts.get(tabId); if (!start) return;
-  if (!panes.includes(start.pane)) { addStarts.delete(tabId); return; }
+  if (start.pane.id === 'main' ? mainTabId !== tabId : !panes.includes(start.pane)) { addStarts.delete(tabId); return; }
   const identity = playerIdentities.get(tabId);
   if (start.identity && (start.identity.playerKey !== identity?.playerKey || start.identity.documentId !== identity?.documentId)) {
     addStarts.delete(tabId); playbackErrors.set(tabId, { reason: 'Player changed. Use native Play.', playing: true }); await notify(); return;
@@ -543,6 +545,113 @@ async function startAdded(tabId: number) {
   addStarts.delete(tabId); // Exactly one request, including a refusal.
   await playback(start.pane.id, true, true);
 }
+const FIRST_LIVE_URL = 'https://tv.youtube.com/live';
+let firstStart: { tabId: number; windowId: number; deadline: number; watchUrl?: string } | undefined;
+let firstStartTimer: ReturnType<typeof setTimeout> | undefined;
+function cancelFirstStart() {
+  if (firstStartTimer) clearTimeout(firstStartTimer);
+  if (firstStart) addStarts.delete(firstStart.tabId);
+  firstStart = undefined; firstStartTimer = undefined;
+}
+function firstStartTimeout() {
+  if (firstStartTimer) clearTimeout(firstStartTimer);
+  const attempt = firstStart;
+  firstStartTimer = setTimeout(() => { void runManaged(async () => {
+    if (!attempt || firstStart !== attempt) return;
+    await advanceFirstStart(attempt.tabId);
+  }).catch(() => {
+    if (attempt && firstStart === attempt) {
+      playbackErrors.set(attempt.tabId, { reason: 'Startup could not finish. Use the YouTube TV window to choose a show or press Play.', playing: true });
+      cancelFirstStart();
+    }
+    failures.record('COMMAND_FAILED'); void notify().catch(() => failures.record('NOTIFY_FAILED'));
+  }); }, 15_000);
+}
+async function advanceFirstStart(tabId: number) {
+  const start = firstStart; if (!start || start.tabId !== tabId) return;
+  if (Date.now() >= start.deadline) {
+    playbackErrors.set(tabId, { reason: start.watchUrl ? 'This show did not start. Use Play in its YouTube TV window.' : 'Finish signing in or choose a channel in the new window, then press New show to try again.', playing: true });
+    cancelFirstStart(); await notify(); return;
+  }
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab || mainTabId !== tabId || tab.windowId !== start.windowId || tab.mutedInfo?.muted !== true) { cancelFirstStart(); await notify(); return; }
+  if (start.watchUrl) {
+    if (tab.url !== start.watchUrl && tab.pendingUrl !== start.watchUrl && tab.url !== FIRST_LIVE_URL) { cancelFirstStart(); await notify(); return; }
+    if (!addStarts.has(tabId)) { cancelFirstStart(); await notify(); }
+    return;
+  }
+  if (tab.url !== FIRST_LIVE_URL || observations.get(tabId)?.route !== 'guide') return;
+  const entry = defaultChannel(guideFor(tabId), preferences.currentChannel); if (!entry?.target) return;
+  firstStart = { ...start, watchUrl: entry.target.url, deadline: Date.now() + 15_000 };
+  const pane: Pane = { id: 'main', isMain: true, tabId, windowId: start.windowId, channelId: entry.channel.id, channelName: entry.channel.name, muted: true };
+  addStarts.set(tabId, { pane, deadline: Date.now() + 15_000, url: entry.target.url });
+  firstStartTimeout();
+  try { await setTabMuted(tabId, true, 'start default channel', entry.target.url); }
+  catch { playbackErrors.set(tabId, { reason: 'Choose a channel in the new window, or press New show to try again.', playing: true }); cancelFirstStart(); }
+  await notify();
+}
+async function beginFirstStart(tabId: number): Promise<ActionResult> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab || !isYTTV(tab.url) && tab.url !== 'about:blank') {
+    if (tab) await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
+    return fail('SIGN_IN_REQUIRED', 'Finish signing in in the new YouTube TV window, then press New show.');
+  }
+  cancelFirstStart(); playbackErrors.delete(tabId);
+  const attempt = { tabId, windowId: tab.windowId, deadline: Date.now() + 15_000 };
+  firstStart = attempt;
+  firstStartTimeout();
+  try {
+    await saveControlIdentity();
+    if (firstStart !== attempt) return fail('SUPERSEDED', 'Startup cancelled. Use the YouTube TV window or New show when ready.');
+    const muted = await setTabMuted(tabId, true, 'open first live guide');
+    if (muted?.mutedInfo?.muted !== true) throw new Error('Mute unconfirmed');
+    const current = await chrome.tabs.get(tabId);
+    if (firstStart !== attempt || current.windowId !== attempt.windowId || current.url !== tab.url || (current.pendingUrl && current.pendingUrl !== tab.pendingUrl && current.pendingUrl !== FIRST_LIVE_URL)) {
+      if (firstStart === attempt) cancelFirstStart();
+      return fail('SUPERSEDED', 'The window changed. Continue in YouTube TV; startup was cancelled.');
+    }
+    await chrome.tabs.update(tabId, { url: FIRST_LIVE_URL });
+    await advanceFirstStart(tabId); await notify();
+    return ok('Opening your first show. Your last channel is used when available.');
+  } catch { cancelFirstStart(); return fail('START_UNAVAILABLE', 'YouTube TV could not start. Use the new window to finish setup, then try New show again.'); }
+}
+async function newShow(): Promise<ActionResult> {
+  if (firstStart) return ok('Your first show is still opening.');
+  await chooseTab();
+  if (!canAddManagedFeed(controlledIds().length + pendingFeedCreations)) return fail('SESSION_BOUND', 'Four shows are already open. Remove one to add another.');
+  if (mainTabId) {
+    const tab = await chrome.tabs.get(mainTabId).catch(() => undefined);
+    if (mainWasCreated && tab && !watchNavigationUrl(tab.url ?? '')) return beginFirstStart(mainTabId);
+    const entry = defaultChannel(guideFor(mainTabId), preferences.currentChannel);
+    return entry ? createPane(entry.channel.id) : fail('CHANNELS_LOADING', 'Channels are still loading. Try New show again in a moment, or use Pick a channel.');
+  }
+  const released = await workspace.releaseClosedOriginal(); if (!released.ok) return released;
+  let created: chrome.windows.Window | undefined;
+  const previous = { mainWasDesignated, mainWasCreated, activePaneId, mainEvent };
+  pendingFeedCreations++;
+  try {
+    created = await chrome.windows.create({ url: 'about:blank', type: 'popup', focused: false, width: 780, height: 520 });
+    const tabId = created?.tabs?.[0]?.id; if (created?.id === undefined || tabId === undefined) throw new Error('Window unavailable');
+    const muted = await setTabMuted(tabId, true, 'create first show');
+    if (muted?.mutedInfo?.muted !== true) throw new Error('Mute unconfirmed');
+    mainTabId = tabId; mainWasDesignated = true; mainWasCreated = true; activePaneId = 'main'; mainEvent = undefined;
+    await saveControlIdentity();
+  } catch {
+    const tabId = created?.tabs?.[0]?.id;
+    const tab = tabId === undefined ? undefined : await chrome.tabs.get(tabId).catch(() => undefined);
+    if (created?.id !== undefined && tab?.windowId === created.id && tab.url === 'about:blank') {
+      try { await chrome.tabs.remove(tab.id!); }
+      catch {
+        mainTabId = tab.id; mainWasDesignated = true; mainWasCreated = true;
+        await saveControlIdentity().catch(() => undefined);
+        return fail('WINDOW_CLEANUP_FAILED', 'The new window is still open. Use New show to retry it, or close that window.');
+      }
+    }
+    mainTabId = undefined; mainWasDesignated = previous.mainWasDesignated; mainWasCreated = previous.mainWasCreated; activePaneId = previous.activePaneId; mainEvent = previous.mainEvent;
+    return fail('WINDOW_FAILED', 'Could not open a new show. Try again.');
+  } finally { pendingFeedCreations--; }
+  return beginFirstStart(mainTabId!);
+}
 async function createPane(channelId: string, currentContent?: GuideEntry, sourceCurrent?: () => Promise<boolean>): Promise<ActionResult> {
   if (!validId(channelId)) return fail('INVALID_INPUT', 'A valid channel identifier is required.');
   await chooseTab();
@@ -552,7 +661,7 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
   if (!mainTabId) return fail('MAIN_UNAVAILABLE', 'Select the original player explicitly before adding feeds.');
   // runManaged reserves pending creations by serializing the capacity check through completion/cleanup.
   if (!canAddManagedFeed(controlledIds().length + pendingFeedCreations)) return fail('SESSION_BOUND', 'Four total managed feeds are the software limit. Close an added feed first; account playback allowance is separate.');
-  if (workspace.snapshot().layout === 'top-bottom') {
+  if (workspace.snapshot().layout !== 'auto') {
     const placement = await workspace.validateLayout(controlledIds().length + pendingFeedCreations + 1);
     if (!placement.ok) return placement;
   }
@@ -572,7 +681,7 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
     if (sourceCurrent && !await sourceCurrent()) throw new Error('SOURCE_CHANGED');
     await setTabMuted(tabId, true, 'create navigate feed', entry.target.url);
     const pane: Pane = { id: `pane-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, channelId, channelName: entry.channel.name,
-      feedNumber: [2, 3, 4].find(n => !panes.some(p => p.feedNumber === n)), tabId, windowId: created.id, muted: true, status: 'Navigation requested; playback not confirmed' };
+      feedNumber: MANAGED_FEED_COUNTS.slice(1).find(n => !panes.some(p => p.feedNumber === n)), tabId, windowId: created.id, muted: true, status: 'Navigation requested; playback not confirmed' };
     await readTabAudio(mainTabId!);
     if (!audioFocusId && audioReadback(mainTabId).muted === false) audioFocusId = 'main';
     panes.push(pane); const start = { pane, deadline: Date.now() + 15_000, url: entry.target.url }; addStarts.set(tabId, start);
@@ -661,7 +770,6 @@ async function expandPane(paneId: string): Promise<ActionResult> {
   if (expandedPaneId && expandedPaneId !== paneId) await restoreLayout();
   if (!pane.savedBounds) { const window = await chrome.windows.get(pane.windowId); pane.savedBounds = { left: window.left, top: window.top, width: window.width, height: window.height, state: window.state }; }
   await chrome.windows.update(pane.windowId, { state: 'maximized', focused: true });
-  if (paneId === 'main') mainBounds = pane.savedBounds;
   expandedPaneId = paneId; await saveSessions(); await notify(); return ok('Expanded the browser window; restore returns its saved bounds.');
 }
 async function restoreLayout(): Promise<ActionResult> {
@@ -670,7 +778,7 @@ async function restoreLayout(): Promise<ActionResult> {
     const { state, ...bounds } = pane.savedBounds;
     await chrome.windows.update(pane.windowId, { state: 'normal' }); await chrome.windows.update(pane.windowId, bounds);
     if (state === 'maximized' || state === 'fullscreen') await chrome.windows.update(pane.windowId, { state });
-    delete pane.savedBounds; if (pane.id === 'main') mainBounds = undefined;
+    delete pane.savedBounds;
   }
   expandedPaneId = undefined; await saveSessions(); await notify(); return ok('Restored the managed window layout; audio selection is preserved.');
 }
@@ -707,6 +815,14 @@ async function moveOriginal(returning: boolean, arrangeAfter = true): Promise<Ac
   }
   return syncWorkspaceExpansion(result);
 }
+async function applyWorkspaceLayout(): Promise<ActionResult> {
+  if (pendingFeedCreations || firstStart) return fail('PLAYERS_PENDING', 'Wait for the new show to finish opening.');
+  const checked = await workspace.validatePlayers(); if (!checked.ok) return checked;
+  if (!workspace.snapshot().enrolled) { const enrolled = await moveOriginal(false, false); if (!enrolled.ok) return enrolled; }
+  const result = await workspace.arrange();
+  if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); }
+  return result;
+}
 async function handle(command: Command, sender: chrome.runtime.MessageSender): Promise<unknown> {
   await init; await workspace.ready;
   const contentSender = sender.id === chrome.runtime.id && sender.tab?.id && isYTTV(sender.url ?? sender.tab.url);
@@ -716,11 +832,15 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       (['CREATE_PANE', 'REPLACE_PANE'].includes(command.type) && 'eventId' in command))
     return fail('UNSUPPORTED_PATH', 'Provider event playback was removed. Use Guide or guide-based Sports programs.');
   if (!validCommand(command)) { failures.record('INVALID_COMMAND'); return fail('INVALID_COMMAND', 'Invalid or oversized extension command.'); }
-  if (!managedSessionReadable && (['CONNECT_PANE', 'DUPLICATE_PANE', 'CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'REPLACE_PROGRAM', 'SELECT_PANE'].includes(command.type) ||
+  if (!managedSessionReadable && (['NEW_SHOW', 'CONNECT_PANE', 'DUPLICATE_PANE', 'CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'REPLACE_PROGRAM', 'SELECT_PANE'].includes(command.type) ||
       (command.type === 'AUDIO' && command.muted === false)))
     return fail('STORAGE_UNAVAILABLE', 'Managed sessions could not be recovered. Use native mute and existing windows; audio enable and new feeds remain unavailable.');
-  if (['START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE', 'APPLY_TOP_BOTTOM', 'SET_WORKSPACE_LAYOUT'].includes(command.type) && !workspace.snapshot().available)
+  if (['START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE', 'NEW_SHOW', 'APPLY_LAYOUT', 'SAVE_AREA_PICKER'].includes(command.type) && !workspace.snapshot().available)
     return fail('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.');
+  // Explicit original-player choices revoke the first-start attempt before they queue.
+  if (firstStart && (['PREVIOUS', 'OPEN_NATIVE_GUIDE', 'WATCH_PROGRAM', 'RETURN_MAIN'].includes(command.type) ||
+      (['REPLACE_PROGRAM', 'REPLACE_PANE', 'SELECT_PANE'].includes(command.type) && 'paneId' in command && command.paneId === 'main') ||
+      (command.type === 'NATIVE_VOLUME_INPUT' && sender.tab?.id === firstStart.tabId))) cancelFirstStart();
   switch (command.type) {
     case 'CONNECT_PANE': return runManaged(async () => {
       if (!extensionSender || controlledIds().includes(command.tabId)) return fail('PLAYER_UNAVAILABLE', 'Choose an unassigned existing player.');
@@ -728,7 +848,7 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       const tab = await chrome.tabs.get(command.tabId).catch(() => undefined);
       if (!tab || !watchNavigationUrl(tab.url ?? '')) return fail('PLAYER_UNAVAILABLE', 'Existing watch player unavailable.');
       const entry = guideFor(mainTabId).find(row => row.target?.url === tab.url);
-      panes.push({ id: `connected-${command.tabId}`, tabId: command.tabId, windowId: tab.windowId, channelId: entry?.channel.id ?? `existing-${command.tabId}`, channelName: entry?.channel.name ?? 'Existing player', feedNumber: [2, 3, 4].find(n => !panes.some(p => p.feedNumber === n)), muted: null });
+      panes.push({ id: `connected-${command.tabId}`, tabId: command.tabId, windowId: tab.windowId, channelId: entry?.channel.id ?? `existing-${command.tabId}`, channelName: entry?.channel.name ?? 'Existing player', feedNumber: MANAGED_FEED_COUNTS.slice(1).find(n => !panes.some(p => p.feedNumber === n)), muted: null });
       await saveControlIdentity();
       for (const id of controlledIds()) await readTabAudio(id);
       const routed = controlledIds().filter(id => tabAudio.get(id)?.tabMuted === false);
@@ -748,9 +868,9 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       if (!clean || !captureUsable({ ...clean, playerKey: raw?.playerKey }) || raw.connectionBuild !== expectedBuild || raw.connectionNonce !== connectionNonce || Date.parse(clean.observedAt) < requestedAt || Date.parse(clean.observedAt) > Date.now())
         return fail('PLAYER_UNAVAILABLE', 'This player is not connected and ready. Use its native controls; no player was adopted.');
       const released = await workspace.releaseClosedOriginal(); if (!released.ok) return released;
-      const priorMain = mainTabId, priorSelected = activePaneId, priorEvent = mainEvent, priorExpanded = expandedPaneId, priorAudio = audioFocusId;
-      mainTabId = command.tabId; mainWasDesignated = true; mainEvent = undefined; activePaneId = 'main'; expandedPaneId = undefined; audioFocusId = undefined;
-      try { await saveControlIdentity(); } catch { mainTabId = priorMain; activePaneId = priorSelected; mainEvent = priorEvent; expandedPaneId = priorExpanded; audioFocusId = priorAudio; return fail('STORAGE_UNAVAILABLE', 'Player choice could not be saved; native controls remain available.'); }
+      const priorMain = mainTabId, priorCreated = mainWasCreated, priorSelected = activePaneId, priorEvent = mainEvent, priorExpanded = expandedPaneId, priorAudio = audioFocusId;
+      mainTabId = command.tabId; mainWasDesignated = true; mainWasCreated = false; mainEvent = undefined; activePaneId = 'main'; expandedPaneId = undefined; audioFocusId = undefined;
+      try { await saveControlIdentity(); } catch { mainTabId = priorMain; mainWasCreated = priorCreated; activePaneId = priorSelected; mainEvent = priorEvent; expandedPaneId = priorExpanded; audioFocusId = priorAudio; return fail('STORAGE_UNAVAILABLE', 'Player choice could not be saved; native controls remain available.'); }
       await observe(command.tabId, raw, true); await notify();
       return ok('Chosen player connected without moving it or changing playback or audio. Start TV workspace to arrange it. The previous closed original cannot be returned.');
     });
@@ -772,20 +892,36 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       }
       await observe(tabId, raw, true); await notify(); return ok('Controls reconnected to the existing original tab without page refresh or navigation.');
     });
+    case 'NEW_SHOW': return runManaged(async () => {
+      if (!extensionSender) return fail('INVALID_SENDER', 'Use New show in the remote.');
+      const result = await newShow(); await notify(); return result;
+    });
     case 'OPEN_REMOTE': { const result = await workspace.openRemote(); remoteGuideRequested = true; void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); return result; }
     case 'START_WORKSPACE': return runManaged(async () => { const result = await moveOriginal(false); await notify(); return result; });
     case 'RETURN_MAIN': return runManaged(async () => { const result = await moveOriginal(true); await notify(); return result; });
-    case 'APPLY_TOP_BOTTOM': return runManaged(async () => {
-      if (pendingFeedCreations) return fail('PAIR_PENDING', 'Wait for the pending player before applying Top/bottom.');
-      const checked = await workspace.validatePair(); if (!checked.ok) return checked;
-      if (!workspace.snapshot().enrolled) { const enrolled = await moveOriginal(false, false); if (!enrolled.ok) { await notify(); return enrolled; } }
-      const result = await workspace.arrange(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result;
+    case 'OPEN_AREA_PICKER': return runManaged(async () => extensionSender ? areaPicker.open(command) : fail('INVALID_SENDER', 'Open the drawing window from the remote.'));
+    case 'GET_AREA_PICKER': return areaPicker.read(sender);
+    case 'CANCEL_AREA_PICKER': return runManaged(async () => {
+      const current = await areaPicker.read(sender); if (!current.ok) return current;
+      await areaPicker.close(); await workspace.focusRemote(); return ok('Drawing cancelled.');
     });
-    case 'SET_WORKSPACE_LAYOUT': return runManaged(async () => { const result = await workspace.setLayout(command.mode); await notify(); return result; });
+    case 'SAVE_AREA_PICKER': return runManaged(async () => {
+      const current = await areaPicker.read(sender); if (!current.ok || !current.picker) return current;
+      const config = current.picker;
+      if (!contains(config.workArea, command.area) || (config.mode === 'custom' && (command.customSlots?.length !== config.count || !contains(command.area, config.workArea)))) return fail('INVALID_AREA', 'Draw each show inside the selected monitor.');
+      const preview = planLayout(command.area, config.count, 8, config.mode, command.customSlots);
+      if (!preview.ok) return fail('AREA_TOO_SMALL', preview.reason);
+      if (pendingFeedCreations) return fail('PLAYERS_PENDING', 'Wait for the new show to finish opening, then save again.');
+      let result = await workspace.setArea(config.workArea, command.area, config.displayId, config.mode, config.mode === 'custom' ? command.customSlots : undefined, config.count);
+      if (result.ok && firstStart) result = { ...ok('Layout saved. Wait for the first show to finish opening, then Arrange shows.'), code: 'LAYOUT_SAVED' };
+      if (result.ok && result.code !== 'LAYOUT_SAVED' && (!workspace.snapshot().enrolled || !workspace.snapshot().intent?.autoArrange)) result = await applyWorkspaceLayout();
+      if (result.ok) { await syncWorkspaceExpansion(result); await areaPicker.close(); await workspace.focusRemote(); }
+      await notify(); return result;
+    });
+    case 'APPLY_LAYOUT': return runManaged(async () => { const result = await applyWorkspaceLayout(); await notify(); return result; });
     case 'ARRANGE': return runManaged(async () => { const result = await workspace.arrange(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
-    case 'SET_TV_AREA': return runManaged(async () => { const result = await workspace.setArea(command.workArea, command.area, command.displayId, command.layout); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
+    case 'SET_TV_AREA': return runManaged(async () => { const result = await workspace.setArea(command.workArea, command.area, command.displayId, command.layout, command.customSlots, command.plannedCount); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
     case 'AUTO_ARRANGE': return runManaged(async () => { const result = await workspace.setAuto(command.enabled); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
-    case 'ACTIVE_PANE': return runManaged(async () => { const pane = await requirePane(command.paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'Player unavailable.'); activePaneId = pane.id; await saveSessions(); await notify(); return ok('Selected controls; window focus and audio choice preserved.'); });
     case 'FOCUS_PANE': return runManaged(async () => {
       const pane = await requirePane(command.paneId); if (!pane) return fail('PANE_UNAVAILABLE', 'Player unavailable.');
       await chrome.tabs.update(pane.tabId, { active: true }); await chrome.windows.update(pane.windowId, { focused: true });
@@ -829,7 +965,14 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
           playerIdentities.set(tabId, identity);
         }
         await observe(tabId, clean);
-        if (identity) await runManaged(async () => { await reconcileVolume(tabId, identity.playerKey, identity.documentId); await startAdded(tabId); });
+        if (identity || firstStart?.tabId === tabId) await runManaged(async () => {
+          await advanceFirstStart(tabId);
+          if (identity) {
+            await reconcileVolume(tabId, identity.playerKey, identity.documentId);
+            if (firstStart?.tabId !== tabId || clean.route === 'watch') await startAdded(tabId);
+          }
+          await advanceFirstStart(tabId);
+        });
       }
       return ok();
     }
@@ -852,6 +995,7 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       return ok('Opened native Live in this tab. Fresh guide observations are required before Watch/Add.');
     }
     case 'NAVIGATE': {
+      if (firstStart) cancelFirstStart();
       const result = await navigate(command.channelId, contentSender ? sender.tab!.id : undefined);
       if (result.ok || result.code === 'NAVIGATION_PENDING') { mainEvent = undefined; await saveControlIdentity(); }
       return result;
@@ -860,13 +1004,11 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     case 'PREFERENCE': {
       return runManaged(async () => {
         if (!preferencesReadable) return fail('STORAGE_UNAVAILABLE', 'Preferences could not be read; existing values preserved.');
-        // Current/previous/recents are confirmed-playback state, not editable preferences.
-        const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent, nightMuteLock: _mute, ...patch } = command.patch ?? {};
-        const candidate = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
+        const candidate = patchPreferences(preferences, command.patch);
         try { await savePreferences(candidate); }
         catch { return fail('STORAGE_UNAVAILABLE', 'Preferences were not saved. Retry when local storage is available.'); }
         // Do not show an uncommitted patch or roll back unrelated observations received during the write.
-        preferences = sanitizePreferences({ ...preferences, ...patch, ui: { ...preferences.ui, ...patch.ui }, nightMuteLock: false });
+        preferences = patchPreferences(preferences, command.patch);
         await notify(); return ok('Local preferences saved.');
       });
     }
@@ -884,12 +1026,12 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     case 'CREATE_PANE': return runManaged(() => createPane(command.channelId));
     case 'REPLACE_PANE': return runManaged(() => replacePane(command.paneId, command.channelId));
     case 'SELECT_PANE': return runManaged(() => selectPane(command.paneId));
-    case 'EXPAND_PANE': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout === 'top-bottom') ? await workspace.expand(command.paneId) : await expandPane(command.paneId); if (result.ok) { expandedPaneId = command.paneId; await saveControlIdentity(); } await notify(); return result; });
-    case 'RESTORE_LAYOUT': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout === 'top-bottom') ? await workspace.restore() : await restoreLayout(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
+    case 'EXPAND_PANE': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout !== 'auto') ? await workspace.expand(command.paneId) : await expandPane(command.paneId); if (result.ok) { expandedPaneId = command.paneId; await saveControlIdentity(); } await notify(); return result; });
+    case 'RESTORE_LAYOUT': return runManaged(async () => { const result = (workspace.snapshot().enrolled || workspace.snapshot().layout !== 'auto') ? await workspace.restore() : await restoreLayout(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
     case 'REMOVE_PANE': return runManaged(() => removePane(command.paneId));
-    case 'MUTE': return runManaged(() => muteAll());
+    case 'MUTE': if (firstStart) cancelFirstStart(); return runManaged(() => muteAll());
     case 'PLAYBACK': {
-      const pane = await requirePane(command.paneId); if (pane) addStarts.delete(pane.tabId);
+      const pane = await requirePane(command.paneId); if (pane) { addStarts.delete(pane.tabId); if (firstStart?.tabId === pane.tabId) cancelFirstStart(); }
       const identity = pane ? playerIdentities.get(pane.tabId) : undefined;
       return runManaged(() => playback(command.paneId, command.playing, false, identity));
     }
@@ -897,7 +1039,7 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       const audioPaneId = command.paneId ?? activePaneId ?? 'main';
       const targetId = audioPaneId !== 'main' ? panes.find(p => p.id === audioPaneId)?.tabId : mainTabId;
       const audioIdentity = targetId ? playerIdentities.get(targetId) : undefined;
-      if (targetId) addStarts.delete(targetId);
+      if (targetId) { addStarts.delete(targetId); if (firstStart?.tabId === targetId) cancelFirstStart(); }
       const validVolume = typeof command.volume === 'number' && Number.isFinite(command.volume) && command.volume >= 0 && command.volume <= 1;
       // Receipt of a newer choice cancels an in-flight recovery before the managed queue reaches it.
       if (targetId && validVolume) invalidateVolume(targetId);
@@ -946,7 +1088,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // A newly created/moved popup may take focus before geometry starts. Return control
     // to the initiating remote for operations that do not explicitly focus a player.
     if (sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('remote.html') &&
-        ['START_WORKSPACE', 'ARRANGE', 'APPLY_TOP_BOTTOM', 'RESTORE_LAYOUT', 'SET_TV_AREA', 'AUTO_ARRANGE', 'CREATE_PANE', 'DUPLICATE_PANE', 'ADD_PROGRAM', 'REMOVE_PANE'].includes(message.type))
+        ['START_WORKSPACE', 'ARRANGE', 'APPLY_LAYOUT', 'RESTORE_LAYOUT', 'SET_TV_AREA', 'AUTO_ARRANGE', 'NEW_SHOW', 'CREATE_PANE', 'DUPLICATE_PANE', 'ADD_PROGRAM', 'REMOVE_PANE'].includes(message.type))
       await workspace.focusRemote();
     sendResponse(result);
   }, () => {
@@ -957,6 +1099,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 chrome.tabs.onRemoved.addListener(tabId => {
   if (guideSync.owns(tabId)) { guideSync.removed(tabId); return; }
+  if (firstStart?.tabId === tabId) cancelFirstStart();
   playingSeen.delete(tabId);
   addStarts.delete(tabId); playbackErrors.delete(tabId);
   const explicitClose = requestedClosures.delete(tabId);
@@ -965,7 +1108,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
   if (activePaneId === removedSourceId) activePaneId = 'main';
   if (expandedPaneId === removedSourceId) expandedPaneId = undefined;
   invalidateVolume(tabId); volumeChoices.delete(tabId); playerIdentities.delete(tabId);
-  observations.delete(tabId); tabAudio.delete(tabId); confirmedTabs.delete(tabId); const removedMain = mainTabId === tabId; if (removedMain) mainTabId = undefined;
+  observations.delete(tabId); tabAudio.delete(tabId); confirmedTabs.delete(tabId); const removedMain = mainTabId === tabId; if (removedMain) { mainTabId = undefined; mainWasCreated = false; }
   const removed = panes.some(pane => pane.tabId === tabId); panes = panes.filter(pane => pane.tabId !== tabId);
   void init.then(() => runManaged(async () => {
     // Independent cleanup writes must all be attempted even if one storage area fails.
@@ -978,6 +1121,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   if (change.status === 'complete' && controlledIds().includes(tabId)) void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED'));
   if (change.url && controlledIds().includes(tabId)) void init.then(() => runManaged(() => saveControlIdentity())).catch(() => failures.record('SESSION_WRITE_FAILED'));
+  if (change.url && firstStart?.tabId === tabId && change.url !== FIRST_LIVE_URL && change.url !== firstStart.watchUrl) cancelFirstStart();
   if (change.url) { playingSeen.delete(tabId); if (addStarts.get(tabId)?.url !== change.url) addStarts.delete(tabId); playbackErrors.delete(tabId); invalidateVolume(tabId); playerIdentities.delete(tabId); observations.delete(tabId); confirmedTabs.delete(tabId); }
   if (isYTTV(tab.url) && controlledIds().includes(tabId) && panes.length && !handoffRunning && sourceId(tabId) !== audioFocusId && change.mutedInfo?.muted === false)
     void setTabMuted(tabId, true, 'tab update inactive feed').catch(() => { audioError = 'Inactive feed mute failed; use Mute all and inspect audio readback.'; });

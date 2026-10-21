@@ -1,13 +1,14 @@
 import { Icon, SearchBox, QuickChannel, EmptyInline, EmptyState, SportsCard, ManagedPane, channelMark, entryPlayable, audioLayers, type IconName } from './components';
-import { canAddManagedFeed } from '../../quadbox/src/policy';
+import { CURRENT_MANAGED_FEED_LIMIT, canAddManagedFeed } from '../../quadbox/src/policy';
 import { freshGuideObservation } from '../../yttv-adapter/src/index';
 import { sportsListings, listingPlayable } from '../../sports-engine/src/guide';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { GuideEntry } from '../../core/src/index';
-import { defaultPreferences, orderGuide, DEFAULT_KEYBOARD_MAPPINGS, KEYBOARD_LABELS, normalizeKeyboardKey, validateKeyboardMappings, type KeyboardAction } from '../../storage/src/index';
+import { defaultPreferences, orderGuide, normalizeKeyboardKey, type KeyboardAction } from '../../storage/src/index';
 import { createIllustrativeFixtures, searchEvents } from '../../sports-engine/src/index';
 import type { ActionResult, ClientBridge, DesktopOptions, DesktopSnapshot } from './types';
+import { ShortcutsDialog } from './shortcuts-dialog';
 import './styles.css';
 
 export type { ActionResult, ClientBridge, DesktopOptions, DesktopSnapshot, UIManagedPane } from './types';
@@ -68,18 +69,15 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [replacePaneId, setReplacePaneId] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [shortcutDraft, setShortcutDraft] = useState({ ...DEFAULT_KEYBOARD_MAPPINGS });
-  const [shortcutError, setShortcutError] = useState<string | null>(null);
   const [focusedChannel, setFocusedChannel] = useState<string | null>(null);
   const mappings = snapshot.preferences.keyboardMappings;
   const keyLabel = (action: KeyboardAction) => mappings[action] || 'Off';
-  const openShortcuts = () => { setShortcutDraft({ ...mappings }); setShortcutError(null); setShowShortcuts(true); };
+  const openShortcuts = () => setShowShortcuts(true);
   const [sportsLeague, setSportsLeague] = useState('ALL');
   const [selectedFixtures, setSelectedFixtures] = useState<string[]>([]);
   const [clock, setClock] = useState(Date.now());
   const searchRef = useRef<HTMLInputElement>(null);
   const appRef = useRef<HTMLDivElement>(null);
-  const shortcutsRef = useRef<HTMLElement>(null);
   const initializedSurface = useRef(false);
   const demo = options.demo || snapshot.mode === 'demo';
   const [fixtureLab, setFixtureLab] = useState(false);
@@ -120,26 +118,6 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
     const timeout = window.setTimeout(() => setNotice(null), 8000);
     return () => window.clearTimeout(timeout);
   }, [notice]);
-
-  useEffect(() => {
-    if (!showShortcuts || !shortcutsRef.current) return;
-    const modal = shortcutsRef.current;
-    const root = modal.getRootNode();
-    const previousFocus = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
-    const focusable = () => Array.from(modal.querySelectorAll<HTMLButtonElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]'));
-    focusable()[0]?.focus();
-    const trapFocus = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const items = focusable();
-      if (!items.length) return;
-      const active = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
-      const first = items[0], last = items[items.length - 1];
-      if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
-    };
-    modal.addEventListener('keydown', trapFocus);
-    return () => { modal.removeEventListener('keydown', trapFocus); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
-  }, [showShortcuts]);
 
   const goSurface = useCallback((next: Surface) => {
     // A deliberate user navigation takes precedence over a late initial preference load.
@@ -264,13 +242,6 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
     return () => window.removeEventListener('keydown', handler);
   }, [bridge, goSurface, query, replacePaneId, run, showShortcuts, snapshot, surface, guideEntries, manageGuide, pending]);
 
-  const saveShortcuts = async () => {
-    const error = validateKeyboardMappings(shortcutDraft);
-    if (error) { setShortcutError(error); return; }
-    setShortcutError(null);
-    await run('Save keyboard shortcuts', () => bridge.setPreference({ keyboardMappings: shortcutDraft }));
-  };
-
   const visibleSports = searchEvents(fixtures, query, { now: clock }).filter(event => sportsLeague === 'ALL' || event.league === sportsLeague);
   const guideSports = sportsListings(orderGuide(snapshot.guide, snapshot.preferences));
   const visibleGuideSports = sportsListings(orderGuide(snapshot.guide, snapshot.preferences), query, sportsLeague);
@@ -367,13 +338,18 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
           <div className="quad-disclosure"><Icon name="window" size={23}/><div><strong>Supported browser windows, controlled together</strong><p>Video stays in separate YouTube TV windows. Playback depends on your account and channel availability.</p></div></div>
           <div className="quad-toolbar"><span><strong>{snapshot.panes.length}</strong> controlled {snapshot.panes.length === 1 ? 'feed' : 'feeds'} <span className="divider">/</span> <Icon name="mute" size={15}/> {snapshot.audioFocusId ? 'Selected feed' : 'Check each feed’s audio'}</span><div><span className="quiet-label">{(['pane1', 'pane2', 'pane3', 'pane4'] as const).map(keyLabel).join(' / ')} Select audio · {keyLabel('expand')} Expand · {keyLabel('restore')} Restore</span></div></div>
           {snapshot.panes.length ? <div className={`quad-grid ${snapshot.panes.length === 1 ? 'single' : ''}`}>{snapshot.panes.map((pane, index) => <ManagedPane key={pane.id} pane={pane} index={index} selected={pane.id === snapshot.activePaneId} expanded={pane.id === snapshot.expandedPaneId} pending={Boolean(pending)} focusKey={keyLabel(`pane${index + 1}` as KeyboardAction)} onFocus={() => void run('Focus window', () => (bridge.focusPane ?? bridge.selectPane)(pane.id))} onExpand={() => void run('Expand window', () => bridge.expandPane(pane.id))} onReplace={() => { setReplacePaneId(pane.id); setSurface('GUIDE'); setQuery(''); setFilter('all'); }} onRemove={!pane.isMain && bridge.removePane ? () => void run('Close managed window', () => bridge.removePane!(pane.id)) : undefined}/>)}{canAddManagedFeed(snapshot.panes.length + (snapshot.pendingFeedCreations ?? 0)) && <button className="add-pane" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows || !canAddManagedFeed(snapshot.panes.length + (snapshot.pendingFeedCreations ?? 0))}><span className="add-pane-icon"><Icon name="plus" size={25}/></span><strong>Add another channel</strong><span>Only within your verified simultaneous-stream allowance</span></button>}</div> : <EmptyState icon="quad" title="Build your viewing workspace" text="Choose a channel in Guide and select Add. New windows start muted. You can control the main player and up to three added windows." action={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} actionLabel="Choose channels"/>}
-          <div className="quad-footer"><span>Select audio also brings that window forward. New windows start muted.</span><span>Main player plus one added window.</span></div>
+          <div className="quad-footer"><span>Select audio also brings that window forward. New windows start muted.</span><span>Up to {CURRENT_MANAGED_FEED_LIMIT} native player windows.</span></div>
         </>}
       </main>
       <footer className="app-footer"><span>Video and account controls stay in YouTube TV.</span></footer>
     </div>
 
-    {showShortcuts && <div className="modal-backdrop" onClick={() => setShowShortcuts(false)}><section ref={shortcutsRef} className="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" onClick={event => event.stopPropagation()}><div className="section-title"><h2 id="shortcuts-title">Keyboard shortcuts</h2><button className="icon-button" onClick={() => setShowShortcuts(false)} aria-label="Close keyboard shortcuts"><Icon name="close"/></button></div><p>Focus the workspace or a guide row to use shortcuts. Typing, buttons, player controls and browser chords keep their own keys. Tab reaches row controls; arrows move between rows. Blank disables a binding. Escape always closes this dialog.</p><div className="shortcut-grid">{(Object.keys(KEYBOARD_LABELS) as KeyboardAction[]).map(action => <label key={action}><span>{KEYBOARD_LABELS[action]} <kbd>{keyLabel(action)}</kbd></span><input aria-label={`${KEYBOARD_LABELS[action]} key`} value={shortcutDraft[action]} maxLength={24} onChange={event => setShortcutDraft(previous => ({ ...previous, [action]: event.target.value }))}/></label>)}</div>{shortcutError && <p role="alert">{shortcutError}</p>}<div className="shortcut-night"><Icon name="mute"/> Mute all affects only the main and added feed. Selecting a feed transfers audio and focus.</div><div className="shortcut-actions"><button className="button" onClick={() => { setShortcutDraft({ ...DEFAULT_KEYBOARD_MAPPINGS }); setShortcutError(null); }}>Use defaults</button><button className="button primary" disabled={Boolean(pending)} onClick={() => void saveShortcuts()}>Save shortcuts</button></div>{snapshot.audioDiagnostics && <details><summary>Recent tab audio commands</summary><p>Last 16 extension requests only; player and site mute are separate. No playback URLs or account data.</p>{snapshot.volumeRecovery && <p>Main volume recovery: {snapshot.volumeRecovery.savedVolume === null ? 'no saved choice' : `${Math.round(snapshot.volumeRecovery.savedVolume * 100)}% saved`} · player tracked {snapshot.volumeRecovery.playerTracked ? 'yes' : 'no'} · document binding {snapshot.volumeRecovery.documentBound ? 'supported' : 'unavailable; player guard active'} · {snapshot.volumeRecovery.status} · attempts {snapshot.volumeRecovery.attempts ?? 0}{snapshot.volumeRecovery.failure ? ` · ${snapshot.volumeRecovery.failure}` : ''}</p>}{snapshot.volumeDiagnostics?.map((row, index) => <p key={`volume-${index}`}>{row.at} · {row.source} volume {Math.round(row.volume * 100)}% · {row.route} ready {row.readyState ?? 'unknown'} · {row.result}{row.failure ? ` · ${row.failure}` : ''}</p>)}{snapshot.audioDiagnostics.map((row, index) => <p key={index}>{row.at} · {row.source} · {row.cause} · {row.muted ? 'mute' : 'enable'} · {row.result} · {row.feeds} feeds · authority {row.authority} · worker {row.workerStartedAt}</p>)}</details>}<details className="secondary-details"><summary>Build details</summary><p className="runtime-identity">Runtime v{BUILD_VERSION} · build {BUILD_ID}{options.extensionId ? ` · extension ${options.extensionId}` : ''}</p></details></section></div>}
+    {showShortcuts && <ShortcutsDialog
+      mappings={mappings} pending={Boolean(pending)} snapshot={snapshot}
+      onSave={keyboardMappings => void run('Save keyboard shortcuts', () => bridge.setPreference({ keyboardMappings }))}
+      onClose={() => setShowShortcuts(false)}
+      version={BUILD_VERSION} build={BUILD_ID} extensionId={options.extensionId}
+    />}
 
   </div>;
 }

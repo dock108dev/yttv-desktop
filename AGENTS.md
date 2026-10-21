@@ -12,6 +12,6 @@ Run `npm run docs:check` for documentation changes. For behavior changes, use st
 
 ## Local development workflow
 
-This is a local development project on the owner's machine. Prioritize working code, a usable local build, and normal Git commits/pushes when requested. Git is the recovery path for source; generated builds are disposable and can be rebuilt in place. Use checks proportional to the change and reuse passing results when the tested code is unchanged. Routine work needs no build archives, file-by-file backup verification, fingerprint handoffs or repeated validation campaigns.
+Prioritize working code and a usable local build. Git is the recovery path for source; generated builds are disposable and can be rebuilt in place. Use checks proportional to the change and reuse passing results when the tested code is unchanged. Routine work needs no build archives or repeated validation campaigns.
 
-Protect meaningful live data that cannot be recovered from Git: credentials, browser/account state, and irreplaceable user data. Apply backup or migration care when an actual change risks that data. Keep ordinary engineering handoffs short and focused on the next working outcome.
+Protect meaningful live data that cannot be recovered from Git: credentials, browser/account state, and irreplaceable user data. Apply backup or migration care when an actual change risks that data.

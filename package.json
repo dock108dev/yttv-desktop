@@ -11,7 +11,7 @@
     "docs:check": "python3 scripts/check_docs.py",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts packages/ui/src/*.test.ts",
+    "test": "node scripts/test.mjs",
     "preview": "node scripts/preview.mjs",
     "verify": "npm run typecheck && npm test && npm run build && npm run docs:check",
     "verify:source": "npm run typecheck && npm test && npm run build -- --check && npm run docs:check -- --repository-only"

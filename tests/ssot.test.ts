@@ -4,11 +4,13 @@ import { readFile, access } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { isPlaybackTarget, watchNavigationUrl, type GuideEntry } from '../packages/core/src/index';
 import { freshGuideObservation, freshLiveTarget, navigationUrl, TARGET_MAX_AGE_MS } from '../packages/yttv-adapter/src/index';
-import { CURRENT_MANAGED_FEED_LIMIT, canAddManagedFeed } from '../packages/quadbox/src/policy';
+import { CURRENT_MANAGED_FEED_LIMIT, MANAGED_FEED_COUNTS, canAddManagedFeed, isManagedFeedCount } from '../packages/quadbox/src/policy';
+import { planLayout, validCustomSlots } from '../packages/quadbox/src/geometry';
 import { createAudioState, createAudioFocusController, transferAudioFocus, type AudioState } from '../packages/quadbox/src/index';
 import { sanitizePreferences } from '../packages/storage/src/index';
 import * as storage from '../packages/storage/src/index';
 import { validCommand } from '../apps/chrome-extension/src/adapter';
+import { createDemoBridge } from '../packages/ui/src/demo';
 
 const now = Date.parse('2026-10-03T16:00:00Z');
 const stamp = new Date(now).toISOString();
@@ -27,6 +29,53 @@ test('UI and worker use the current shared limit, separate from account allowanc
   const worker = await readFile('apps/chrome-extension/src/background.ts', 'utf8');
   assert.match(worker, /!canAddManagedFeed\(controlledIds\(\)\.length \+ pendingFeedCreations\)/);
   assert.doesNotMatch(worker, /controlledIds\(\)\.length[^\n]*>= CURRENT_MANAGED_FEED_LIMIT/);
+  assert.doesNotMatch(worker, /panes\.slice\(0, 3\)|feedNumber! <= 4/);
+});
+
+test('layout planning, custom storage and command counts share managed capacity', () => {
+  const area = { left: 0, top: 0, width: 4000, height: 3000 };
+  assert.deepEqual(MANAGED_FEED_COUNTS, [1, 2, 3, 4]);
+  for (const count of [...MANAGED_FEED_COUNTS, 0, -1, 1.5, NaN, CURRENT_MANAGED_FEED_LIMIT + 1]) {
+    const supported = isManagedFeedCount(count);
+    const slots = Array.from({ length: Number.isInteger(count) && count > 0 ? count : 0 }, () => ({ left: 0, top: 0, width: 1, height: 1 }));
+    assert.equal(planLayout(area, count).ok, supported);
+    if (Number.isInteger(count) && count >= 0) {
+      assert.equal(validCustomSlots(slots, count), supported);
+      const saved = storage.sanitizeWorkspaceLayout({ version: 1, mode: 'custom', customLayouts: { [count]: slots } });
+      assert.equal(Boolean(saved.customLayouts?.[count]), supported);
+    }
+    assert.equal(validCommand({ type: 'OPEN_AREA_PICKER', workArea: area, displayId: 'test', mode: 'grid', count }), supported);
+    assert.equal(validCommand({ type: 'SET_TV_AREA', workArea: area, area, plannedCount: count }), supported);
+  }
+  for (const count of ['2', null, undefined, {}, Infinity]) assert.equal(isManagedFeedCount(count), false);
+});
+
+test('worker preference persistence uses storage serialization and obsolete layout/selection commands are rejected', async () => {
+  const worker = await readFile('apps/chrome-extension/src/background.ts', 'utf8');
+  assert.match(worker, /preferencesStore\.load\(/);
+  assert.match(worker, /preferencesStore\.save\(value\)/);
+  assert.doesNotMatch(worker, /preferenceWriteQueue|PREFERENCES_KEY|sanitizePreferences/);
+  for (const command of [{ type: 'APPLY_TOP_BOTTOM' }, { type: 'SET_WORKSPACE_LAYOUT', mode: 'grid' }, { type: 'ACTIVE_PANE', paneId: 'main' }]) {
+    assert.equal(validCommand(command), false);
+    assert.doesNotMatch(worker, new RegExp(`case '${command.type}':`));
+  }
+});
+
+test('preference edits share storage merge rules and preserve history and unrelated UI choices', async () => {
+  const original = storage.sanitizePreferences({ ...storage.defaultPreferences(), currentChannel: 'current', previousChannel: 'previous', recentChannels: ['current', 'previous'], ui: { denseGuide: false, theme: 'light', lastSurface: 'SPORTS' } });
+  const patch = { currentChannel: 'injected', previousChannel: 'injected', recentChannels: ['injected'], nightMuteLock: true,
+    ui: { theme: 'dark' } } as Partial<storage.Preferences>;
+  const updated = storage.patchPreferences(original, patch);
+  assert.deepEqual(updated.ui, { denseGuide: false, theme: 'dark', lastSurface: 'SPORTS' });
+  assert.equal(updated.currentChannel, 'current'); assert.equal(updated.previousChannel, 'previous');
+  assert.deepEqual(updated.recentChannels, original.recentChannels); assert.equal(updated.nightMuteLock, false);
+  assert.equal(original.ui.theme, 'light');
+  const bridge = createDemoBridge();
+  const before = await bridge.getSnapshot();
+  await bridge.setPreference({ ui: { ...before.preferences.ui, denseGuide: false, lastSurface: 'SPORTS' } });
+  const base = await bridge.getSnapshot();
+  await bridge.setPreference(patch);
+  assert.deepEqual((await bridge.getSnapshot()).preferences, storage.patchPreferences(base.preferences, patch));
 });
 
 test('guide age has one boundary for display and target eligibility', async () => {

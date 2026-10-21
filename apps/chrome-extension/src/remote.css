@@ -34,6 +34,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .quiet:disabled { background: transparent; border-color: transparent; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .remote-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.remote-header > .actions { width: 100%; }
 .remote-header h1 { flex: 1; white-space: nowrap; }
 .window-count { font-size: 14px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .remote-header .primary { flex-shrink: 0; }
@@ -104,7 +105,8 @@ details .actions { margin-top: 8px; }
 @media (max-width: 360px) {
   main { padding: 10px; }
   .remote-header { gap: 6px; }
-  .remote-header h1 { font-size: 18px; }
+  .remote-header > .actions { width: 100%; }
+.remote-header h1 { font-size: 18px; }
   .remote-header .primary { width: 100%; }
   .control-strip .card-volume { flex-basis: 100%; }
   .window-cards article, .content-picker { padding: 10px; }
@@ -122,5 +124,6 @@ details .actions { margin-top: 8px; }
 .pair-shortcut { padding: 10px 0; margin-bottom: 10px; border-bottom: 1px solid #c3cedd; }
 .pair-shortcut > .primary { width: 100%; }
 .pair-shortcut small { margin-top: 6px; }
+.setup-step { font-size: 15px; margin: 16px 0 8px; }
 .slot-preview { position: absolute; pointer-events: none; display: grid; place-items: center; border: 1px solid var(--blue); background: #d6e6fc; color: #153e74; font-size: 12px; overflow: hidden; }
 .saved-preview { max-width: 220px; }

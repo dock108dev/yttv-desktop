@@ -8,7 +8,7 @@ npm ci
 
 ## Build and preview
 
-`npm run build` bundles the content script, worker, remote and panel into `dist/chrome-extension`, audits manifest permissions and records the build's source fingerprint. It replaces that generated output as part of normal local development. Git retains source; rebuildable bundles need no separate backup.
+`npm run build` bundles the content script, worker, remote, panel and monitor drawing window into `dist/chrome-extension`, audits manifest permissions and records the build's source fingerprint. It replaces that generated output as part of normal local development. Git retains source; rebuildable bundles need no separate backup.
 
 `npm run build -- --check` performs the same compilation and permission audit in memory without writing build files. It does not prepare files for preview or installation.
 
@@ -16,7 +16,7 @@ After building, `npm run preview` serves the fixture UI at `http://127.0.0.1:417
 
 ## Chrome installation and updates
 
-Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `dist/chrome-extension`. Open YouTube TV and use the toolbar icon for the remote. Required access is storage and `https://tv.youtube.com/*`. Optional display access supplies monitor information; optional scripting access reconnects the designated player with the packaged content script.
+Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `dist/chrome-extension`. Use the toolbar icon for the remote, then **New show**; opening YouTube TV first is unnecessary. Complete native sign-in if needed. Required access is storage and `https://tv.youtube.com/*`. Optional display access supplies monitor information for placement/drawing; optional scripting access reconnects the designated player with the packaged content script.
 
 For updates, close the remote, build, Reload the existing extension entry, then reopen the remote. Keep the same extension entry/ID and storage. Known surviving windows are recovered; changed tab IDs or missing ownership require deliberate existing-player connection. If controls remain disconnected, use Connection or refresh the player normally. Do not reinstall or clear storage as a repair.
 
@@ -28,7 +28,7 @@ node --import tsx --test tests/ssot.test.ts
 npm run docs:check
 ```
 
-Choose affected test files for a focused change. `npm test` runs all synthetic tests. `npm run verify:source` combines typecheck, tests, in-memory build and docs checks. `npm run verify` also writes a new build; use it only when output replacement is intended. See [test coverage](../tests/README.md) and [CI](CI.md).
+Choose affected test files for a focused change. `npm test` uses `scripts/test.mjs` to discover synthetic `.test.ts`/`.test.tsx` files recursively under tests/apps/packages, sharing CI's inventory. `npm run verify:source` combines typecheck, tests, in-memory build and docs checks. `npm run verify` also writes a new build; use it only when output replacement is intended. See [test coverage](../tests/README.md) and [CI](CI.md).
 
 No tests use a live account. Observe live behavior manually when necessary; keep browser automation detached from protected playback. Compilation and mocks cannot confirm account allowance, visible video or heard audio.
 
@@ -36,4 +36,6 @@ No tests use a live account. Observe live behavior manually when necessary; keep
 
 [Architecture](ARCHITECTURE.md) identifies module owners. Keep native selectors in the adapter and shared navigation/capacity/storage policy in their existing modules. Preserve public entry points and saved schemas. No formatter or ESLint policy is configured; TypeScript enforces strict types and unused symbols.
 
-Keep credentials, personal state, generated output and internal working notes out of Git. Required fixtures and authored tools remain source inputs. The documentation checker validates deliverable Markdown links and workspace manifests without reading private trackers or generating inventories.
+Keep credentials, personal state, generated output and internal working notes out of Git. Retain required fixtures and authored tools. The documentation checker validates repository Markdown links and workspace manifests, excluding ignored local files.
+
+No environment variables or API keys are needed for the build, tests or fixture preview; `.env.example` documents this. Write generated reports to disposable output folders. Root `junit.xml`, `lcov.info` and `test-files.json` are also ignored.

@@ -6,6 +6,32 @@ import { resolve } from 'node:path';
 import { areaIntent } from '../packages/quadbox/src/geometry';
 import { createDemoBridge } from '../packages/ui/src/demo';
 const bundle = build({ stdin: { contents: "export { mountRemote } from './apps/chrome-extension/src/remote.tsx'; export { act } from 'react';", resolveDir: resolve(process.cwd()), loader: 'tsx' }, bundle: true, write: false, format: 'iife', globalName: 'RemoteUI', platform: 'browser', loader: { '.css': 'empty' }, define: { 'process.env.NODE_ENV': '"development"' } });
+test('New show is available from an empty remote and reflects startup and the four-show limit', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  const commands: any[] = [];
+  (window as any).chrome = { runtime: { sendMessage: async (command: any) => { commands.push(command); return { ok: true, message: 'Opening your first show.' }; } } };
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  let state = { ...base, mode: 'extension' as const, panes: [] as typeof base.panes, openingDefaultShow: false };
+  let listener = () => {}, dispose = () => {}; bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; }; bridge.refresh = async () => { listener(); return { ok: true }; };
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.equal(button('New show').disabled, false); assert.equal(button('Pick a channel'), undefined);
+    assert.equal(button('Arrange shows').disabled, false, 'layout planning is available before creating shows');
+    assert.match(window.document.querySelector('.first-use')!.textContent!, /start your last channel/);
+    await api.act(async () => button('New show').click());
+    assert.deepEqual(commands.map(c => c.type), ['NEW_SHOW']);
+    state.openingDefaultShow = true; await api.act(async () => listener()); assert.equal(button('Opening…').disabled, true);
+    state.openingDefaultShow = false; state.panes = [{ id: 'main', isMain: true, channelId: 'yttv:cbs', channelName: 'CBS', muted: true }]; await api.act(async () => listener());
+    assert.equal(button('New show').disabled, false); assert(button('Pick a channel'));
+    state.panes = Array.from({ length: 4 }, (_, i) => ({ ...state.panes[0], id: i === 0 ? 'main' : `pane-${i}`, isMain: i === 0 }));
+    await api.act(async () => listener()); assert.equal(button('New show').disabled, true);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
 test('compact remote reconnects snapshot, separates focus/audio, searches with keyboard-accessible controls and cancels area without writes', async () => {
   const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
   Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
@@ -24,7 +50,7 @@ test('compact remote reconnects snapshot, separates focus/audio, searches with k
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
     assert.match(window.document.body.textContent!, /1 \/ 4 windows/); assert.equal(commands.length, 0);
-    await click('Focus'); assert.deepEqual(calls, ['focus:main']); await click('Add window');
+    await click('Focus'); assert.deepEqual(calls, ['focus:main']); await click('Pick a channel');
     const search = window.document.querySelector('input[type=search]')!;
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'nonmatching channel');
     await api.act(async () => search.dispatchEvent(new window.Event('input', { bubbles: true })));
@@ -96,19 +122,19 @@ test('remote keeps picker drafts and focus, uses observed playback toggles, and 
     await api.act(async () => successTimers.at(-1)!()); assert.equal(window.document.querySelector('.feedback.success'), null);
     await click('Enable audio'); assert.match(window.document.querySelector('.feedback.error')!.textContent!, /Synthetic audio refusal/);
     const timerCount = successTimers.length; await api.act(async () => listener()); assert.equal(successTimers.length, timerCount, 'failures are not automatically dismissed');
-    await click('Add window'); const search = window.document.querySelector('input[type=search]')!;
+    await click('Pick a channel'); const search = window.document.querySelector('input[type=search]')!;
     assert.equal(window.document.activeElement, search);
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'ESPN');
     await api.act(async () => search.dispatchEvent(new window.Event('input', { bubbles: true })));
     await api.act(async () => listener()); assert.equal((search as any).value, 'ESPN'); assert.equal(window.document.activeElement, search);
     await api.act(async () => search.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-    assert.equal(window.document.querySelector('[aria-label="Content picker"]'), null); assert.equal(window.document.activeElement, button('Add window'));
-    await click('Add window'); await click('Add current Original · ESPN'); assert.equal(window.document.activeElement, button('Add window'), 'successful asynchronous choice restores trigger focus after busy clears');
+    assert.equal(window.document.querySelector('[aria-label="Content picker"]'), null); assert.equal(window.document.activeElement, button('Pick a channel'));
+    await click('Pick a channel'); await click('Add current Original · ESPN'); assert.equal(window.document.activeElement, button('Pick a channel'), 'successful asynchronous choice restores trigger focus after busy clears');
     state.panes[0].playbackState = 'unavailable'; await api.act(async () => listener()); assert(button('Play')); assert(button('Pause'), 'unknown state keeps both native action choices');
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
 });
 
-test('pair first setup requires a calibrated rectangle, cancels with focus, and directs unassigned players to deliberate Connect', async () => {
+test('layout setup gives simple steps, supports all counts and sends full-size drawing to the chosen monitor', async () => {
   const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
   Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
   window.console.timeStamp = () => {}; Object.assign(window.screen, { availWidth: 1920, availHeight: 1040, availLeft: 0, availTop: 30 });
@@ -122,24 +148,42 @@ test('pair first setup requires a calibrated rectangle, cancels with focus, and 
   const click = async (text: string) => { assert(button(text)); await api.act(async () => button(text).click()); };
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    await click('Two shows · Top/bottom'); assert.equal(window.document.activeElement?.textContent, 'Cancel');
-    assert.equal(button('Save Top/bottom area').disabled, true); assert.equal(window.document.querySelectorAll('.slot-preview').length, 0, 'first use has no assumed full-monitor rectangle');
+    await click('Arrange shows'); assert.equal(window.document.activeElement?.textContent, 'Cancel');
+    await api.act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true })));
+    assert.equal(window.document.activeElement?.textContent, 'Use small preview instead', 'closed preview fields stay out of the modal tab order');
+    await api.act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', cancelable: true })));
+    assert.equal(window.document.activeElement?.textContent, 'Cancel');
+    assert.equal(button('Save layout').disabled, true); assert.equal(window.document.querySelectorAll('.slot-preview').length, 0, 'first use has no assumed full-monitor rectangle');
     await api.act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })));
-    assert.equal(window.document.querySelector('[role=dialog]'), null); assert.equal(window.document.activeElement, button('Two shows · Top/bottom')); assert.equal(commands.length, 0);
-    await click('Two shows · Top/bottom'); await click('Choose monitor');
-    assert.equal(button('Save Top/bottom area').disabled, true, 'monitor selection alone does not assume full screen');
+    assert.equal(window.document.querySelector('[role=dialog]'), null); assert.equal(window.document.activeElement, button('Arrange shows')); assert.equal(commands.length, 0);
+    await click('Arrange shows'); await click('Choose monitor');
+    assert.equal(button('Save layout').disabled, true, 'monitor selection alone does not assume full screen');
+    const layout = window.document.querySelector('select[aria-label="Show layout"]')!;
+    (layout as any).value = 'top-bottom'; await api.act(async () => layout.dispatchEvent(new window.Event('change', { bubbles: true })));
+    const count = window.document.querySelector('select[aria-label="Number of shows"]')!;
+    (count as any).value = '2'; await api.act(async () => count.dispatchEvent(new window.Event('change', { bubbles: true })));
+    assert.deepEqual([...window.document.querySelectorAll('.setup-step')].map(e => e.textContent), ['1. Choose your layout', '2. Choose your monitor', '3. Draw and save']);
+    (window.document.querySelector('.mini-area-editor summary') as any).click();
     const values = [900, 100, 1000, 950], inputs = [...window.document.querySelectorAll('input[type=number]')];
     for (const [i, input] of inputs.entries()) { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(input, String(values[i])); await api.act(async () => input.dispatchEvent(new window.Event('input', { bubbles: true }))); }
-    assert.deepEqual([...window.document.querySelectorAll('.slot-preview')].map(e => e.textContent), ['Top (1)', 'Bottom (2)']);
-    assert.equal(button('Save Top/bottom area').disabled, false); await click('Save Top/bottom area');
-    assert.deepEqual(commands.map(c => c.type), ['SET_TV_AREA']); assert.equal(commands[0].layout, 'top-bottom'); assert.equal(commands[0].displayId, 'monitor');
+    assert.deepEqual([...window.document.querySelectorAll('.slot-preview')].map(e => e.textContent), ['Show 1', 'Show 2']);
+    assert.equal(button('Save layout').disabled, false); await click('Save layout');
+    assert.deepEqual(commands.map(c => c.type), ['SET_TV_AREA', 'APPLY_LAYOUT']); assert.equal(commands[0].layout, 'top-bottom'); assert.equal(commands[0].displayId, 'monitor'); assert.equal(commands[1].type, 'APPLY_LAYOUT');
     assert.equal(window.document.querySelector('[aria-label="Content picker"]'), null, 'existing players are offered for connection before Add');
     state.workspace.intent = areaIntent(work, { left: 900, top: 100, width: 1000, height: 950 }, true, 'monitor'); state.workspace.layout = 'top-bottom'; await api.act(async () => listener());
-    commands.length = 0; await click('Two shows · Top/bottom'); assert.equal(commands.length, 0); assert.match(window.document.body.textContent!, /Connect your intended second player/);
-    await click('Connect Intended existing show'); assert.equal(commands[0].type, 'CONNECT_PANE'); assert.equal(commands[0].tabId, 8);
+    commands.length = 0; await click('Arrange shows'); assert.deepEqual(commands.map(c => c.type), ['APPLY_LAYOUT']);
+    await click('Connect Intended existing show'); assert.equal(commands.at(-1).type, 'CONNECT_PANE'); assert.equal(commands.at(-1).tabId, 8);
     state.unassignedPlayers = []; state.panes.push({ id: 'connected-8', isMain: false, channelId: 'second', channelName: 'Second', muted: true }); await api.act(async () => listener());
-    commands.length = 0; await click('Two shows · Top/bottom'); assert.deepEqual(commands.map(c => c.type), ['APPLY_TOP_BOTTOM']); assert.equal(window.document.querySelector('[role=dialog]'), null);
+    commands.length = 0; await click('Arrange shows'); assert.deepEqual(commands.map(c => c.type), ['APPLY_LAYOUT']); assert.equal(window.document.querySelector('[role=dialog]'), null);
     assert.match(window.document.querySelector('.window-cards')!.textContent!, /Top · Original.*Bottom · Window/s);
+    await click('Change layout');
+    const countAgain = window.document.querySelector('select[aria-label="Number of shows"]')!;
+    const layoutAgain = window.document.querySelector('select[aria-label="Show layout"]')!;
+    (countAgain as any).value = '4'; await api.act(async () => countAgain.dispatchEvent(new window.Event('change', { bubbles: true })));
+    (layoutAgain as any).value = 'custom'; await api.act(async () => layoutAgain.dispatchEvent(new window.Event('change', { bubbles: true })));
+    commands.length = 0; await click('Draw on monitor');
+    assert.equal(commands[0].type, 'OPEN_AREA_PICKER'); assert.equal(commands[0].count, 4); assert.equal(commands[0].mode, 'custom'); assert.equal(commands[0].displayId, 'monitor');
+    assert.equal(window.document.querySelector('[role=dialog]'), null);
     await api.act(async () => dispose()); commands.length = 0; await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); }); assert.equal(commands.length, 0);
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
 });

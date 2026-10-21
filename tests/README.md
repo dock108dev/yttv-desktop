@@ -1,6 +1,6 @@
 # Tests
 
-`npm test` runs synthetic unit, DOM and mocked Chrome tests from the repository root. No live account, provider or player operations occur. For focused checks:
+`npm test` runs synthetic unit, DOM and mocked Chrome tests from the repository root. Local and CI use `scripts/test.mjs` to discover `.test.ts`/`.test.tsx` files recursively in tests/apps/packages, excluding dependency and build folders; zero collection fails. CI also requires an unskipped JUnit case from each discovered file. No live account, provider or player operations occur. For focused checks:
 
 ```sh
 node --import tsx --test tests/ssot.test.ts
@@ -10,8 +10,14 @@ node --import tsx --test packages/ui/src/behavior.test.ts
 
 Policy tests protect URL validation, capacity, cached-target refusal, saved-schema sanitation and audio compensation. Worker tests cover ownership, recovery, guide discovery and control cancellation; `helpers/viewing-worker.ts` supplies a reusable mocked browser. Adapter tests use synthetic DOM/player state. UI tests use Happy DOM and React `act` to settle effects and interactions.
 
-The workspace, domain, remote UI/journey and window-recovery suites cover the fixed Top/bottom preference, shared preview geometry, precise-area calibration, a measured two-action repeat journey, explicit Connect, Add preflight, count mismatch, channel replacement, logical bounds/rollback, manual mode, Expand/Restore and durable pair identity/order. These are synthetic outcomes; physical monitor fit and two visible advancing shows remain owner checks.
+`ssot.test.ts` also checks agreement between supported counts in geometry, custom storage and IPC, shared preference merging in the worker/preview, worker use of the storage write queue, and rejection of removed layout/selection commands. Layout and journey tests save through the shared area/layout path.
 
-`docs-check.test.ts` checks portable documentation validation, including ignored working notes and broken links. CI report tests live in `scripts/ci/test_reports.py`.
+`new-show.test.ts` covers cold startup from the remote, default channel selection, mute before navigation, waiting for native player readiness, one Play request, repeated clicks, four-show capacity, native fallback, explicit retry and cancellation. Remote UI tests cover the first-use action and opening/full states.
+
+The geometry, layout-editor, workspace, domain, remote UI/journey and window-recovery suites cover all one-to-four-show presets, separate custom positions per count, full-size pointer screen coordinates, drawing-window ownership/cancel/save, shared preview/placement, Add preflight, channel replacement, bounds/rollback, Expand/Restore and recovery. Pure planning/coordinate assertions are in `geometry.test.ts`; mocked browser lifecycle and placement are in `workspace.test.ts`. These synthetic checks cannot validate placement on a physical monitor.
+
+The UI suite also verifies shortcut draft discard, focus trapping and return to the launcher after the dialog closes, in addition to saved bindings and conflict rejection.
+
+`docs-check.test.ts` checks portable documentation validation, including exclusion of ignored working notes and detection of broken links. `scripts/ci/test_*.py` covers report validation, the actual aggregate gate, failure/missing/setup outcomes, recursive test discovery, drawing assets and bounded history metrics. Source CI runs these contract tests before the product tests; the workflow and check map is in [CI](../docs/CI.md).
 
 [Fixtures](fixtures/README.md) are illustrative inputs. Mocks cannot prove entitlements, visible playback, heard audio or actual Chrome restoration. See [development](../docs/DEVELOPMENT.md) and [architecture](../docs/ARCHITECTURE.md).

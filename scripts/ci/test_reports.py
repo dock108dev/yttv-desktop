@@ -39,6 +39,9 @@ class Reports(unittest.TestCase):
             coverage(self.put('TN:\n'))
         result = coverage(self.put('SF:apps/example.ts\nLF:2\nLH:1\nBRF:4\nBRH:1\n'))
         self.assertEqual((result['lines_percent'], result['branches_percent']), (50, 25))
+        for text in ('SF:a\nLH:1\n', 'SF:a\nLF:2\nLH:1\nSF:b\nLF:2\nLH:3\n', 'SF:a\nLF:2\nLH:1\nBRH:1\n'):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                coverage(self.put(text))
 
     def test_registry_error_is_not_zero_findings(self):
         with self.assertRaises(ValueError):

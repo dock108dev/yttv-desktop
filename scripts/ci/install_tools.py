@@ -25,7 +25,9 @@ def install(destination):
     destination.mkdir(parents=True, exist_ok=True)
     system = platform.system().lower()
     for name, (repo, version, hashes) in TOOLS.items():
-        arch = 'arm64' if platform.machine() in ('arm64', 'aarch64') else 'amd64'
+        arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'amd64', 'AMD64': 'amd64'}.get(platform.machine())
+        if arch is None:
+            raise ValueError('Unsupported CI tool architecture')
         if name == 'gitleaks' and arch == 'amd64':
             arch = 'x64'
         key = f'{system}_{arch}'

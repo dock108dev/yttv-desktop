@@ -11,6 +11,23 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def validate_output(output):
+    def asset(name):
+        path = (output / name).resolve()
+        if not path.is_relative_to(output.resolve()) or not path.is_file() or not path.stat().st_size:
+            raise ValueError(f'Missing, empty or external build asset: {name}')
+        return path
+
+    manifest = json.loads(asset('manifest.json').read_text())
+    asset(manifest['background']['service_worker'])
+    for content in manifest['content_scripts']:
+        for name in content.get('js', []) + content.get('css', []):
+            asset(name)
+    for page in ('panel.html', 'remote.html', 'demo.html', 'area-picker.html'):
+        for name in re.findall(r'(?:src|href)="([^"]+)"', asset(page).read_text()):
+            asset(name)
+
+
 def export_source(destination):
     files = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT)
     for name in sorted(set(files.decode().split('\0')) - {''}):
@@ -32,14 +49,7 @@ def build(report_path):
         subprocess.run(['npm', 'run', 'docs:check', '--', '--repository-only'], cwd=root, check=True, timeout=30)
         subprocess.run(['npm', 'run', 'build'], cwd=root, check=True, timeout=60)
         output = root / 'dist/chrome-extension'
-        manifest = json.loads((output / 'manifest.json').read_text())
-        for asset in [manifest['background']['service_worker'], *manifest['content_scripts'][0]['js']]:
-            if not (output / asset).is_file():
-                raise ValueError(f'Missing manifest asset {asset}')
-        for page in ('panel.html', 'remote.html', 'demo.html'):
-            for asset in re.findall(r'(?:src|href)="([^"]+)"', (output / page).read_text()):
-                if not (output / asset).is_file():
-                    raise ValueError(f'Missing HTML asset {asset}')
+        validate_output(output)
         for script in output.glob('*.js'):
             subprocess.run(['node', '--check', str(script)], cwd=root, check=True, timeout=10)
         smoke = """

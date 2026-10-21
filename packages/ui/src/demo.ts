@@ -1,5 +1,5 @@
 import type { GuideEntry } from '../../core/src/index';
-import { defaultPreferences, sanitizePreferences } from '../../storage/src/index';
+import { defaultPreferences, patchPreferences, sanitizePreferences } from '../../storage/src/index';
 import type { ActionResult, ClientBridge, DesktopSnapshot } from './types';
 
 const PREVIEW_STORAGE_KEY = 'yttv-desktop.local-preview.preferences.v1';
@@ -40,7 +40,7 @@ export function createDemoBridge(): ClientBridge {
     navigateChannel: unavailable, previousChannel: unavailable, createPane: unavailable, selectPane: unavailable,
     replacePane: unavailable, expandPane: unavailable, restoreLayout: unavailable, mute: unavailable,
     async setPreference(patch) {
-      snapshot = { ...snapshot, preferences: sanitizePreferences({ ...snapshot.preferences, ...patch, nightMuteLock: false }) };
+      snapshot = { ...snapshot, preferences: patchPreferences(snapshot.preferences, patch) };
       try { localStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(snapshot.preferences)); }
       catch { return { ok: false, reason: 'Preview settings changed for this visit; this browser does not permit local storage.' }; }
       listeners.forEach(listener => listener());

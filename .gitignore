@@ -41,6 +41,10 @@ blob-report/
 *.cpuprofile
 *.heapprofile
 *.heapsnapshot
+# Explicit root output from the shared test reporter; authored fixtures remain visible.
+/junit.xml
+/lcov.info
+/test-files.json
 
 # Local configuration, credentials and browser state
 .env
@@ -66,6 +70,7 @@ raw-captures/
 
 # Internal working material and generated reports are local only.
 /NEXT_TASK.md
+/docs/NEXT_STEPS.md
 /docs/evidence/
 /docs/planning/
 /docs/personal-use.md

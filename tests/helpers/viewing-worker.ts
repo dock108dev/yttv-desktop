@@ -9,11 +9,11 @@ export async function harness() {
   const local: Record<string, any> = {}; const session: Record<string, any> = {};
   const tabs = new Map<number, any>([[1, { id: 1, windowId: 1, url: 'https://tv.youtube.com/watch?v=main', mutedInfo: { muted: false }, active: true }]]);
   const players = new Map<number, any>([[1, { muted: false, volume: 1, readyState: 4, key: 'player-1', documentId: 'document-1', route: 'watch' }]]);
-  const controls: { guideSync?: boolean; tabGetFails?: number; audio?: (id: number, message: any) => Promise<any>; tabFails?: boolean; localFails?: boolean; sessionFails?: boolean; removeFails?: boolean; queryFails?: boolean; sessionReadFails?: boolean } = {};
+  const controls: { nowOffset?: number; playback?: (id: number, message: any, options: any) => Promise<any>; guideSync?: boolean; tabGetFails?: number; audio?: (id: number, message: any) => Promise<any>; tabFails?: boolean; localFails?: boolean; sessionFails?: boolean; removeFails?: boolean; queryFails?: boolean; sessionReadFails?: boolean } = {};
   const log: any[] = []; let next = 2; let listener: any; let removed: any; let updated: any; let clock = Date.now() + 1000;
   const observation = (id = 1) => { const player = players.get(id); const now = new Date(++clock).toISOString(); const guideTime = new Date(Date.now() - 10).toISOString(); return {
     observedAt: now, guideObservedAt: now, route: player.route, currentChannelId: 'yttv:cbs',
-    playback: { muted: player.muted, volume: player.volume, readyState: player.readyState, playing: true, currentTime: clock, width: 1280, height: 720 },
+    playback: { muted: player.muted, volume: player.volume, readyState: player.readyState, playing: player.playing ?? true, currentTime: clock, width: 1280, height: 720 },
     guide: [{ channel: { id: 'yttv:cbs', name: 'CBS' }, observedAt: guideTime, evidenceClass: 'LIVE', available: true,
       target: { kind: 'navigation', channelId: 'yttv:cbs', url: 'https://tv.youtube.com/watch?v=cbs&vp=guide', verifiedAt: guideTime, evidenceClass: 'LIVE' } }],
   }; };
@@ -34,6 +34,7 @@ export async function harness() {
       update: async (id: number, value: any) => { log.push({ type: 'tab', id, value }); const tab = tabs.get(id); if (controls.tabFails) throw new Error('test tab failure'); if (!tab) throw new Error('closed'); Object.assign(tab, value); if ('muted' in value) tab.mutedInfo = { muted: value.muted, reason: 'extension' }; return tab; },
       sendMessage: async (id: number, message: any, options: any) => {
         if (message.type === 'GET_OBSERVATION') return observation(id);
+        if (message.type === 'PLAYER_PLAYBACK') { log.push({ type: 'playback', id, message, options }); return controls.playback?.(id, message, options); }
         if (message.type !== 'PLAYER_AUDIO') return undefined;
         log.push({ type: 'player', id, message, options }); if (controls.audio && message.volume !== undefined) return controls.audio(id, message); const player = players.get(id);
         if (options?.documentId && options.documentId !== player.documentId || message.playerKey && message.playerKey !== player.key) return { ok: false };
@@ -45,11 +46,12 @@ export async function harness() {
       onRemoved: { addListener: (fn: any) => { removed = fn; } }, onUpdated: { addListener: (fn: any) => { updated = fn; } },
     },
     windows: {
-      create: async () => { const id = next++; const tab = { id, windowId: id, url: 'about:blank', mutedInfo: { muted: true } }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24, readyState: 4, key: `player-${id}`, documentId: `document-${id}`, route: 'watch' }); return { id, tabs: [tab] }; },
+      create: async (row: any) => { const id = next++; log.push({ type: 'create', id, row }); const tab = { id, windowId: id, url: 'about:blank', mutedInfo: { muted: true } }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24, readyState: 4, key: `player-${id}`, documentId: `document-${id}`, route: 'watch' }); return { id, tabs: [tab] }; },
       update: async (id: number) => ({ id }), remove: async (id: number) => { if (controls.removeFails) throw new Error('private cleanup'); tabs.delete(id); removed(id); },
     },
   };
-  const start = () => runInNewContext(source, { chrome, URL, crypto: { randomUUID: () => 'fixture' }, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
+  class FixtureDate extends Date { static now() { return Date.now() + (controls.nowOffset ?? 0); } }
+  const start = () => runInNewContext(source, { Date: FixtureDate, chrome, URL, crypto: { randomUUID: () => 'fixture' }, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
   let omitDocumentId = false;
   const send = (command: any, id?: number) => new Promise<any>(resolve => listener(envelope(command), id ? { id: 'test', url: tabs.get(id)?.url, tab: tabs.get(id), documentId: omitDocumentId ? undefined : players.get(id).documentId } : { id: 'test', url: 'chrome-extension://test/panel.html' }, resolve));
   const observe = (id = 1, raw = observation(id)) => send({ type: 'OBSERVE', observation: raw, playerKey: players.get(id).key }, id);

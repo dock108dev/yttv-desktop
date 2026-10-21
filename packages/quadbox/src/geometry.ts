@@ -1,3 +1,4 @@
+import { isManagedFeedCount } from './policy';
 /** Chrome outer-window logical coordinates. No devicePixelRatio conversion. */
 export interface Rect { left: number; top: number; width: number; height: number }
 export interface AreaIntent { version: 1; displayId?: string; workArea: Rect; normalized: Rect; autoArrange: boolean }
@@ -28,23 +29,73 @@ export function resolveArea(intent: AreaIntent, workArea = intent.workArea): Rec
   const left = Math.round(workArea.left + n.left * workArea.width), top = Math.round(workArea.top + n.top * workArea.height);
   return { left, top, width: edge(workArea.left + (n.left + n.width) * workArea.width) - left, height: edge(workArea.top + (n.top + n.height) * workArea.height) - top };
 }
-export type LayoutMode = 'auto' | 'top-bottom';
+export const LAYOUT_OPTIONS = [
+  { value: 'auto', label: 'Best fit' },
+  { value: 'top-bottom', label: 'Stacked' },
+  { value: 'side-by-side', label: 'Side by side' },
+  { value: 'grid', label: 'Grid' },
+  { value: 'main-left', label: 'Large show on left' },
+  { value: 'main-right', label: 'Large show on right' },
+  { value: 'main-top', label: 'Large show on top' },
+  { value: 'main-bottom', label: 'Large show on bottom' },
+  { value: 'custom', label: 'Place each show myself' },
+] as const;
+export type LayoutMode = typeof LAYOUT_OPTIONS[number]['value'];
+export function isLayoutMode(value: unknown): value is LayoutMode { return LAYOUT_OPTIONS.some(option => option.value === value); }
+export function validCustomSlots(value: unknown, count?: number): value is Rect[] {
+  return Array.isArray(value) && isManagedFeedCount(value.length) && (count === undefined || value.length === count) && value.every(r => validRect(r) && contains({ left: 0, top: 0, width: 1, height: 1 }, r, 1e-9));
+}
+export function normalizeSlots(area: Rect, slots: Rect[]): Rect[] {
+  return slots.map(r => ({ left: (r.left - area.left) / area.width, top: (r.top - area.top) / area.height, width: r.width / area.width, height: r.height / area.height }));
+}
+export function boundingArea(slots: Rect[]): Rect {
+  const left = Math.min(...slots.map(r => r.left)), top = Math.min(...slots.map(r => r.top));
+  return { left, top, width: Math.max(...slots.map(r => r.left + r.width)) - left, height: Math.max(...slots.map(r => r.top + r.height)) - top };
+}
 export type LayoutResult = { ok: true; bounds: Rect[]; description: string } | { ok: false; reason: string };
-export function planLayout(area: Rect, count: number, gap = 8, mode: LayoutMode = 'auto'): LayoutResult {
-  if (!validRect(area) || !Number.isInteger(count) || count < 1 || count > 4 || !Number.isFinite(gap) || gap < 0 || gap > 100 || !['auto', 'top-bottom'].includes(mode)) return { ok: false, reason: 'TV area or feed count is unavailable.' };
+export function planLayout(area: Rect, count: number, gap = 8, mode: LayoutMode = 'auto', customSlots?: Rect[]): LayoutResult {
+  if (!validRect(area) || !isManagedFeedCount(count) || !Number.isFinite(gap) || gap < 0 || gap > 100 || !isLayoutMode(mode)) return { ok: false, reason: 'Choose an area and one to four shows.' };
   const a = { left: Math.ceil(area.left), top: Math.ceil(area.top), width: Math.floor(area.left + area.width) - Math.ceil(area.left), height: Math.floor(area.top + area.height) - Math.ceil(area.top) };
-  const split = (r: Rect, vertical: boolean): Rect[] => {
-    const first = Math.floor(((vertical ? r.width : r.height) - gap) / 2);
-    return vertical ? [{ ...r, width: first }, { ...r, left: r.left + first + gap, width: r.width - first - gap }]
-      : [{ ...r, height: first }, { ...r, top: r.top + first + gap, height: r.height - first - gap }];
+  const divide = (r: Rect, n: number, columns: boolean): Rect[] => {
+    const available = (columns ? r.width : r.height) - gap * (n - 1);
+    return Array.from({ length: n }, (_, i) => {
+      const start = Math.floor(available * i / n), end = Math.floor(available * (i + 1) / n);
+      return columns ? { ...r, left: r.left + start + gap * i, width: end - start } : { ...r, top: r.top + start + gap * i, height: end - start };
+    });
   };
-  const candidates: Rect[][] = count === 1 ? [[a]] : count === 2 ? (mode === 'top-bottom' ? [split(a, false)] : [split(a, true), split(a, false)]) : count === 3
-    ? [true, false].map(v => { const [main, side] = split(a, v); return [main, ...split(side, !v)]; })
-    : [[...split(a, false).flatMap(row => split(row, true))]];
-  const readable = candidates.filter(rows => rows.every(r => r.width >= MIN_PLAYER.width && r.height >= MIN_PLAYER.height && contains(area, r)));
-  if (!readable.length) return { ok: false, reason: `TV area is too small for ${count} feeds. Enlarge the area or close a feed (minimum outer player ${MIN_PLAYER.width} × ${MIN_PLAYER.height}).` };
-  // Maximize useful 16:9 video area after a conservative native-frame allowance.
+  let candidates: Rect[][];
+  let description: string = LAYOUT_OPTIONS.find(option => option.value === mode)!.label;
+  if (mode === 'custom' && customSlots) {
+    if (!validCustomSlots(customSlots, count)) return { ok: false, reason: 'Draw one position for each show.' };
+    candidates = [customSlots.map(normalized => resolveArea({ version: 1, workArea: a, normalized, autoArrange: true }))];
+    description = 'Your saved show positions';
+  } else if (count === 1) candidates = [[a]];
+  else if (mode === 'top-bottom') candidates = [divide(a, count, false)];
+  else if (mode === 'side-by-side') candidates = [divide(a, count, true)];
+  else if (mode === 'grid') {
+    const rows = divide(a, count <= 2 ? 1 : 2, false);
+    candidates = [count <= 2 ? divide(a, count, true) : [...divide(rows[0], 2, true), ...divide(rows[1], count - 2, true)]];
+  } else if (mode.startsWith('main-')) {
+    const horizontal = mode === 'main-left' || mode === 'main-right';
+    let halves = divide(a, 2, horizontal);
+    const mainIndex = mode === 'main-right' || mode === 'main-bottom' ? 1 : 0;
+    if (count === 2) {
+      const available = (horizontal ? a.width : a.height) - gap, minimum = horizontal ? MIN_PLAYER.width : MIN_PLAYER.height;
+      const mainSize = Math.max(minimum, Math.min(available - minimum, Math.floor(available * 2 / 3)));
+      const firstSize = mainIndex === 0 ? mainSize : available - mainSize;
+      halves = horizontal ? [{ ...a, width: firstSize }, { ...a, left: a.left + firstSize + gap, width: available - firstSize }]
+        : [{ ...a, height: firstSize }, { ...a, top: a.top + firstSize + gap, height: available - firstSize }];
+    }
+    candidates = [[halves[mainIndex], ...divide(halves[1 - mainIndex], count - 1, !horizontal)]];
+  } else {
+    candidates = count === 2 ? [divide(a, 2, true), divide(a, 2, false)] : count === 3
+      ? [true, false].map(columns => { const [main, side] = divide(a, 2, columns); return [main, ...divide(side, 2, !columns)]; })
+      : [[...divide(a, 2, false).flatMap(row => divide(row, 2, true))]];
+    description = mode === 'custom' ? `Best fit for ${count} shows; draw custom positions for this count to replace it` : 'Best fit';
+  }
+  const readable = candidates.filter(rows => rows.every(r => r.width >= MIN_PLAYER.width && r.height >= MIN_PLAYER.height && contains(area, r, 1e-7)));
+  if (!readable.length) return { ok: false, reason: `This area is too small for ${count} shows in this layout. Make it larger or choose another layout.` };
   readable.sort((x, y) => score(y) - score(x));
-  return { ok: true, bounds: readable[0], description: mode === 'top-bottom' && count > 2 ? 'Automatic layout for three/four players; Top/bottom remembered' : count === 3 ? 'Main/first feed with two balanced companions' : count === 4 ? '2 × 2 grid' : count === 2 ? (mode === 'top-bottom' ? 'Top/bottom' : 'Balanced pair') : 'Fill TV area' };
+  return { ok: true, bounds: readable[0], description: count === 1 && mode !== 'custom' ? 'One show fills the area' : description };
 }
 function score(rows: Rect[]) { return rows.reduce((total, r) => total + Math.min(r.width, (r.height - 48) * 16 / 9) ** 2 * 9 / 16, 0); }
