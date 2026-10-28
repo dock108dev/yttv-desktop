@@ -22,7 +22,11 @@ For updates, close the remote, build, Reload the existing extension entry, then 
 
 ## Local build status
 
-As checked on October 20, 2026, source 0.2.15 is committed as `f9c85f1` and has passed [hosted Ubuntu CI](CI.md#verified-execution). The retained `dist/chrome-extension` also reports 0.2.15 but predates the SSOT and UI/geometry maintenance changes. Matching version numbers alone do not mean that generated output contains the current source. Rebuild normally before the next local update, then follow the existing-entry update procedure above. This documentation review did not rebuild, install or Reload the extension.
+Checked October 25, 2026: local HEAD and GitHub main are `8376ee3`, extension **0.2.15**, with passing [hosted Ubuntu CI](CI.md#verified-execution). The expanded implementation was committed in `f9c85f1`; later commits updated documentation and dependencies. The private root npm package version (`0.1.0-beta.1`) and workspace package versions are bookkeeping; Chrome uses `apps/chrome-extension/manifest.json`.
+
+The retained `dist/chrome-extension` also reports 0.2.15, but its recorded source fingerprint starts with `bc55c0b79f2b9e069`. The current in-memory build starts with `845ded4ccb9e078c1`. Comparing recorded inputs confirms older worker, remote, workspace, geometry, storage, shared UI and dependency inputs in the retained build. Matching version numbers do not establish matching source. Rebuild normally before the next local update, then follow the existing-entry update procedure above.
+
+This audit passed strict typecheck and in-memory compilation/permission validation. It did not replace the retained bundle, install or Reload the extension, or inspect the installed runtime. Current installed identity and ordinary-use acceptance remain unverified.
 
 ## Tests
 

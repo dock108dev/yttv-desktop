@@ -1,5 +1,6 @@
 # Documentation
 
+- [Verification status](CI.md#verified-execution) and [local build status](DEVELOPMENT.md#local-build-status): distinguish tested source, generated output and installed/owner review.
 - [Usage](../START_HERE.md): windows, playback, audio, guide and shortcuts.
 - [Development](DEVELOPMENT.md): dependencies, build, preview, installation and focused checks.
 - [Architecture](ARCHITECTURE.md): module ownership, state and design constraints.

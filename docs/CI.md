@@ -47,9 +47,13 @@ Medians use available samples; p95 requires at least 20 samples per event. Missi
 
 ## Verified execution
 
-On October 20, 2026, [main CI run 39526646940](https://github.com/dock108dev/yttv-desktop/actions/runs/39526646940) completed successfully for commit `f9c85f1` (extension 0.2.15). Source and fixture checks, workflow/security checks and the Repository checks aggregate passed. Both finalizers and diagnostic uploads succeeded; source and security artifacts were present. This establishes hosted Ubuntu execution of the committed implementation, including the UI/geometry cleanup. Job-summary rendering was not visually reviewed.
+As of October 25, 2026, local HEAD and GitHub main are `8376ee3` (extension 0.2.15). [Main CI run 40216091512](https://github.com/dock108dev/yttv-desktop/actions/runs/40216091512) passed for that exact revision. Source and fixture checks, workflow/security checks and the Repository checks aggregate succeeded. Source logs confirm passing report contracts, strict types, tests, in-memory build/permission audit, docs, script checks and clean build/fixture smoke. Both finalizers and diagnostic uploads succeeded, and unexpired source/security artifacts were listed. Job-summary rendering and artifact contents were not independently inspected in this audit.
 
-That push did not select the scheduled/manual macOS job. No CI health runs existed when checked. Neither result can be inferred from the Ubuntu pass or earlier local macOS checks. CI health remains advisory; observing it is separate from the product's correctness gate. These records do not establish installed playback or owner acceptance.
+The expanded implementation first passed [main CI run 39526646940](https://github.com/dock108dev/yttv-desktop/actions/runs/39526646940) for `f9c85f1` on October 20, 2026 (Eastern time). Subsequent commits updated docs and dependencies; the current pass covers those updates too.
+
+The current push selected Ubuntu only. Workflow history had no manual CI runs and no CI health runs; the latest scheduled CI run was October 19, before the current compatibility workflow and expanded implementation. Hosted macOS execution for this update and the advisory health report therefore remain unobserved. The next configured schedules are October 26 at 09:23 UTC for CI (including macOS) and 09:53 UTC for health, subject to GitHub scheduling. No dispatch or rerun was performed during this audit.
+
+Earlier local macOS checks and the Ubuntu pass do not establish hosted macOS success. CI health remains advisory and separate from Repository checks. These records do not establish installed playback, physical placement or owner acceptance.
 
 ## Local reproduction
 

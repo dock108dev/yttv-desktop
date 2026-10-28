@@ -24,6 +24,12 @@ The UI suite also verifies shortcut draft discard, focus trapping and return to 
 
 ## Verification status
 
-The committed 0.2.15 implementation, including the shortcut-dialog and geometry cleanup, passed [hosted Ubuntu CI](../docs/CI.md#verified-execution) on October 20, 2026. That run exercised the shared product-test inventory, Python reporting contracts, strict types, in-memory build, documentation checks and a clean install/build/fixture smoke check. It supersedes local planning notes that said the integration regression cases were still unexecuted. Security ran in its separate passing job.
+Current source `8376ee3` (extension 0.2.15, including dependency maintenance) passed [hosted Ubuntu CI](../docs/CI.md#verified-execution) on October 25, 2026. That run exercised the shared product-test inventory, Python reporting contracts, strict types, in-memory build, documentation checks and a clean install/build/fixture smoke check. Security ran in its separate passing job. The earlier October 20 pass established the expanded implementation; old notes calling integration tests unexecuted are superseded.
 
-Earlier local CI reproduction passed 163 product tests and 17 reporting-contract tests before the final cleanup; those counts describe that earlier run. Subsequent focused cleanup checks and a disposable build passed locally. Neither those results nor hosted Ubuntu establish the unselected hosted macOS leg, CI health execution, installed Chrome recovery, physical monitor behavior or owner acceptance. Follow the [ordinary-use review](../START_HERE.md#personal-use-scope-and-review) for the latter.
+The October 25 documentation audit also passed strict typecheck, in-memory compilation/permission validation and **53 focused synthetic tests**, with no failures, skips or cancellations, using:
+
+```sh
+node --import tsx --test tests/ssot.test.ts tests/new-show.test.ts tests/layout-editor.test.ts tests/window-recovery.test.ts tests/remote-journey.test.ts tests/viewing-reliability.test.ts
+```
+
+These checks corroborate the documented capacity/storage/audio boundaries, startup, layout drawing, remote journey and recovery. The audit reused the current hosted full-suite result rather than repeating a full CI campaign. Earlier counts of 163 product tests and 17 reporting tests refer to an older local run, not the current test inventory. Neither local checks nor hosted Ubuntu establish hosted macOS execution, CI health, installed Chrome recovery, physical monitor behavior or owner acceptance. Follow the [ordinary-use review](../START_HERE.md#personal-use-scope-and-review) for the latter.
