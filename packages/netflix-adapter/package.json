@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/netflix-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conservative Netflix title/watch attention adapter; main-content controls remain unqualified."
+}

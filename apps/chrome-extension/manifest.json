@@ -32,5 +32,10 @@
   "optional_permissions": [
     "system.display",
     "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://www.youtube.com/*",
+    "https://www.primevideo.com/*",
+    "https://www.netflix.com/*"
   ]
 }

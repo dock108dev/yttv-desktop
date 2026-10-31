@@ -139,6 +139,17 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
   }
   return {
     ready, focusRemote, validateLayout,
+    async isRemoteSender(sender: chrome.runtime.MessageSender) {
+      if (sender.id !== api.runtime.id || sender.url !== api.runtime.getURL('remote.html')) return false;
+      let tabId = sender.tab?.windowId === remoteId ? sender.tab?.id : undefined;
+      if (!tabId && sender.documentId && api.runtime.getContexts) {
+        const contexts = await api.runtime.getContexts({ documentIds: [sender.documentId] });
+        tabId = contexts.find(c => c.documentUrl === api.runtime.getURL('remote.html') && c.windowId === remoteId)?.tabId;
+      }
+      if (!tabId) return false;
+      const tab = await api.tabs.get(tabId).catch(() => undefined);
+      return tab?.windowId === remoteId && tab?.url === api.runtime.getURL('remote.html');
+    },
     snapshot: () => ({ layout: layout.mode, customLayouts: layout.customLayouts, available, intent, enrolled: Boolean(origin), notice, actual, expanded: Boolean(expanded) }),
     async releaseClosedOriginal() {
       await ready;

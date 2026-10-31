@@ -187,3 +187,107 @@ test('layout setup gives simple steps, supports all counts and sends full-size d
     await api.act(async () => dispose()); commands.length = 0; await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); }); assert.equal(commands.length, 0);
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
 });
+
+test('queue editing is keyboard accessible, preserves focus after removal, requires replacement choice and reports unavailable storage honestly', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`);
+  window.document.body.innerHTML = '<div id="test-root" style="width:320px"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge();
+  let dispose = () => {};
+  const click = async (text: string) => { const b = [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!; assert(b); assert(!b.disabled); await api.act(async () => b.click()); };
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.match(window.document.body.textContent!, /No videos queued/);
+    await click('Add to queue'); await click('Add to queue');
+    assert.equal(window.document.querySelectorAll('.mixed-queue li').length, 2);
+    await click('Down'); await click('Edit');
+    assert.equal(window.document.activeElement?.tagName, 'SELECT');
+    await click('Cancel edit'); await click('Remove');
+    assert.equal(window.document.activeElement?.textContent, 'Queue (1/100)');
+    await click('Play next'); assert.match(window.document.querySelector('.mixed-queue [role=alert]')!.textContent!, /Fixture preview only/);
+    await api.act(async () => dispose());
+    const state = await bridge.getSnapshot();
+    state.mixed!.record!.ownership = state.mixed!.record!.slots.map((s, index) => ({ slotId: s.id, service: 'yttv', tabId: index + 1, windowId: index + 1, ordinaryUrl: 'about:blank', createdHere: true }));
+    bridge.getSnapshot = () => state;
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    const select = window.document.querySelector('[aria-label="Queue destination"]')! as any;
+    assert.equal(select.value, ''); assert.match(select.textContent, /Choose a replacement/);
+    assert.equal([...window.document.querySelectorAll('button')].find(b => b.textContent === 'Play next')!.disabled, true);
+    await api.act(async () => dispose());
+    state.mixed = { writable: false, error: 'Saved queue unavailable.', states: {} };
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.match(window.document.querySelector('.mixed-queue [role=alert]')!.textContent!, /unavailable/);
+    assert.doesNotMatch(window.document.querySelector('.mixed-queue')!.textContent!, /No videos queued/);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('YouTube enable is a direct permission gesture; denial retains queue and unavailable controls expose native fallback', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  let granted = false; const requests: any[] = [], commands: any[] = [];
+  (window as any).chrome = { permissions: { request: (request: any) => { requests.push(request); return Promise.resolve(granted); } }, runtime: { sendMessage: async (c: any) => { commands.push(c); return { ok: true }; } } };
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  let state = { ...base, youtubeEnabled: false, youtubeCandidates: [{ tabId: 55, label: 'Native YouTube' }], panes: [{ id: 'main', channelId: 'abcdefghijk', channelName: 'YouTube', service: 'youtube' as const, muted: null, providerCapabilities: null }] };
+  let listener = () => {}, dispose = () => {}; bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; }; bridge.refresh = async () => { state.youtubeEnabled = granted; listener(); return { ok: true }; };
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    const before = JSON.stringify(state.mixed);
+    await api.act(async () => button('Enable YouTube').click());
+    assert.deepEqual(JSON.parse(JSON.stringify(requests)), [{ permissions: ['scripting'], origins: ['https://www.youtube.com/*'] }]);
+    assert.match(window.document.body.textContent, /access denied/); assert.equal(JSON.stringify(state.mixed), before);
+    assert.equal(button('Play').disabled, true); assert.equal(button('Enable audio').disabled, true); assert.equal(button('Native player').disabled, false);
+    granted = true; await api.act(async () => button('Enable YouTube').click()); assert.equal(button('Enable YouTube'), undefined);
+    await api.act(async () => button('Connect Native YouTube').click()); assert.equal(commands.at(-1).type, 'CONNECT_YOUTUBE'); assert.equal(commands.at(-1).tabId, 55);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('Prime Video enable is a direct permission gesture; denial retains queue and unavailable controls expose native fallback', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  let granted = false; const requests: any[] = [], commands: any[] = [];
+  (window as any).chrome = { permissions: { request: (request: any) => { requests.push(request); return Promise.resolve(granted); } }, runtime: { sendMessage: async (c: any) => { commands.push(c); return { ok: true }; } } };
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  let state = { ...base, primeVideoEnabled: false, primeVideoCandidates: [{ tabId: 55, label: 'Native Prime Video' }], panes: [{ id: 'main', channelId: 'abcdefghijk', channelName: 'Prime Video', service: 'prime-video' as const, muted: null, providerCapabilities: null }] };
+  let listener = () => {}, dispose = () => {}; bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; }; bridge.refresh = async () => { state.primeVideoEnabled = granted; listener(); return { ok: true }; };
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    const before = JSON.stringify(state.mixed);
+    await api.act(async () => button('Enable Prime Video').click());
+    assert.deepEqual(JSON.parse(JSON.stringify(requests)), [{ permissions: ['scripting'], origins: ['https://www.primevideo.com/*'] }]);
+    assert.match(window.document.body.textContent, /access denied/); assert.equal(JSON.stringify(state.mixed), before);
+    assert.equal(button('Play').disabled, true); assert.equal(button('Enable audio').disabled, true); assert.equal(button('Native player').disabled, false);
+    granted = true; await api.act(async () => button('Enable Prime Video').click()); assert.equal(button('Enable Prime Video'), undefined);
+    await api.act(async () => button('Connect Native Prime Video').click()); assert.equal(commands.at(-1).type, 'CONNECT_PRIME_VIDEO'); assert.equal(commands.at(-1).tabId, 55);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('Netflix enable is a direct permission gesture; denial retains queue and unavailable controls expose native fallback', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  let granted = false; const requests: any[] = [], commands: any[] = [];
+  (window as any).chrome = { permissions: { request: (request: any) => { requests.push(request); return Promise.resolve(granted); } }, runtime: { sendMessage: async (c: any) => { commands.push(c); return { ok: true }; } } };
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  let state = { ...base, netflixEnabled: false, netflixCandidates: [{ tabId: 55, label: 'Native Netflix' }], panes: [{ id: 'main', channelId: 'abcdefghijk', channelName: 'Netflix', service: 'netflix' as const, muted: null, providerCapabilities: null }] };
+  let listener = () => {}, dispose = () => {}; bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; }; bridge.refresh = async () => { state.netflixEnabled = granted; listener(); return { ok: true }; };
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    const before = JSON.stringify(state.mixed);
+    await api.act(async () => button('Enable Netflix').click());
+    assert.deepEqual(JSON.parse(JSON.stringify(requests)), [{ permissions: ['scripting'], origins: ['https://www.netflix.com/*'] }]);
+    assert.match(window.document.body.textContent, /access denied/); assert.equal(JSON.stringify(state.mixed), before);
+    assert.equal(button('Play').disabled, true); assert.equal(button('Enable audio').disabled, true); assert.equal(button('Native player').disabled, false);
+    granted = true; await api.act(async () => button('Enable Netflix').click()); assert.equal(button('Enable Netflix'), undefined);
+    await api.act(async () => button('Connect Native Netflix').click()); assert.equal(commands.at(-1).type, 'CONNECT_NETFLIX'); assert.equal(commands.at(-1).tabId, 55);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});

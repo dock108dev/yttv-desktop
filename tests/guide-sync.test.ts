@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGuideSync, GUIDE_SYNC_KEY } from '../apps/chrome-extension/src/guide-sync';
 
@@ -16,9 +16,14 @@ function fixture(stored?: any) {
   sync = createGuideSync(api, async () => {}, { now: () => clock, token: () => 'fixture', timeoutMs: 25, settleMs: 5 });
   return { sync, tabs, session, log, advance: () => { clock += 60_001; }, failMute: () => { muteFails = true; }, failStorage: () => { storageFails = true; }, failClose: () => { closeFails = true; } };
 }
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const tick = async (t: TestContext, ms: number) => {
+  t.mock.timers.tick(ms);
+  // Timer callbacks start async browser/storage work; drain it without advancing the clock.
+  await new Promise<void>(resolve => setImmediate(resolve));
+};
 
-test('automatic discovery is inactive, browser-muted before native navigation, coalesced and closed after data settles', async () => {
+test('automatic discovery is inactive, browser-muted before native navigation, coalesced and closed after data settles', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const h = fixture(); const original = structuredClone(h.tabs.get(1));
   await Promise.all([h.sync.request(10), h.sync.request(10)]);
   assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
@@ -26,17 +31,20 @@ test('automatic discovery is inactive, browser-muted before native navigation, c
   assert.deepEqual(h.log[1], ['update', 2, { muted: true }]);
   assert.match(h.log[2][2].url, /^https:\/\/tv\.youtube\.com\/live#yttv-guide-sync=/);
   assert.equal(h.sync.status, 'loading'); assert(h.sync.owns(2));
-  h.sync.observed(99, 'unrelated'); await wait(7); assert.equal(h.sync.status, 'loading');
-  h.sync.observed(2, 'rows'); await wait(8);
+  h.sync.observed(99, 'unrelated'); await tick(t, 7); assert.equal(h.sync.status, 'loading');
+  h.sync.observed(2, 'rows'); await tick(t, 4); assert.equal(h.sync.status, 'loading');
+  await tick(t, 1);
   assert.equal(h.sync.status, 'ready'); assert(!h.tabs.has(2)); assert.deepEqual(h.tabs.get(1), original);
   await h.sync.request(10); assert.equal(h.log.filter(row => row[0] === 'create').length, 1, 'no repeated snapshot/playing retry');
-  h.advance(); await h.sync.request(10); h.sync.observed(2, 'new rows'); await wait(8);
+  h.advance(); await h.sync.request(10); h.sync.observed(2, 'new rows'); await tick(t, 5);
   assert.equal(h.log.filter(row => row[0] === 'create').length, 2);
 });
 
-test('no native guide data times out truthfully and a navigated-away helper is never closed', async () => {
+test('no native guide data times out truthfully and a navigated-away helper is never closed', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const h = fixture(); await h.sync.request(10); h.tabs.get(2).url = 'https://owner.example/';
-  await wait(35); assert.equal(h.sync.status, 'unavailable'); assert(h.tabs.has(2)); assert.equal(h.session[GUIDE_SYNC_KEY], null);
+  await tick(t, 24); assert.equal(h.sync.status, 'loading');
+  await tick(t, 1); assert.equal(h.sync.status, 'unavailable'); assert(h.tabs.has(2)); assert.equal(h.session[GUIDE_SYNC_KEY], null);
 });
 
 test('mute or session failure stops before native navigation and cleans only the newly created blank', async () => {
@@ -55,8 +63,9 @@ test('worker wake cleans exact recorded discovery ownership without touching a m
   }
 });
 
-test('failed cleanup retains recovery ownership and blocks more discovery tabs', async () => {
-  const h = fixture(); await h.sync.request(10); h.failClose(); h.sync.observed(2, 'rows'); await wait(8);
+test('failed cleanup retains recovery ownership and blocks more discovery tabs', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const h = fixture(); await h.sync.request(10); h.failClose(); h.sync.observed(2, 'rows'); await tick(t, 5);
   assert.equal(h.sync.status, 'unavailable'); assert(h.session[GUIDE_SYNC_KEY]);
   h.advance(); await h.sync.request(10); assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
 });

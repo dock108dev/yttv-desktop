@@ -2,6 +2,7 @@ import { guidePrograms, type GuideEntry } from '../../../packages/core/src/index
 import { freshLiveTarget, type AdapterObservation } from '../../../packages/yttv-adapter/src/index';
 
 const validId = (value: unknown): value is string => typeof value === 'string' && Boolean(value.trim()) && value.length <= 200;
+const nonnegativeFinite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 /** Sanitize bridge observations without acquiring browser ownership or mutating players. */
 export function cleanObservation(raw: AdapterObservation): AdapterObservation | null {
@@ -23,15 +24,15 @@ export function cleanObservation(raw: AdapterObservation): AdapterObservation | 
       observedAt: entry.observedAt, evidenceClass: 'LIVE',
     };
   });
-  return { guide, guideObservedAt: raw.guideObservedAt,
+  return { mainPlayerUnique: raw.mainPlayerUnique === true, guide, guideObservedAt: raw.guideObservedAt,
     currentChannelId: validId(raw.currentChannelId) && guide.some(entry => entry.channel.id === raw.currentChannelId) ? raw.currentChannelId : undefined,
     currentProgram: typeof raw.currentProgram === 'string' ? raw.currentProgram.slice(0, 300) : undefined,
     playback: { playing: typeof raw.playback?.playing === 'boolean' ? raw.playback.playing : null,
       volume: typeof raw.playback?.volume === 'number' && raw.playback.volume >= 0 && raw.playback.volume <= 1 ? raw.playback.volume : null,
       muted: typeof raw.playback?.muted === 'boolean' ? raw.playback.muted : null,
-      readyState: Number.isInteger(raw.playback?.readyState) ? raw.playback.readyState : null,
-      currentTime: typeof raw.playback?.currentTime === 'number' && Number.isFinite(raw.playback.currentTime) ? raw.playback.currentTime : null,
-      width: typeof raw.playback?.width === 'number' ? raw.playback.width : null, height: typeof raw.playback?.height === 'number' ? raw.playback.height : null },
+      readyState: nonnegativeFinite(raw.playback?.readyState) && Number.isInteger(raw.playback.readyState) && raw.playback.readyState <= 4 ? raw.playback.readyState : null,
+      currentTime: nonnegativeFinite(raw.playback?.currentTime) ? raw.playback.currentTime : null,
+      width: nonnegativeFinite(raw.playback?.width) ? raw.playback.width : null, height: nonnegativeFinite(raw.playback?.height) ? raw.playback.height : null },
     observedAt: raw.observedAt, route: ['guide', 'watch', 'other'].includes(raw.route) ? raw.route : 'other' };
 }
 /** Volatile guide metadata outlives source tabs, but never renews observation age.

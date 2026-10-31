@@ -1,17 +1,15 @@
 # YouTube TV Desktop Client
 
-A Chrome extension with a compact remote for up to four native YouTube TV player windows, including the original. It keeps video and account controls in YouTube TV while managing playback controls, audio and window placement.
+A Chrome extension with a compact remote for up to four native YouTube TV and YouTube player windows, including the original. It keeps video and account controls in YouTube TV while managing playback controls, audio and window placement.
 
-- Press **New show** to open YouTube TV on your last channel, or the first available live channel—even with no player open. Add up to four shows from the remote.
-- Remove windows, change channels, and use native Play/Pause and volume controls.
-- Use **Arrange shows** for one to four shows: stacked, side by side, grid, a larger main show, or your own positions.
-- Draw your TV area or each show’s box at full size on the chosen monitor, then reuse the saved layout.
-- Choose a TV area, arrange windows automatically or manually, and Expand/Restore them.
-- Return the original to its previous window where supported.
-- Recover known windows after extension Reload; explicitly connect other existing players.
-- Search native guide listings and discover sports programs from their text.
+- Queue supported YouTube TV and ordinary YouTube links, then explicitly play the next item.
+- Open, arrange and control up to four native player windows with the compact remote.
+- Save screen layouts, manage guide channels and recover known windows after Reload.
+- Prime Video and Netflix currently support counted native attention windows; their playback controls and identity remain unavailable.
 
-Requires Google Chrome, Node.js 24 and Python 3 for development. Watching requires your own YouTube TV access. The four-window software limit does not establish your account's simultaneous playback allowance. Safari/native clients, other streaming services and independent sports scores are not implemented.
+Requires Google Chrome, Node.js 24 and Python 3 for development. Watching requires your own provider access; the four-window software limit does not establish account playback allowances. Safari/native clients and independent sports scores are not implemented.
+
+See [usage](START_HERE.md) for controls and [architecture](docs/ARCHITECTURE.md) for implementation boundaries.
 
 ## Quickstart
 

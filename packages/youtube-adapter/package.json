@@ -1,0 +1,6 @@
+{
+  "name": "@yttv/youtube-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Native regular YouTube watch-page adapter with independent capabilities and identity-bound readback."
+}

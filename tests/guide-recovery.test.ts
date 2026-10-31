@@ -1,3 +1,4 @@
+import { webcrypto } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -15,13 +16,13 @@ const watch = () => ({ guide: [], route: 'watch', observedAt: new Date().toISOSt
 async function harness(cache: unknown = { schemaVersion: 1, observedAt: stamp, rows }, failCache = false, failPrefs = false) {
   const local: Record<string, unknown> = { [GUIDE_CACHE_KEY]: structuredClone(cache), [PREFERENCES_KEY]: structuredClone(prefs) };
   const actions: unknown[] = []; let callback: any;
-  const sender = { id: 'synthetic-extension', url: 'https://tv.youtube.com/watch?v=synthetic-test-only', tab: { id: 1 } };
+  const sender = { id: 'synthetic-extension', url: 'https://tv.youtube.com/watch?v=synthetic-test-only', tab: { id: 1, windowId: 1 } };
   const chrome = {
     storage: { local: { get: async (key: string) => { if ((failCache && key === GUIDE_CACHE_KEY) || (failPrefs && key === PREFERENCES_KEY)) throw new Error('Synthetic storage failure'); return { [key]: structuredClone(local[key]) }; }, set: async (value: object) => { if (failCache && GUIDE_CACHE_KEY in value) throw new Error('Synthetic cache write failure'); Object.assign(local, structuredClone(value)); } }, session: { get: async () => ({}), set: async () => {} } },
     runtime: { id: 'synthetic-extension', getURL: () => 'chrome-extension://synthetic-extension/', sendMessage: async () => {}, onMessage: { addListener: (fn: any) => { callback = fn; } } },
-    tabs: { query: async () => [{ id: 1, url: sender.url, active: true }], get: async () => ({ id: 1, url: sender.url }), update: async (_id: number, value: unknown) => { actions.push(structuredClone(value)); }, sendMessage: async (_id: number, message: any) => message.type === 'GET_OBSERVATION' ? watch() : { ok: false, code: 'TARGET_UNAVAILABLE' }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
+    tabs: { query: async () => [{ id: 1, windowId: 1, url: sender.url, active: true }], get: async () => ({ id: 1, windowId: 1, url: sender.url }), update: async (_id: number, value: unknown) => { actions.push(structuredClone(value)); }, sendMessage: async (_id: number, message: any) => message.type === 'GET_OBSERVATION' ? watch() : { ok: false, code: 'TARGET_UNAVAILABLE' }, onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
   };
-  const restart = async () => { runInNewContext((await worker).outputFiles[0].text, { chrome, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval }); };
+  const restart = async () => { runInNewContext((await worker).outputFiles[0].text, { crypto: webcrypto, TextEncoder, chrome, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval }); };
   await restart();
   const send = (command: Command): Promise<any> => new Promise(resolve => callback(envelope(command), sender, (value: unknown) => resolve(structuredClone(value))));
   return { send, local, actions, restart };

@@ -27,6 +27,7 @@ export interface PlaybackObservation {
   currentTime: number | null; width: number | null; height: number | null;
 }
 export interface AdapterObservation {
+  mainPlayerUnique?: boolean;
   guide: GuideEntry[]; guideObservedAt?: string; currentChannelId?: string;
   currentProgram?: string; playback: PlaybackObservation; observedAt: string;
   route: 'guide' | 'watch' | 'other';
@@ -115,7 +116,7 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
       }
     }
     const program = [...document.querySelectorAll(SELECTORS.program)].filter(visible).map(text).find(Boolean);
-    return { guide: guide.map(entry => ({ ...entry })), guideObservedAt, currentChannelId, currentProgram: program,
+    return { mainPlayerUnique: [...document.querySelectorAll('video')].filter(visible).length === 1, guide: guide.map(entry => ({ ...entry })), guideObservedAt, currentChannelId, currentProgram: program,
       playback: { playing: player ? !player.paused && !player.ended && player.readyState >= 2 : null,
         muted: player?.muted ?? null, volume: player?.volume ?? null, readyState: player?.readyState ?? null, currentTime: player?.currentTime ?? null,
         width: player?.videoWidth ?? null, height: player?.videoHeight ?? null }, observedAt, route };

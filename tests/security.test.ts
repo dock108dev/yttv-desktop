@@ -6,6 +6,35 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { request } from 'node:http';
 import { validCommand } from '../apps/chrome-extension/src/adapter';
+import { cleanObservation } from '../apps/chrome-extension/src/observations';
+
+test('preference IPC rejects malformed nested edits while allowing partial choices and explicit clears', () => {
+  for (const patch of [{ ui: null }, { ui: [] }, { ui: { theme: {} } }, { ui: { denseGuide: 'false' } },
+    { ui: { privatePayload: 'synthetic' } }, { keyboardMappings: 'reset' }, { keyboardMappings: { mute: 7 } },
+    { keyboardMappings: { unknownAction: 'x' } }, { keyboardMappings: { mute: 'Ctrl+M' } },
+    { quadLayouts: [null] }, { lastQuad: {} }]) {
+    assert.equal(validCommand({ type: 'PREFERENCE', patch }), false, JSON.stringify(patch));
+  }
+  for (const patch of [{ ui: { theme: 'light' } }, { keyboardMappings: { mute: '' } },
+    { favorites: [], quadLayouts: [], lastQuad: null }]) assert.equal(validCommand({ type: 'PREFERENCE', patch }), true);
+});
+
+test('untrusted playback measurements cannot manufacture ready state or propagate nonfinite geometry', () => {
+  const raw: any = { guide: [], observedAt: new Date().toISOString(), route: 'watch', playback: {} };
+  for (const value of [-1, 5, 999, 2.5, Infinity, NaN, '4', null]) {
+    raw.playback = { readyState: value, currentTime: -1, width: Infinity, height: NaN };
+    const clean = cleanObservation(raw)!;
+    assert.equal(clean.playback.readyState, null);
+    assert.equal(clean.playback.currentTime, null);
+    assert.equal(clean.playback.width, null);
+    assert.equal(clean.playback.height, null);
+  }
+  for (const readyState of [0, 1, 2, 3, 4]) {
+    raw.playback = { readyState, currentTime: 0, width: 1920, height: 1080, muted: false, volume: .37 };
+    const clean = cleanObservation(raw)!;
+    assert.deepEqual(clean.playback, { ...raw.playback, playing: null });
+  }
+});
 
 test('IPC rejects malformed, oversized and mass-assignment commands before privileged handlers', () => {
   for (const value of [null, [], { type: 'UNKNOWN' }, { type: 'NAVIGATE', channelId: 7 },

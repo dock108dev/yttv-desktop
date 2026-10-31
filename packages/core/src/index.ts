@@ -105,3 +105,5 @@ export function watchNavigationUrl(value: string, base = 'https://tv.youtube.com
     return url.href.length <= 8192 ? url.href : null;
   } catch { return null; }
 }
+
+export * from './media';

@@ -1,6 +1,10 @@
 # Development
 
-Use Node.js 24 (`.nvmrc`), Python 3 and the root npm lockfile. Dependencies are installed once from the repository root:
+Use Node.js 24 (`.nvmrc`), Python 3 and the root npm lockfile. CI selects Python 3.14. No environment variables or API keys are needed for the build, tests or fixture preview.
+
+## Install dependencies
+
+Run commands from the repository root:
 
 ```sh
 npm ci
@@ -8,25 +12,22 @@ npm ci
 
 ## Build and preview
 
-`npm run build` bundles the content script, worker, remote, panel and monitor drawing window into `dist/chrome-extension`, audits manifest permissions and records the build's source fingerprint. It replaces that generated output as part of normal local development. Git retains source; rebuildable bundles need no separate backup.
+```sh
+npm run build
+npm run preview
+```
 
-`npm run build -- --check` performs the same compilation and permission audit in memory without writing build files. It does not prepare files for preview or installation.
+The build bundles the Chrome worker, remote, drawer, provider content scripts and monitor drawing window into `dist/chrome-extension`. It audits the exact manifest permissions and writes `build-identity.json`. The preview serves the existing output at `http://127.0.0.1:4173`; rebuild after source edits and stop the server with Ctrl+C. Preview preferences are separate from extension preferences. The preview cannot sign in or play video.
 
-After building, `npm run preview` serves the fixture UI at `http://127.0.0.1:4173`. It reads existing build output, so rebuild to preview source changes. Stop the server with Ctrl+C. This preview has separate synthetic preferences and cannot authenticate or play video.
+`npm run build -- --check` compiles and checks permissions in memory. It neither prepares preview files nor replaces an existing build. A normal build replaces generated output in place; bundles can be regenerated from source.
 
 ## Chrome installation and updates
 
-Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `dist/chrome-extension`. Use the toolbar icon for the remote, then **New show**; opening YouTube TV first is unnecessary. Complete native sign-in if needed. Required access is storage and `https://tv.youtube.com/*`. Optional display access supplies monitor information for placement/drawing; optional scripting access reconnects the designated player with the packaged content script.
+Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `dist/chrome-extension`. Click the toolbar icon, then **New show**. Complete provider sign-in in the native window if needed. See [usage](../START_HERE.md) for controls and optional provider access.
 
-For updates, close the remote, build, Reload the existing extension entry, then reopen the remote. Keep the same extension entry/ID and storage. Known surviving windows are recovered; changed tab IDs or missing ownership require deliberate existing-player connection. If controls remain disconnected, use Connection or refresh the player normally. Do not reinstall or clear storage as a repair.
+For updates, close the remote, rebuild, Reload the existing extension entry, then reopen the remote. Keep the same extension ID and storage. Known surviving windows recover; changed tab IDs or missing ownership require explicit Connect. Use native controls or normal page refresh when reconnection is unavailable. Do not reinstall or clear storage as a repair.
 
-## Local build status
-
-Checked October 25, 2026: local HEAD and GitHub main are `8376ee3`, extension **0.2.15**, with passing [hosted Ubuntu CI](CI.md#verified-execution). The expanded implementation was committed in `f9c85f1`; later commits updated documentation and dependencies. The private root npm package version (`0.1.0-beta.1`) and workspace package versions are bookkeeping; Chrome uses `apps/chrome-extension/manifest.json`.
-
-The retained `dist/chrome-extension` also reports 0.2.15, but its recorded source fingerprint starts with `bc55c0b79f2b9e069`. The current in-memory build starts with `845ded4ccb9e078c1`. Comparing recorded inputs confirms older worker, remote, workspace, geometry, storage, shared UI and dependency inputs in the retained build. Matching version numbers do not establish matching source. Rebuild normally before the next local update, then follow the existing-entry update procedure above.
-
-This audit passed strict typecheck and in-memory compilation/permission validation. It did not replace the retained bundle, install or Reload the extension, or inspect the installed runtime. Current installed identity and ordinary-use acceptance remain unverified.
+Chrome's version comes from `apps/chrome-extension/manifest.json`. Root/workspace package versions are package bookkeeping. `build-identity.json` identifies generated inputs; matching version numbers alone do not prove a build matches current source. Neither compilation nor a build fingerprint identifies the revision currently loaded in Chrome.
 
 ## Tests
 
@@ -34,16 +35,15 @@ This audit passed strict typecheck and in-memory compilation/permission validati
 npm run typecheck
 node --import tsx --test tests/ssot.test.ts
 npm run docs:check
+npm run build -- --check
 ```
 
-Choose affected test files for a focused change. `npm test` uses `scripts/test.mjs` to discover synthetic `.test.ts`/`.test.tsx` files recursively under tests/apps/packages, sharing CI's inventory. `npm run verify:source` combines typecheck, tests, in-memory build and docs checks. `npm run verify` also writes a new build; use it only when output replacement is intended. See [test coverage](../tests/README.md) and [CI](CI.md).
+Choose affected test files for a focused change. `npm test` discovers all synthetic `.test.ts`/`.test.tsx` files under tests, apps and packages. `npm run verify:source` combines strict types, all tests, in-memory compilation and docs checks. `npm run verify` also writes a new build; use it when output replacement is intended.
 
-No tests use a live account. Observe live behavior manually when necessary; keep browser automation detached from protected playback. Compilation and mocks cannot confirm account allowance, visible video or heard audio.
+See [test coverage](../tests/README.md) and [CI](CI.md) for broader checks and reports. Automated checks use synthetic inputs; native playback, account access, audible output and physical monitor placement require user-operated review. Do not attach browser automation to protected playback.
 
-## Maintenance
+## Contributing
 
-[Architecture](ARCHITECTURE.md) identifies module owners. Keep native selectors in the adapter and shared navigation/capacity/storage policy in their existing modules. Preserve public entry points and saved schemas. No formatter or ESLint policy is configured; TypeScript enforces strict types and unused symbols.
+Keep selectors and controls in service adapters, capacity/audio policy in quadbox, preference validation in storage, and serialized browser mutations in the Chrome worker. [Architecture](ARCHITECTURE.md) describes these boundaries. Preserve saved schemas, native account controls and unrelated tabs/windows.
 
-Keep credentials, personal state, generated output and internal working notes out of Git. Retain required fixtures and authored tools. The documentation checker validates repository Markdown links and workspace manifests, excluding ignored local files.
-
-No environment variables or API keys are needed for the build, tests or fixture preview; `.env.example` documents this. Write generated reports to disposable output folders. Root `junit.xml`, `lcov.info` and `test-files.json` are also ignored.
+Keep generated output, credentials and browser state out of Git. Required fixtures and authored assets belong in source control. Use portable repository paths in documentation, and run `npm run docs:check` after changing links or instructions.

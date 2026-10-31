@@ -64,7 +64,8 @@ def collect(repo, get, now, limit=30):
             if not jobs or len(jobs) != data['total_count'] or any(not job.get('started_at') or not job.get('completed_at') for job in jobs):
                 raise ValueError('Incomplete job timestamps/list')
             start, end = min(job['started_at'] for job in jobs), max(job['completed_at'] for job in jobs)
-            record['queue_seconds'] = duration(run['created_at'], start)
+            # Creation belongs to attempt 1. Waiting days before a rerun is not runner queue time.
+            record['queue_seconds'] = duration(run['created_at'], start) if run['run_attempt'] == 1 else None
             record['execution_span_seconds'] = duration(start, end)
             seconds = [duration(job['started_at'], job['completed_at']) for job in jobs]
             record['job_seconds'] = sum(seconds) if all(n is not None for n in seconds) else None
@@ -89,7 +90,7 @@ def collect(repo, get, now, limit=30):
                 server_total=total, groups=groups, runs=records, unavailable=unavailable,
                 observed_job_minutes=sum(measured_jobs) / 60 if measured_jobs else None,
                 critical_path_seconds=None, billing_cost=None, quota=None, baseline=None,
-                comparability='Descriptive workflow history across SHAs/configurations; no comparable performance baseline. Latest-attempt job times only; not billed minutes. Rerun recovery alone is not a flake diagnosis.')
+                comparability='Descriptive workflow history across SHAs/configurations; no comparable performance baseline. Latest-attempt job times only; not billed minutes. Queue time is measured only for first attempts; rerun enqueue timestamps are unavailable. Rerun recovery alone is not a flake diagnosis.')
 
 
 def render(report):

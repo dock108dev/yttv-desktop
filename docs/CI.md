@@ -19,7 +19,7 @@ The independent `CI health` workflow runs Mondays at 09:53 UTC or manually. It r
 
 ## Source checks and reports
 
-Local `npm test` and CI share recursive `.test.ts`/`.test.tsx` discovery under `tests`, `apps` and `packages`. CI requires an unskipped JUnit case for each discovered file. A disposable source export independently installs the lockfile, builds the extension, validates the content scripts and all four HTML pages with their referenced assets, and serves the fixture preview. It leaves local build output untouched.
+Local `npm test` and CI share recursive `.test.ts`/`.test.tsx` discovery under `tests`, `apps` and `packages`. CI requires an unskipped JUnit case for each discovered file. A disposable source export independently installs the lockfile, builds the extension, validates manifest content scripts, all three dynamically injected provider scripts, and all four HTML pages with their referenced assets, and serves the fixture preview. It leaves local build output untouched.
 
 Source reports include JUnit, LCOV, the discovered test-file list and bundle sizes/hashes. Coverage measures executed application/package code through tsx; tests that bundle and evaluate code do not provide complete original-TypeScript coverage. Coverage and bundle size are advisory, with no percentage or size threshold. Missing or malformed required reports still fail the job.
 
@@ -41,19 +41,33 @@ PR updates cancel superseded runs for the same PR/event. Push, schedule, manual 
 
 ## CI health metrics
 
-Health reports separate first-attempt results, rerun recovery and cancellations. Cancelled/skipped runs are excluded from pass-rate denominators. Queue time runs from creation to first job start; execution span runs from first job start to last completion. Summed job seconds describe observed execution, not billing.
+Health reports separate first-attempt results, rerun recovery and cancellations. Cancelled/skipped runs are excluded from pass-rate denominators. Queue time runs from creation to first job start for first attempts only; rerun queue time stays null because an enqueue timestamp is unavailable; execution span runs from first job start to last completion. Summed job seconds describe observed execution, not billing.
 
 Medians use available samples; p95 requires at least 20 samples per event. Missing metadata remains null or PARTIAL with a reason. Requests have time and size limits, a 240-second overall deadline and a one-page run limit. Recovery on rerun alone does not identify a flaky test, and historical runs across revisions are not a regression baseline. Account quota, billing and unavailable coverage/size comparisons are not inferred.
 
-## Verified execution
+## Check map and deliberate omissions
 
-As of October 25, 2026, local HEAD and GitHub main are `8376ee3` (extension 0.2.15). [Main CI run 40216091512](https://github.com/dock108dev/yttv-desktop/actions/runs/40216091512) passed for that exact revision. Source and fixture checks, workflow/security checks and the Repository checks aggregate succeeded. Source logs confirm passing report contracts, strict types, tests, in-memory build/permission audit, docs, script checks and clean build/fixture smoke. Both finalizers and diagnostic uploads succeeded, and unexpired source/security artifacts were listed. Job-summary rendering and artifact contents were not independently inspected in this audit.
+All source/security checks below are required by the workflow aggregate when selected; branch enforcement remains a recommended setting.
 
-The expanded implementation first passed [main CI run 39526646940](https://github.com/dock108dev/yttv-desktop/actions/runs/39526646940) for `f9c85f1` on October 20, 2026 (Eastern time). Subsequent commits updated docs and dependencies; the current pass covers those updates too.
+| Area / product risk | Exact workflow / job / command | Event / platform | Policy | Reason / evidence |
+| --- | --- | --- | --- | --- |
+| Types and unused code | CI / source / `npm run typecheck` | PR, main push, weekly/manual; Ubuntu, selected macOS | Required | Strict TypeScript, noUnusedLocals/noUnusedParameters across Chrome, packages and tests. No second general-purpose linter configured; adding a style ruleset would require broad unrelated cleanup. |
+| Reporting false greens | CI / source / `python3 -m unittest discover -s scripts/ci -p 'test_*.py'` | Same | Required | Executes real aggregate script plus missing/failing/skipped/invalid report, collection, build-asset and history fixtures. |
+| Product behavior and UI journeys | CI / source / `node scripts/test.mjs --reports-dir OUTPUT` | Same | Required | Recursively includes all application/package/test suites, persistence/recovery, provider refusal, worker lifecycle, keyboard focus and fixture UI. Per-file collection guard, JUnit and LCOV. |
+| Compilation/privilege drift | CI / source / `npm run build -- --check` | Same | Required | Bundles every Chrome entry and checks exact manifest permissions/CSP; no retained-output writes. |
+| Documentation and executable scripts | CI / source / `npm run docs:check -- --repository-only`; `scripts` check in `run.py` | Same | Required | Portable links/manifests, Node syntax and Python compilation. No authored shell scripts; embedded workflow syntax is checked by actionlint. No formatter policy exists; repo-wide reformat is intentionally omitted. |
+| Reproducibility/distribution | CI / source / `python3 scripts/ci/fresh_build.py OUTPUT/bundle.json` | Same | Required | Disposable deliverable export, independent `npm ci`, strict types/docs/build, all packaged assets including runtime-injected providers, JS syntax and ephemeral loopback smoke. Includes proposed nonignored additions locally; hosted checkout can only test committed files. |
+| Workflow security | CI / security / `actionlint -color -shellcheck=` | PR, push, schedule/manual; Ubuntu | Required | Pinned CLI; SHA-pinned actions, read-only permissions, no secrets/privileged PR events, always-run aggregate, no path filters or blanket continue-on-error. |
+| Dependencies and licenses | CI / security / `npm audit --json --audit-level=high` | Same | Required scan; license inventory advisory | High/critical and registry/report failures block; all severities reported, no suppressions. Lockfile licenses counted without legal-policy claims. OSV would overlap the current npm-only scan; not added. |
+| Secrets | CI / security / `gitleaks dir EXPORT --redact=100 --no-banner --report-format=json --report-path=OUTPUT/secrets.json` | Same | Required | Deliverable export only, no owner files or history; findings/outage fail. No new SaaS upload. |
+| Coverage and size | CI / source / LCOV plus `bundle.json` | Same | Advisory measurements; required report validity | File/line/branch counters and bytes/SHA-256 per asset. No like-for-like baseline or justified blocking budget; changed-code coverage and deltas remain unavailable. |
+| Compatibility | CI / source matrix | Ubuntu PR/main; macOS 15 weekly/manual | Required when selected | Node 24 and Python 3.14; no Safari/native executable, Windows-specific client or backend/service matrix to qualify. Live Chrome version/OS behavior is separate user-operated evidence. |
+| Reliability/resources | CI health / `python3 scripts/ci/history.py --repository OWNER/REPO --limit 30 --output OUTPUT` | Weekly/manual Ubuntu | Advisory, independent | Bounded read-only metadata; first attempts, reruns, failure steps, queue/execution medians, p95 only at 20 samples; measured job minutes are not billing. Python runtime is explicitly selected. |
+| Database/migrations/containers/IaC | None | N/A | N/A | No database, sidecar, container or deployed infrastructure. Storage/schema compatibility uses synthetic product tests. |
+| Native playback/accessibility/performance | Existing synthetic UI tests; no protected-player automation | Local fixture / manual device evidence | Limited automated scope | Keyboard/focus checks exist. Lighthouse scores for a fixture page would not measure native playback or extension performance; no lab score gate or benchmark trend is invented. |
+| Release/provenance/signing | None | N/A | Separate authorization | No publishing workflow or distributable signing process exists; ordinary CI cannot install, Reload or publish. |
 
-The current push selected Ubuntu only. Workflow history had no manual CI runs and no CI health runs; the latest scheduled CI run was October 19, before the current compatibility workflow and expanded implementation. Hosted macOS execution for this update and the advisory health report therefore remain unobserved. The next configured schedules are October 26 at 09:23 UTC for CI (including macOS) and 09:53 UTC for health, subject to GitHub scheduling. No dispatch or rerun was performed during this audit.
-
-Earlier local macOS checks and the Ubuntu pass do not establish hosted macOS success. CI health remains advisory and separate from Repository checks. These records do not establish installed playback, physical placement or owner acceptance.
+Source and security run independently, with `Repository checks` depending on both. Only the compatibility matrix is shared; no reusable workflow/composite action is justified for the short one-off steps. Push checks test merged state, weekly checks refresh external advisory data and broaden platform coverage. Workflow dispatch is limited to a boolean compatibility input; health accepts a validated integer 1–30. No branch/path filters can strand a PR check.
 
 ## Local reproduction
 

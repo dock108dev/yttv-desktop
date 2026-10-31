@@ -27,7 +27,7 @@ test('UI and worker use the current shared limit, separate from account allowanc
     assert.doesNotMatch(source, /panes\.length\s*[<>]=?\s*[12]/);
   }
   const worker = await readFile('apps/chrome-extension/src/background.ts', 'utf8');
-  assert.match(worker, /!canAddManagedFeed\(controlledIds\(\)\.length \+ pendingFeedCreations\)/);
+  assert.match(worker, /!canAddManagedFeed\(mixed.capacity\(\)\)/);
   assert.doesNotMatch(worker, /controlledIds\(\)\.length[^\n]*>= CURRENT_MANAGED_FEED_LIMIT/);
   assert.doesNotMatch(worker, /panes\.slice\(0, 3\)|feedNumber! <= 4/);
 });
@@ -74,8 +74,33 @@ test('preference edits share storage merge rules and preserve history and unrela
   const before = await bridge.getSnapshot();
   await bridge.setPreference({ ui: { ...before.preferences.ui, denseGuide: false, lastSurface: 'SPORTS' } });
   const base = await bridge.getSnapshot();
-  await bridge.setPreference(patch);
-  assert.deepEqual((await bridge.getSnapshot()).preferences, storage.patchPreferences(base.preferences, patch));
+  assert.equal((await bridge.setPreference(patch)).code, 'INVALID_COMMAND');
+  assert.deepEqual((await bridge.getSnapshot()).preferences, base.preferences);
+  const validPatch = { ui: { ...base.preferences.ui, theme: 'dark' as const } };
+  await bridge.setPreference(validPatch);
+  assert.deepEqual((await bridge.getSnapshot()).preferences, storage.patchPreferences(base.preferences, validPatch));
+});
+
+test('fixture and IPC preference entry points share storage validation', async () => {
+  const bridge = createDemoBridge();
+  const before = (await bridge.getSnapshot()).preferences;
+  for (const patch of [{ keyboardMappings: null }, { ui: { theme: {} } }, { quadLayouts: [null] }, { lastQuad: {} }]) {
+    assert.equal(storage.validPreferencePatch(patch), false);
+    assert.equal(validCommand({ type: 'PREFERENCE', patch }), false);
+    assert.equal((await bridge.setPreference(patch as any)).code, 'INVALID_COMMAND');
+    assert.deepEqual((await bridge.getSnapshot()).preferences, before);
+  }
+});
+
+test('optional content entries delegate transport to one installer', async () => {
+  for (const service of ['youtube', 'prime-video', 'netflix']) {
+    const source = await readFile(`apps/chrome-extension/src/${service}-content.ts`, 'utf8');
+    assert.match(source, /import \{ installProviderContent \} from '\.\/provider-content'/);
+    assert.match(source, new RegExp(`installProviderContent\\('${service}'`));
+    assert.doesNotMatch(source, /onMessage|setInterval|message\.nonce|generation/);
+    const connection = await readFile(`apps/chrome-extension/src/${service}.ts`, 'utf8');
+    assert.match(connection, new RegExp(`providerNamespace\\('${service}'\\)`));
+  }
 });
 
 test('guide age has one boundary for display and target eligibility', async () => {

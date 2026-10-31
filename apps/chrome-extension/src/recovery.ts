@@ -15,3 +15,17 @@ export async function saveWorkspaceSession(api: typeof chrome, values: Record<st
   });
   writeQueues.set(api, next); await next;
 }
+
+/** Restore geometry fields only; saved records cannot carry arbitrary state into panes. */
+export type Bounds = { left?: number; top?: number; width?: number; height?: number; state?: string };
+export function restoredBounds(raw: unknown): Bounds | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const row = raw as Record<string, unknown>; const result: Bounds = {};
+  for (const key of ['left', 'top', 'width', 'height'] as const) {
+    if (row[key] === undefined) continue;
+    if (typeof row[key] !== 'number' || !Number.isFinite(row[key]) || (['width', 'height'].includes(key) && row[key] <= 0)) return undefined;
+    result[key] = row[key];
+  }
+  if (typeof row.state === 'string' && ['normal', 'maximized', 'minimized', 'fullscreen'].includes(row.state)) result.state = row.state;
+  return result;
+}

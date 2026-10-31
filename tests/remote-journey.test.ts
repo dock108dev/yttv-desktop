@@ -1,3 +1,4 @@
+import { webcrypto } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -54,7 +55,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     },
   };
   class WorkerDate extends Date { static now() { return Date.now() + clockOffset; } }
-  runInNewContext(worker.outputFiles[0].text, { Date: WorkerDate, crypto: { randomUUID: () => 'synthetic-connection' }, chrome: api, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
+  runInNewContext(worker.outputFiles[0].text, { Date: WorkerDate, crypto: webcrypto, TextEncoder, chrome: api, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
   const workerListener = [...listeners][0];
   const send = (c: any) => api.runtime.sendMessage(envelope(c));
   const observePlayer = (id: number, readyState = 4, key = `player-${id}`) => new Promise(res => { for (const fn of listeners) fn(envelope({ type: 'OBSERVE', playerKey: key, observation: { ...observation(id), playback: { ...observation(id).playback, readyState } } }), { id: 'local', url: tabs.get(id).url, tab: tabs.get(id), documentId: `doc-${id}` }, res); });
@@ -219,16 +220,16 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     await send({ type: 'AUTO_ARRANGE', enabled: true });
     await click('Arrange now'); const remaining = (await snapshot()).panes[1]; windows.get(remaining.windowId).left += 45;
     assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:2' })).ok, true); await sync();
-    const timedOut = (await snapshot()).panes.at(-1); const timeoutBoundary = log.length; clockOffset = 16_000;
+    const timedOut = (await snapshot()).panes.find((p: any) => p.id !== 'main' && p.id !== remaining.id); const timeoutBoundary = log.length; clockOffset = 16_000;
     await observePlayer(timedOut.tabId); clockOffset = 0;
-    assert.match((await snapshot()).panes.at(-1).error, /Startup timed out/);
+    assert.match((await snapshot()).panes.find((p: any) => p.id === timedOut.id).error, /Startup timed out/);
     assert.equal(log.slice(timeoutBoundary).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 0, 'expired readiness cannot start late');
     assert.equal((await snapshot()).workspace.intent.autoArrange, false); assert.match(window.document.body.textContent!, /Manual window positions preserved/);
     await select(remaining.id);
     await uiApi.act(async () => dispose()); listeners.delete(workerListener);
     const createsBeforeRestart = log.filter(x => x[0] === 'create').length;
-    runInNewContext(worker.outputFiles[0].text, { Date: WorkerDate, crypto: { randomUUID: () => 'synthetic-connection' }, chrome: api, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
-    await mount(); s = await snapshot(); assert.equal(s.panes.length, 3); assert.equal(s.panes[1].feedNumber, 4); assert.equal(s.activePaneId, remaining.id);
+    runInNewContext(worker.outputFiles[0].text, { Date: WorkerDate, crypto: webcrypto, TextEncoder, chrome: api, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
+    await mount(); s = await snapshot(); assert.equal(s.panes.length, 3); assert.equal(s.panes.find((p: any) => p.id === remaining.id).feedNumber, 4); assert.equal(s.panes[1].id, timedOut.id, 'reused lower slots retain stable ordering'); assert.equal(s.activePaneId, remaining.id);
     assert.equal(log.filter(x => x[0] === 'create').length, createsBeforeRestart);
     assert.equal(s.workspace.intent.autoArrange, false);
     await click('Return original'); assert.equal(tabs.get(1).windowId, 10); assert.deepEqual(tabs.get(9), ownerTab); assert.deepEqual(windows.get(10), ownerWindow);
@@ -237,7 +238,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert((await snapshot()).guide.every((e: any) => !e.available), 'expired guide remains unavailable');
     await click('Pick a channel'); const originalNow = (await snapshot()).panes[0];
     await click(`Add current Original · ${originalNow.channelName}`);
-    const duplicated = (await snapshot()).panes.at(-1); assert.equal(tabs.get(duplicated.tabId).url, tabs.get(1).url);
+    const duplicated = (await snapshot()).panes.find((p: any) => !['main', remaining.id, timedOut.id].includes(p.id)); assert.equal(tabs.get(duplicated.tabId).url, tabs.get(1).url);
     assert.equal(log.slice(duplicateAt).some(x => x[1] === 1 && x[2]?.url), false, 'current-content Add never navigates original to guide');
     await send({ type: 'REMOVE_PANE', paneId: duplicated.id }); clockOffset = 0; await sync();
     await observePlayer(1); const sourceURL = tabs.get(1).url, countBeforeStale = (await snapshot()).panes.length; duplicateSourceChange = 1;

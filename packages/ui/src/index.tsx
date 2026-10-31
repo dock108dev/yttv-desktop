@@ -1,3 +1,5 @@
+import { useDesktopSnapshot } from './use-desktop-snapshot';
+import { MixedQueue } from './mixed-queue';
 import { Icon, SearchBox, QuickChannel, EmptyInline, EmptyState, SportsCard, ManagedPane, channelMark, entryPlayable, audioLayers, type IconName } from './components';
 import { CURRENT_MANAGED_FEED_LIMIT, canAddManagedFeed } from '../../quadbox/src/policy';
 import { freshGuideObservation } from '../../yttv-adapter/src/index';
@@ -5,9 +7,9 @@ import { sportsListings, listingPlayable } from '../../sports-engine/src/guide';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { GuideEntry } from '../../core/src/index';
-import { defaultPreferences, orderGuide, normalizeKeyboardKey, type KeyboardAction } from '../../storage/src/index';
+import { orderGuide, normalizeKeyboardKey, type KeyboardAction } from '../../storage/src/index';
 import { createIllustrativeFixtures, searchEvents } from '../../sports-engine/src/index';
-import type { ActionResult, ClientBridge, DesktopOptions, DesktopSnapshot } from './types';
+import type { ActionResult, ClientBridge, DesktopOptions } from './types';
 import { ShortcutsDialog } from './shortcuts-dialog';
 import './styles.css';
 
@@ -17,30 +19,6 @@ type Surface = 'WATCH' | 'GUIDE' | 'SPORTS' | 'QUADBOX';
 type GuideFilter = 'all' | 'favorites' | 'recent';
 const BUILD_ID = typeof __YTTV_BUILD__ === 'undefined' ? 'development' : __YTTV_BUILD__;
 const BUILD_VERSION = typeof __YTTV_VERSION__ === 'undefined' ? 'development' : __YTTV_VERSION__;
-function initialSnapshot(): DesktopSnapshot {
-  return { mode: 'extension', connection: 'waiting', playback: { playing: null, muted: null }, guide: [], preferences: defaultPreferences(), panes: [], capabilities: { navigation: false, guide: false, managedWindows: false, audio: false } };
-}
-
-function useDesktopSnapshot(bridge: ClientBridge) {
-  const [snapshot, setSnapshot] = useState<DesktopSnapshot>(initialSnapshot);
-  const live = useRef(true);
-  const refresh = useCallback(async () => {
-    try {
-      const next = await bridge.getSnapshot();
-      if (live.current) setSnapshot(next);
-    } catch {
-      if (live.current) setSnapshot(previous => ({ ...previous, connection: 'unavailable', statusMessage: 'The browser bridge is unavailable. Your YouTube TV player remains separate.' }));
-    }
-  }, [bridge]);
-  useEffect(() => {
-    live.current = true;
-    void refresh();
-    const unsubscribe = bridge.subscribe(() => { void refresh(); });
-    return () => { live.current = false; unsubscribe(); };
-  }, [bridge, refresh]);
-  return [snapshot, refresh] as const;
-}
-
 const surfaceItems: { id: Surface; label: string; icon: IconName; action: KeyboardAction }[] = [
   { id: 'WATCH', label: 'Watch', icon: 'watch', action: 'watch' },
   { id: 'GUIDE', label: 'Guide', icon: 'guide', action: 'guide' },
@@ -262,6 +240,7 @@ export function DesktopApp({ bridge, options = {} }: { bridge: ClientBridge; opt
 
     <div className="workspace">
       {demo && <div className="preview-banner"><span className="fixture-badge">LOCAL PREVIEW</span><span>Fixture channels and sample sports. No authentication, live scores or video playback in this preview.</span></div>}
+      {demo && bridge.queueIntent && <MixedQueue state={snapshot} send={intent => bridge.queueIntent!(intent)} />}
       <header className="topbar"><div className={`connection ${snapshot.connection}`}><span className="status-dot"/><span>{demo ? 'Preview workspace' : snapshot.connection === 'connected' ? 'YouTube TV connected' : snapshot.connection === 'waiting' ? 'Waiting for YouTube TV' : 'YouTube TV connection unavailable'}</span></div><div className="topbar-actions">{bridge.openRemote && <button className="button compact" onClick={() => void run('Open remote', () => bridge.openRemote!())}>Open remote</button>}<button className="button compact" disabled={!bridge.mute || Boolean(pending)} onClick={() => void run('Mute all', () => bridge.mute!())}><Icon name="mute"/> Mute all</button><button className="button compact" disabled={!bridge.focusOriginal || Boolean(pending)} onClick={() => void run('Original player', () => bridge.focusOriginal!())}>Original player <Icon name="external" size={14}/></button></div></header>
       <main className={`main-content surface-${surface.toLowerCase()}`}>
         <div className="page-heading"><div><h1>{surfaceItems.find(item => item.id === surface)?.label}</h1></div><div className="heading-actions">{surface === 'SPORTS' && <button className="button subtle" onClick={() => { if (usingFixtures) { const now = Date.now(); setFixtures(createIllustrativeFixtures(now)); setClock(now); } else void run('Refresh guide', bridge.recoverGuide); }}><Icon name="refresh"/> {usingFixtures ? 'Refresh fixtures' : 'Refresh guide'}</button>}{surface === 'GUIDE' && <button className={`button subtle ${manageGuide ? 'active' : ''}`} onClick={toggleGuideManagement} aria-pressed={manageGuide}><Icon name="settings"/> {manageGuide ? 'Done editing' : 'Customize'}</button>}{surface === 'QUADBOX' && snapshot.expandedPaneId && <button className="button" onClick={() => void run('Restore windows', () => bridge.restoreLayout())}><Icon name="restore"/> Restore layout <kbd>{keyLabel('restore')}</kbd></button>}{surface === 'QUADBOX' && <button className="button primary" onClick={() => { setSurface('GUIDE'); setQuery(''); setFilter('all'); }} disabled={!snapshot.capabilities.managedWindows || !canAddManagedFeed(snapshot.panes.length + (snapshot.pendingFeedCreations ?? 0))}><Icon name="plus"/> Add channel</button>}</div></div>

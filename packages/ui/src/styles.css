@@ -485,3 +485,8 @@ h1 { font-size: 26px; letter-spacing: -.5px; }
 }
 
 .quad-toolbar, .quad-toolbar .quiet-label { font-size: 14px; letter-spacing: 0; }
+
+.mixed-queue { padding: 12px; overflow-wrap: anywhere; }
+.mixed-queue label, .mixed-queue small { display: block; margin-block: 6px; }
+.mixed-queue input, .mixed-queue select { max-width: 100%; box-sizing: border-box; }
+.mixed-queue .actions { display: flex; flex-wrap: wrap; gap: 6px; }

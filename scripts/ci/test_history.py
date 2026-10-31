@@ -45,6 +45,13 @@ class History(unittest.TestCase):
         self.assertIsNone(report['groups']['push']['execution_span']['median_seconds'])
         self.assertEqual(len(report['unavailable']), 1)
 
+    def test_rerun_wait_is_not_reported_as_runner_queue_time(self):
+        rerun = {**run(1, attempt=2), 'created_at': '2026-10-18T12:00:00Z'}
+        report = collect('example/repo', self.fake([rerun]), NOW)
+        self.assertIsNone(report['runs'][0]['queue_seconds'])
+        self.assertEqual(report['groups']['push']['queue']['samples'], 0)
+        self.assertEqual(report['runs'][0]['execution_span_seconds'], 20)
+
     def test_empty_history_is_not_a_pass_rate_or_timing(self):
         report = collect('example/repo', self.fake([]), NOW)
         self.assertEqual(report['sample_size'], 0)

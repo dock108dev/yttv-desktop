@@ -9,6 +9,9 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+REQUIRED_ASSETS = ('manifest.json', 'background.js', 'content.js', 'panel.html', 'panel.js', 'remote.html', 'remote.js',
+                   'demo.html', 'area-picker.html', 'area-picker.js', 'area-picker.css', 'build-identity.json',
+                   'youtube-content.js', 'prime-video-content.js', 'netflix-content.js')
 
 
 def validate_output(output):
@@ -18,6 +21,9 @@ def validate_output(output):
             raise ValueError(f'Missing, empty or external build asset: {name}')
         return path
 
+    # Dynamically injected scripts are not listed under manifest.content_scripts.
+    for name in REQUIRED_ASSETS:
+        asset(name)
     manifest = json.loads(asset('manifest.json').read_text())
     asset(manifest['background']['service_worker'])
     for content in manifest['content_scripts']:

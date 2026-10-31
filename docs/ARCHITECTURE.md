@@ -1,68 +1,72 @@
 # Architecture
 
-The runtime is a Chrome Manifest V3 extension over ordinary YouTube TV pages. Video stays in native player windows. The remote and page drawer receive snapshots through a validated bridge; they do not inspect protected streams. The separate fixture preview cannot play video.
+The runtime is a Chrome Manifest V3 extension with a React remote and an isolated page drawer. Video, sign-in and account controls remain in native provider windows. The separate loopback fixture preview has no playback or account integration. There is no backend, account sync, protected-stream composition or remote telemetry.
 
 ## Module ownership
 
-| Responsibility | Module | Callers |
+| Responsibility | Authoritative module | Callers |
 | --- | --- | --- |
-| Ordinary watch URL and target validation, program sanitation | `packages/core/src/index.ts` | Adapter, worker observation sanitation, guide cache, Sports |
-| Native DOM observation, guide age/eligibility, Play/Pause and volume | `packages/yttv-adapter/src/index.ts` | Content bridge, worker, both interfaces |
-| Four-total managed capacity, supported show counts and serialized audio handoff | `packages/quadbox/src/policy.ts`, `index.ts` | Worker Add/Connect/recovery/audio, geometry, command validation, storage, interface controls |
-| Preferences/history/layout sanitation, editable patch merging and serialized load/save | `packages/storage/src/index.ts` | Worker, Guide ordering, fixture preview |
-| Cached presentation metadata without navigation authority | `packages/storage/src/guide-cache.ts` | Worker |
-| Guide Sports classification and illustrative fixture states | `packages/sports-engine/src/guide.ts`, `index.ts` | Interfaces and worker program guards |
-| Managed identity, privileged commands and cancellation | `apps/chrome-extension/src/background.ts` | Validated bridge commands and browser events |
-| Default startup channel selection | `apps/chrome-extension/src/default-channel.ts` | Worker New show, shared native eligibility policy |
-| Bridge observation sanitation and volatile guide merging | `apps/chrome-extension/src/observations.ts` | Worker-selected sources |
-| Reversible enrollment/Return, placement and readback | `apps/chrome-extension/src/workspace.ts`, `packages/quadbox/src/geometry.ts` | Worker and display-area selection |
-| Monitor drawing window, ownership and coordinate preparation | `apps/chrome-extension/src/area-picker-session.ts`, `area-picker.ts`, `area-selection.ts` | Worker and remote layout setup |
-| Durable ownership/geometry backup | `apps/chrome-extension/src/recovery.ts` | Worker and workspace |
-| Bounded native guide discovery helper | `apps/chrome-extension/src/guide-sync.ts` | Worker |
-| Remote rendering, shared drawer state and stateless components | `apps/chrome-extension/src/remote.tsx`, `packages/ui/src/index.tsx`, `components.tsx` | Extension entry points and fixture preview |
-| Shortcut drafts, validation, focus lifecycle and diagnostic display | `packages/ui/src/shortcuts-dialog.tsx` | Shared drawer through explicit save/close callbacks |
-| Context lifecycle and build/permission audit | `apps/chrome-extension/src/runtime.ts`, `scripts/build.mjs` | Content/panel/worker entries and npm commands |
+| Ordinary URL/content validation and shared contracts | `packages/core/src/index.ts`, `media.ts` | Adapters, storage, queue and worker |
+| Native DOM identity, guide eligibility and player controls | Service adapter packages | Content bridges and worker |
+| Capacity and audio transfer | `packages/quadbox/src/policy.ts`, `index.ts` | Worker, geometry, validation and UI |
+| Layout planning | `packages/quadbox/src/geometry.ts` | Workspace, remote and monitor drawing |
+| Preferences, history and layout sanitation | `packages/storage/src/index.ts` | Worker IPC and fixture preview |
+| Mixed queue persistence | `packages/storage/src/media-queue.ts` | Mixed workspace |
+| Pure queue edits, claims and consumption | `packages/quadbox/src/queue.ts` | Mixed workspace and preview |
+| Browser identities, mutations and cancellation | `apps/chrome-extension/src/background.ts` | Extension commands and browser events |
+| Queue launch and recovery coordination | `apps/chrome-extension/src/mixed-workspace.ts` | Worker |
+| Optional-provider content transport | `apps/chrome-extension/src/provider-content.ts` | YouTube, Prime Video and Netflix content entries |
+| Optional-provider document/slot connections | `apps/chrome-extension/src/provider-connection.ts` | Service configurations and worker |
+| Observation sanitation and retained guide | `apps/chrome-extension/src/observations.ts` | Worker |
+| Cached guide presentation | `packages/storage/src/guide-cache.ts` | Worker |
+| Temporary native guide discovery | `apps/chrome-extension/src/guide-sync.ts` | Worker |
+| Placement, enrollment and Return | `apps/chrome-extension/src/workspace.ts` | Worker |
+| Durable recovery and stored bounds | `apps/chrome-extension/src/recovery.ts` | Worker and workspace |
+| Static diagnostic counters and log sanitation | `apps/chrome-extension/src/diagnostics.ts` | Worker and lifecycle |
+| Monitor drawing and coordinate preparation | `area-picker-session.ts`, `area-picker.ts`, `area-selection.ts` in the Chrome app | Worker and drawing window |
+| UI rendering and snapshot subscription | `packages/ui/src`, Chrome `remote.tsx` | Drawer, panel, remote and fixture preview |
+| Manifest permissions and bundled entries | `scripts/permission-audit.mjs`, `scripts/build.mjs` | Build and CI |
 
-## Authority and state
+## Browser authority and audio
 
-The worker serializes managed operations. Pane ownership binds tab/window identity; native controls additionally bind document and player identity before and after readback. Source replacement, navigation, explicit controls and removal cancel obsolete startup/recovery work. Splitting this coordinator into handlers sharing mutable maps would obscure authority and cancellation ordering; independent transformations live outside it.
+The worker serializes managed operations. Ownership binds tab/window identity; native controls also bind document/player identity before dispatch and after readback. Navigation, source replacement, removal and explicit controls cancel obsolete startup or recovery work. Unknown identities never acquire authority through a cached listing or a saved layout.
 
-Capacity comes from quadbox's `CURRENT_MANAGED_FEED_LIMIT`, `MANAGED_FEED_COUNTS`, `isManagedFeedCount` and `canAddManagedFeed`. Geometry, drawing commands, custom-position storage, recovery and the remote use these shared rules. Version 1 saved QuadBox records retain their original four-pane schema bound separately from runtime capacity.
+Quadbox's four-total limit includes owned tabs and pending or uncertain creation. Account concurrency is independent. Focus and geometry never enable audio. New and replaced players are muted before navigation. Explicit audio enable mutes all managed players before enabling the selected one, requires readback, and attempts compensation on failure. Volume changes preserve mute. Native controls remain the fallback when a provider cannot establish capability.
 
-The worker keeps one `createPreferencesStore` instance for both reads and serialized writes. The worker and fixture preview apply editable changes through storage's `patchPreferences`: partial UI edits preserve other UI choices, and patches cannot replace confirmed current/previous/recent history or schema. The worker reapplies a saved patch to the latest observed state so a completed write does not erase newer confirmed history.
+YouTube TV startup uses a fresh native live listing and makes one native Play request. Guide discovery uses an inactive browser-muted helper with a 15-second deadline, coalesced requests and cooldown. Only its exact owned tab is cleaned up; a moved or repurposed tab is left alone. Watch targets must be ordinary allowlisted URLs, match channel identity and have live guide/target observations no older than 30 minutes. Cached metadata cannot renew navigation authority.
 
-Targets must be ordinary allowlisted watch URLs with matching channel identity, current LIVE evidence and guide/target ages within 30 minutes. Cached or unchanged hidden guide nodes cannot renew authority. Program actions also revalidate title and observation time. A current guide listing does not establish a game is in progress.
+## Queue and persistence
 
-The volatile catalog retains at most 500 rows, including observed ages when source windows close. The durable guide cache contains sanitized presentation metadata only. Native discovery uses an inactive muted Live helper with a 15-second deadline, request coalescing, cooldown and exact cleanup ownership. A helper moved or navigated elsewhere is left alone.
+Queue edits do not launch playback. A manual launch saves a claim before browser creation, persists ownership before navigation, verifies matching readiness and durably records consumption before requesting Play once. Browser creation runs outside the serialized mutation section; completion re-enters with operation, generation and worker-epoch guards. Distinct tabs and unbound claims count toward capacity, without counting a bound claim twice. There is no automatic queue advancement or restart playback.
 
-Added players are muted before navigation and attempt native startup once. Explicit pane/channel replacement retains identity and the volume choice, then mutes that player and its tab before navigating; it does not automatically enable audio afterward. Play/Pause clicks a unique native button and checks the same player for up to four seconds; it never calls `video.play()` behind the site control. Volume preserves mute. Audio enable uses serialized mute-all-before-enable-one with compensation on failure and focuses the selected player. Focus and geometry commands carry no audio-enable authority.
+Cancellation revokes pending work but retains uncertain resources until exact cleanup or explicit closed-window confirmation. Failed cleanup still consumes capacity. Replacement keeps the selected slot, tab, geometry and legitimate Return lineage. A provider that cannot report native volume cannot safely be replaced out of its slot; close its native window instead.
 
-The remote's `NEW_SHOW` command chooses the last confirmed channel when eligible, otherwise the first fresh native live listing (`default-channel.ts`). With no original, the worker creates a blank popup, confirms browser mute, and loads the native Live page. A bounded observation-driven startup selects a fresh watch target and then uses the same single native Play request as added players. Repeated clicks coalesce during first startup. Explicit controls, changed navigation/identity, closure or timeout end that attempt. Session records remember that the original was created here so an explicit retry can reuse its Live window; waiting startup itself is never restored. Existing players' content and audio are preserved.
+Preferences use a serialized store. Live edits from both IPC and preview use storage-owned validation and patch merging. Confirmed switches alone update current/previous/recent channel history. Cached guide data contains presentation metadata, never watch targets. Mixed queue records use a separate bounded versioned envelope; unreadable or newer records remain read-only rather than being reset.
 
-## Persistence and recovery
+Session records and durable local backups recover known ownership and geometry. Recovery observes audio without replaying enable/mute, Play or navigation. Changed browser IDs require explicit Connect and cannot inherit historical Return authority. Legacy saved-layout identifiers remain readable, but saved targets and the retired mute-lock field grant no control authority. Browser mutations and storage writes are separate operations, so a failure does not imply complete rollback.
 
-Version 1 preferences store history, channel customization, shortcuts and saved layout intent. Confirmed channel switches alone advance history. Legacy event/layout identifiers remain readable but grant no playback authority; the retired mute-lock field sanitizes to false and cannot be set through commands.
+## Layout and drawing
 
-Session records and durable local backups recover known owned windows, Return information and geometry. Recorded ordinary page URLs verify identity, never become eligible guide targets. Recovery observes current audio routing rather than replaying saved enable or mute commands. Missing or changed tab identities require explicit Connect; no unrelated tab is silently adopted or given historical Return authority.
+Geometry, storage, command counts and UI share quadbox's supported one-to-four-show counts. Layouts include Best fit, stacked, side by side, grid, larger-main and custom positions. Custom rectangles are normalized to a selected monitor work area and saved separately per show count. Missing custom positions use a labeled Best fit fallback. Fixed layouts require the selected monitor and matching work area.
 
-With Best fit (`auto`) and no enrolled workspace, added windows retain native maximize/restore and the original requires workspace enrollment before expansion. Enrolled workspaces and explicit saved layout modes route Expand/Restore through workspace geometry. These are supported lifecycle cases, so their recovery data, Return records and native fallback remain in place.
+The monitor drawing page is a temporary extension window, not a screen capture or transparent desktop overlay. Its commands bind the exact owned page/tab/window. Cancel leaves saved intent unchanged; save uses workspace placement with readback and rollback. A valid layout can be saved with no players or a different current count without moving windows. Explicit Arrange applies it later.
 
-The `yttv-desktop.workspace-layout.v1` record stores version, an allowlisted layout mode, and optional normalized custom positions keyed by show count (1–4), sanitized by storage. Existing Auto/Top-bottom records remain readable and the area schema is unchanged. Quadbox owns shared preset/custom geometry for one to four shows. Custom positions are normalized to the monitor work area and stored independently for each count; missing custom counts use an explicitly described Best fit fallback. Worker-owned ordering is original first, then the persisted added/connected identity order; channel replacement keeps identity and never reassigns a slot.
+With an enrolled workspace or explicit layout, Expand/Restore uses workspace geometry. In Best fit without enrollment, added players use native maximize/restore; the original requires enrollment. Return uses captured original placement or reports a normal-window fallback. Windows shared with unrelated tabs are not silently rearranged.
 
-`APPLY_LAYOUT` is validated and serialized by the worker for one to four connected identities. It preflights geometry and dedicated windows, then uses the original continuity/enrollment path when needed. Layout changes save through `SET_TV_AREA` or the owned drawing window, both calling `workspace.setArea`; fixed and custom modes share validation and persistence. `ARRANGE` reapplies the saved plan. These paths never adopt an unassigned player or create a second playback tab. Fixed-mode Add preflights the prospective layout before creating its usual muted player. Monitor identity and the saved logical work area must still match; missing access, changed work areas or missing monitors require deliberate area confirmation, without legacy display fallback. Auto keeps the existing fallback behavior. The drawing window uses existing extension permissions.
+## Provider integration
 
-The worker owns the temporary `area-picker.html` drawing window through `area-picker-session.ts`. It opens a normal monitor-sized extension popup, with no capture or playback access. Pointer screen coordinates select actual logical bounds; `area-selection.ts` prepares geometry shared with preview/execution. Picker reads/saves/cancel bind the exact extension page and owned tab/window. Closing or cancelling leaves saved placement alone; saving goes through the worker’s existing workspace transaction. A repurposed/shared picker window is left alone. The temporary picker is not a managed feed and an expired picker asks the user to reopen it. Custom saves retain the full selected-monitor coordinate frame. Cleanup removes only its owned tab. The drawing panel can move between top and bottom and fades during a drag.
+Each adapter implements the service/content/capability/observation contracts in `core/media.ts`. URL recognition, identity, readiness and individual controls are separate capabilities. An ordinary URL or visible video alone cannot prove main-content identity, entitlement or audible output.
 
-Layout saves validate the selected planned count separately from the current player count. A plan can be retained with no players, or when a different current count cannot fit, without moving windows or treating the saved plan as a failure. Saving during first-show startup also retains the plan for later Arrange.
+- **YouTube TV:** native guide and player DOM drive channel navigation and supported controls. Selectors stay in `packages/yttv-adapter`; the content bridge also owns drawer and native-volume notifications.
+- **YouTube:** ordinary watch identity and supported controls use `packages/youtube-adapter`. Ads/loading/unknown identity cannot consume queue intent. Live content does not report on-demand completion. DOM assumptions are fixture-tested, not a stable provider API or proof of live playback.
+- **Prime Video and Netflix:** URL recognition, optional permissions and native attention-window lifecycles exist. Main-content/episode identity, readiness, Play/Pause, native mute/volume and completion remain unavailable. Connect refuses adoption, queue items stay pending, and shared audio enable is blocked when mute readback is unknown. Adapters do not guess selectors or inspect private provider state.
 
-Workspace bounds are applied transactionally with readback and rollback. Manual placement stays manual. Return uses supported original placement or reports a normal-window fallback when the former parent is unavailable. Storage writes and physical browser changes are separate operations, so a failed command does not imply a complete rollback.
+Optional providers share top-frame installation, protocol namespaces, sender/nonce checks and rebind invalidation. Pending replies keep their request nonce across rebinding. Worker connections additionally check permission, current URL, browser document, tab/window, player key, monotonic observations and slot generation. Lost access revokes control but retains intent and uncertain capacity. See [usage](../START_HERE.md#regular-youtube) for accepted link forms and [security](SECURITY.md#optional-access) for exact permissions.
 
-## Limits
+## Structural constraints
 
-Four managed windows is a software bound independent of account playback allowance. Readback, counts and advancing clocks cannot establish visible video or heard sound. Capability failures retain native fallback. Safari/macOS and event-resolver packages are non-executable placeholders; other services and independent scores are unsupported. There is no backend, account sync, protected-stream composition or remote telemetry.
+Keep the worker's original-player identity, volume epochs, first-start cancellation and browser callbacks under one serialized coordinator. Further extraction needs explicit state/port interfaces; independently stateful handlers or shared writable maps would hide cancellation and commit ordering. Pure sanitation, geometry, provider transport and queue policy belong in their existing modules.
 
-## UI structure
+The shared UI keeps surface selection, keyboard dispatch and focus-sensitive controls together; snapshot subscription and shortcut drafts have separate owners. UI tests share a controlled DOM lifecycle. The stylesheet is an ordered cascade with later responsive overrides used by both drawer and preview; component extraction must preserve that order and scope.
 
-The shared UI entry coordinates bridge snapshots, surface navigation, replacement selection and keyboard dispatch. The shortcut dialog owns its temporary drafts, validation and focus lifecycle; saving remains in the bridge/storage path.
-
-The shared stylesheet supplies the drawer and fixture interface as one ordered cascade, including later container-query overrides. Preserve that order when changing or extracting styles so narrow-drawer behavior remains consistent.
+Safari/macOS and event-resolver workspaces are non-executable placeholders. Independent sports scores, arbitrary provider embedding, stream interception and DRM bypass are not implemented.

@@ -73,6 +73,8 @@ def finalize(mode, output, outcome):
                                    detail='Required evidence unavailable; setup or report validation failed.') for name in REQUIRED[mode]])
         report['checks'].append(dict(name='report-validation', result='FAIL', seconds=0,
                                      detail=f'{type(error).__name__}: required reports missing, malformed or inconsistent; inspect diagnostics.'))
+    # The workflow supplies the upload identity to this always-run step, including setup failures.
+    report['artifact_name'] = os.environ.get('CI_ARTIFACT_NAME') or report.get('artifact_name')
     path.write_text(json.dumps(report, indent=2) + '\n')
     rendered = summary(report)
     (output / 'summary.md').write_text(rendered)

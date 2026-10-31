@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from finalize import finalize
-from fresh_build import validate_output
+from fresh_build import REQUIRED_ASSETS, validate_output
 from run import REQUIRED, bundle, input_identity, junit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +47,7 @@ class Contracts(unittest.TestCase):
     def test_distribution_checks_drawing_assets_and_all_manifest_content_scripts(self):
         manifest = dict(background=dict(service_worker='background.js'), content_scripts=[dict(js=['content.js']), dict(css=['extra.css'])])
         (self.root / 'manifest.json').write_text(json.dumps(manifest))
-        for name in ('background.js', 'content.js', 'extra.css', 'panel.html', 'remote.html', 'demo.html'):
+        for name in (*[name for name in REQUIRED_ASSETS if name not in ('manifest.json', 'area-picker.js', 'area-picker.css')], 'extra.css'):
             (self.root / name).write_text('synthetic')
         (self.root / 'area-picker.html').write_text('<script src="area-picker.js"></script><link href="area-picker.css">')
         with self.assertRaises(ValueError):
@@ -55,6 +55,11 @@ class Contracts(unittest.TestCase):
         for name in ('area-picker.js', 'area-picker.css'):
             (self.root / name).write_text('synthetic')
         validate_output(self.root)
+        for name in ('youtube-content.js', 'prime-video-content.js', 'netflix-content.js'):
+            (self.root / name).unlink()
+            with self.subTest(asset=name), self.assertRaises(ValueError):
+                validate_output(self.root)
+            (self.root / name).write_text('synthetic')
         (self.root / 'extra.css').unlink()
         with self.assertRaises(ValueError):
             validate_output(self.root)
@@ -73,16 +78,32 @@ class Contracts(unittest.TestCase):
             (self.root / (name + '.log')).write_text('')
 
     def test_finalizer_revalidates_raw_reports_and_upstream_outcomes(self):
-        with patch.dict(os.environ, {'GITHUB_SHA': 'synthetic', 'GITHUB_STEP_SUMMARY': ''}):
+        with patch.dict(os.environ, {'GITHUB_SHA': 'synthetic', 'GITHUB_STEP_SUMMARY': '', 'CI_ARTIFACT_NAME': 'security-synthetic-1'}):
             for outcome in ('success', 'failure', 'skipped', 'cancelled', ''):
                 self.security_report()
                 self.assertEqual(finalize('security', self.root, outcome), 0 if outcome == 'success' else 1)
+                self.assertEqual(json.loads((self.root / 'metrics.json').read_text())['artifact_name'], 'security-synthetic-1')
+                self.assertIn('security-synthetic-1', (self.root / 'summary.md').read_text())
             self.security_report()
             (self.root / 'secrets.json').unlink()
             self.assertEqual(finalize('security', self.root, 'success'), 1)
             report = json.loads((self.root / 'metrics.json').read_text())
             self.assertEqual(report['result'], 'FAIL')
             self.assertIn('NOT RUN', (self.root / 'summary.md').read_text())
+            self.assertIn('security-synthetic-1', (self.root / 'summary.md').read_text())
+
+    def test_bundle_report_requires_dynamically_injected_assets(self):
+        data = dict(source_fingerprint='a' * 64, fixture_smoke='PASS',
+                    assets={name: dict(bytes=1, sha256='b' * 64) for name in REQUIRED_ASSETS}, total_bytes=len(REQUIRED_ASSETS))
+        path = self.root / 'bundle.json'
+        path.write_text(json.dumps(data))
+        bundle(path)
+        for name in ('youtube-content.js', 'prime-video-content.js', 'netflix-content.js'):
+            broken = {**data, 'assets': {key: value for key, value in data['assets'].items() if key != name},
+                      'total_bytes': data['total_bytes'] - 1}
+            path.write_text(json.dumps(broken))
+            with self.subTest(asset=name), self.assertRaises(ValueError):
+                bundle(path)
 
     def test_missing_and_incomplete_reports_never_pass(self):
         with patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):

@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
+from fresh_build import REQUIRED_ASSETS
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED = {
@@ -95,9 +96,7 @@ def bundle(path):
     if not re.fullmatch(r'[a-f0-9]{64}', data.get('source_fingerprint', '')) or data.get('fixture_smoke') != 'PASS':
         raise ValueError('Missing/malformed required build report')
     assets = data.get('assets', {})
-    required = ('manifest.json', 'background.js', 'content.js', 'panel.html', 'panel.js', 'remote.html', 'remote.js',
-                'demo.html', 'area-picker.html', 'area-picker.js', 'area-picker.css', 'build-identity.json')
-    if not all(name in assets for name in required):
+    if not all(name in assets for name in REQUIRED_ASSETS):
         raise ValueError('Missing required distribution assets')
     for info in assets.values():
         if type(info.get('bytes')) is not int or info['bytes'] <= 0 or not re.fullmatch(r'[a-f0-9]{64}', info.get('sha256', '')):

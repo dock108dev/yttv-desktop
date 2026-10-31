@@ -98,6 +98,26 @@ export function sanitizePreferences(value: unknown): Preferences {
     nightMuteLock: false, // The temporary overnight hold is retired; this field conveys no audio authority.
   };
 }
+/** Reject malformed live edits before persistence; legacy stored records still use sanitation. */
+export function validPreferencePatch(value: unknown): value is Partial<Preferences> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const patch = value as Record<string, unknown>;
+  const lists = ['favorites', 'hiddenChannels', 'channelOrder', 'favoriteTeams', 'favoriteLeagues'];
+  const record = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === 'object' && !Array.isArray(v));
+  const id = (v: unknown) => identifier(v) !== null && !/[\x00-\x1f]/.test(v as string);
+  if (!Object.keys(patch).every(key => [...lists, 'keyboardMappings', 'quadLayouts', 'lastQuad', 'ui'].includes(key)) ||
+      !lists.every(key => patch[key] === undefined || Array.isArray(patch[key]) && patch[key].length <= 1000 && patch[key].every(id))) return false;
+  if (patch.keyboardMappings !== undefined && (!record(patch.keyboardMappings) ||
+      !Object.entries(patch.keyboardMappings).every(([key, v]) => Object.hasOwn(DEFAULT_KEYBOARD_MAPPINGS, key) &&
+        typeof v === 'string' && v.length <= 24 && normalizeKeyboardKey(v) !== null))) return false;
+  if (patch.ui !== undefined && (!record(patch.ui) || !Object.entries(patch.ui).every(([key, v]) =>
+      key === 'denseGuide' ? typeof v === 'boolean' : key === 'theme' ? ['dark', 'light', 'system'].includes(v as string) :
+        key === 'lastSurface' && ['WATCH', 'GUIDE', 'SPORTS', 'QUADBOX'].includes(v as string)))) return false;
+  if (patch.quadLayouts !== undefined && (!Array.isArray(patch.quadLayouts) || patch.quadLayouts.length > 20 ||
+      !patch.quadLayouts.every(layout => sanitizeSavedLayout(layout) !== null))) return false;
+  return patch.lastQuad === undefined || patch.lastQuad === null || sanitizeSavedLayout(patch.lastQuad) !== null;
+}
+
 /** Editable choices share one merge policy; confirmed history and schema remain storage-owned. */
 export function patchPreferences(preferences: Preferences, patch: Partial<Preferences>): Preferences {
   const { currentChannel: _current, previousChannel: _previous, recentChannels: _recent,
@@ -158,3 +178,5 @@ export function sanitizeWorkspaceLayout(value: unknown): WorkspaceLayoutPreferen
   if (Object.keys(customLayouts).length) result.customLayouts = customLayouts;
   return result;
 }
+
+export * from './media-queue';

@@ -27,7 +27,7 @@ test('native volume change supersedes saved volume; guide preview and old observ
 test('worker wake retains volume choices and observes existing audio routing without replaying enable or mute', async () => {
   const h = await harness(); await h.observe(); await h.send({ type: 'AUDIO', volume: .19 });
   await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
-  const id = (await h.send({ type: 'GET_SNAPSHOT' })).panes[1].id; await h.send({ type: 'SELECT_PANE', paneId: 'main' });
+  const id = (await h.send({ type: 'GET_SNAPSHOT' })).panes[1].id; await h.observe(2); await h.send({ type: 'SELECT_PANE', paneId: 'main' });
   h.start(); const restored = await h.send({ type: 'GET_SNAPSHOT' });
   assert.equal(restored.audioFocusId, 'main'); assert.equal(h.tabs.get(1).mutedInfo.muted, false); assert.equal(h.tabs.get(2).mutedInfo.muted, true);
   h.replacement(); await h.observe(); assert.equal(h.players.get(1).volume, .19); assert.equal(h.tabs.get(1).mutedInfo.muted, false);
@@ -226,6 +226,22 @@ test('unknown extension sender and invalid patches cannot mutate preferences or 
   assert.equal((await h.send({ type: 'PREFERENCE', patch: { schemaVersion: 100 } })).code, 'INVALID_COMMAND');
   assert.equal((await h.send({ type: 'AUDIO', muted: 'false' })).code, 'INVALID_COMMAND');
   assert.equal(h.log.length, before);
+});
+
+test('malformed nested preference commands preserve saved choices and allow a later valid edit', async () => {
+  const h = await harness(); await h.observe();
+  assert.equal((await h.send({ type: 'PREFERENCE', patch: { ui: { theme: 'light' }, keyboardMappings: { mute: 'z' } } })).ok, true);
+  const saved = structuredClone(h.local); const before = h.log.length;
+  for (const patch of [{ keyboardMappings: null }, { ui: { theme: {} } }, { lastQuad: {} }, { quadLayouts: [null] }]) {
+    assert.equal((await h.send({ type: 'PREFERENCE', patch })).code, 'INVALID_COMMAND');
+    assert.deepEqual(h.local, saved);
+  }
+  assert.equal(h.log.length, before);
+  assert.equal((await h.send({ type: 'PREFERENCE', patch: { ui: { denseGuide: false } } })).ok, true);
+  const preferences = (await h.send({ type: 'GET_SNAPSHOT' })).preferences;
+  assert.equal(preferences.ui.theme, 'light');
+  assert.equal(preferences.keyboardMappings.mute, 'z');
+  assert.equal(preferences.ui.denseGuide, false);
 });
 
 test('restored panes and diagnostics cannot carry arbitrary stored payloads into snapshots', async () => {

@@ -1,3 +1,4 @@
+import { webcrypto } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -6,10 +7,11 @@ import { build } from 'esbuild';
 import type { AdapterObservation } from '../packages/yttv-adapter/src/index';
 import { envelope } from '../apps/chrome-extension/src/adapter';
 
-test('extension scope remains storage and YouTube TV only', async () => {
+test('extension keeps required YouTube TV scope and narrow optional provider access', async () => {
   const manifest = JSON.parse(await readFile(new URL('../apps/chrome-extension/manifest.json', import.meta.url), 'utf8'));
   assert.deepEqual(manifest.optional_permissions, ['system.display', 'scripting']);
   assert.deepEqual(manifest.permissions, ['storage']); assert.deepEqual(manifest.host_permissions, ['https://tv.youtube.com/*']);
+  assert.deepEqual(manifest.optional_host_permissions, ['https://www.youtube.com/*', 'https://www.primevideo.com/*', 'https://www.netflix.com/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
   assert.equal(manifest.web_accessible_resources, undefined);
 });
@@ -198,7 +200,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   tabs.get(4).url = 'https://example.com/';
   const createsBeforeRecovery = log.filter(item => item.operation === 'create').length;
   const restartedWorker = await build({ entryPoints: [new URL('../apps/chrome-extension/src/background.ts', import.meta.url).pathname], bundle: true, write: false, format: 'iife', platform: 'browser' });
-  runInNewContext(restartedWorker.outputFiles[0].text, { chrome: (globalThis as any).chrome, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
+  runInNewContext(restartedWorker.outputFiles[0].text, { crypto: webcrypto, TextEncoder, chrome: (globalThis as any).chrome, URL, structuredClone, setTimeout, clearTimeout, setInterval, clearInterval });
   const recovered = await send({ type: 'GET_SNAPSHOT' });
   assert.equal(recovered.panes.length, 2); assert.equal(recovered.panes[1].tabId, 2); assert.equal(recovered.panes[1].muted, true);
   assert.equal(log.filter(item => item.operation === 'create').length, createsBeforeRecovery);

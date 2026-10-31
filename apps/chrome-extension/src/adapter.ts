@@ -1,14 +1,17 @@
+import { validQueueIntent } from './mixed-workspace';
+import type { QueueIntent } from '../../../packages/core/src/media';
 import { isManagedFeedCount } from '../../../packages/quadbox/src/policy';
 import { validRect, contains, isLayoutMode, validCustomSlots } from '../../../packages/quadbox/src/geometry';
 export { createDOMAdapter, type AdapterObservation, type DOMAdapter } from '../../../packages/yttv-adapter/src/index';
 import type { AdapterObservation } from '../../../packages/yttv-adapter/src/index';
-import type { Preferences } from '../../../packages/storage/src/index';
+import { validPreferencePatch, type Preferences } from '../../../packages/storage/src/index';
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
+  | { type: 'QUEUE'; intent: QueueIntent }
   | { type: 'NEW_SHOW' | 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' | 'APPLY_LAYOUT' | 'GET_AREA_PICKER' | 'CANCEL_AREA_PICKER' }
   | ({ type: 'OPEN_AREA_PICKER' } & import('./area-picker-session').AreaPickerConfig)
   | { type: 'SAVE_AREA_PICKER'; area: import('../../../packages/quadbox/src/geometry').Rect; customSlots?: import('../../../packages/quadbox/src/geometry').Rect[] }
-  | { type: 'CHOOSE_MAIN' | 'CONNECT_PANE'; tabId: number }
+  | { type: 'CHOOSE_MAIN' | 'CONNECT_PANE' | 'CONNECT_YOUTUBE' | 'CONNECT_PRIME_VIDEO' | 'CONNECT_NETFLIX'; tabId: number }
   | { type: 'FOCUS_PANE'; paneId: string }
   | { type: 'AUTO_ARRANGE'; enabled: boolean }
   | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string; layout?: import('../../../packages/quadbox/src/geometry').LayoutMode; customSlots?: import('../../../packages/quadbox/src/geometry').Rect[]; plannedCount?: number }
@@ -48,8 +51,9 @@ export function validCommand(value: unknown): value is Command {
       raw.observedAt.length <= 40 && Number.isFinite(Date.parse(raw.observedAt)) && Boolean(raw.playback && typeof raw.playback === 'object');
   };
   switch (row.type) {
+    case 'QUEUE': return Object.keys(row).every(k => ['namespace', 'type', 'intent'].includes(k)) && validQueueIntent(row.intent);
     case 'NEW_SHOW': case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': case 'APPLY_LAYOUT': case 'GET_AREA_PICKER': case 'CANCEL_AREA_PICKER': return true;
-    case 'CHOOSE_MAIN': case 'CONNECT_PANE': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
+    case 'CHOOSE_MAIN': case 'CONNECT_PANE': case 'CONNECT_YOUTUBE': case 'CONNECT_PRIME_VIDEO': case 'CONNECT_NETFLIX': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
     case 'OPEN_AREA_PICKER': return validRect(row.workArea) && id(row.displayId) && isLayoutMode(row.mode) && isManagedFeedCount(row.count) && (row.area === undefined || validRect(row.area) && contains(row.workArea, row.area)) && (row.slots === undefined || validCustomSlots(row.slots, Number(row.count)));
     case 'SAVE_AREA_PICKER': return validRect(row.area) && (row.customSlots === undefined || validCustomSlots(row.customSlots));
     case 'AUTO_ARRANGE': return typeof row.enabled === 'boolean';
@@ -72,15 +76,7 @@ export function validCommand(value: unknown): value is Command {
     case 'AUDIO': case 'PLAYER_AUDIO': return (row.paneId === undefined || id(row.paneId)) && (row.muted !== undefined || row.volume !== undefined) &&
       (row.muted === undefined || typeof row.muted === 'boolean') && (row.playerKey === undefined || id(row.playerKey)) &&
       (row.volume === undefined || typeof row.volume === 'number' && Number.isFinite(row.volume) && row.volume >= 0 && row.volume <= 1);
-    case 'PREFERENCE': {
-      if (!row.patch || typeof row.patch !== 'object' || Array.isArray(row.patch)) return false;
-      const patch = row.patch as Record<string, unknown>;
-      const lists = ['favorites', 'hiddenChannels', 'channelOrder', 'favoriteTeams', 'favoriteLeagues'];
-      const allowed = [...lists, 'keyboardMappings', 'quadLayouts', 'lastQuad', 'ui'];
-      return Object.keys(patch).every(key => allowed.includes(key)) && lists.every(key => patch[key] === undefined ||
-        Array.isArray(patch[key]) && patch[key].length <= 1000 && patch[key].every(id)) &&
-        (patch.quadLayouts === undefined || Array.isArray(patch.quadLayouts) && patch.quadLayouts.length <= 20);
-    }
+    case 'PREFERENCE': return validPreferencePatch(row.patch);
     default: return false;
   }
 }

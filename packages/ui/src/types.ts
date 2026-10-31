@@ -9,6 +9,8 @@ export interface ActionResult {
 }
 
 export interface UIManagedPane {
+  service?: import('../../core/src/media').ServiceId;
+  providerCapabilities?: import('../../core/src/media').Capabilities | null;
   id: string;
   channelId: string;
   channelName: string;
@@ -29,6 +31,13 @@ export interface UIManagedPane {
 }
 
 export interface DesktopSnapshot {
+  netflixEnabled?: boolean;
+  netflixCandidates?: { tabId: number; label: string }[];
+  primeVideoEnabled?: boolean;
+  primeVideoCandidates?: { tabId: number; label: string }[];
+  youtubeEnabled?: boolean;
+  youtubeCandidates?: { tabId: number; label: string }[];
+  mixed?: import('../../core/src/media').MixedSnapshot;
   openingDefaultShow?: boolean;
   openPlayerWindowCount?: number;
   unassignedPlayers?: { tabId: number; label: string }[];
@@ -69,6 +78,7 @@ export interface DesktopSnapshot {
 }
 
 export interface ClientBridge {
+  queueIntent?(intent: import('../../core/src/media').QueueIntent): Promise<ActionResult>;
   getSnapshot(): DesktopSnapshot | Promise<DesktopSnapshot>;
   subscribe(listener: () => void): () => void;
   navigateChannel(channelId: string): Promise<ActionResult>;

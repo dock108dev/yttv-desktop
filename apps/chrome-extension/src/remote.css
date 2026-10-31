@@ -127,3 +127,9 @@ details .actions { margin-top: 8px; }
 .setup-step { font-size: 15px; margin: 16px 0 8px; }
 .slot-preview { position: absolute; pointer-events: none; display: grid; place-items: center; border: 1px solid var(--blue); background: #d6e6fc; color: #153e74; font-size: 12px; overflow: hidden; }
 .saved-preview { max-width: 220px; }
+
+.mixed-queue { border-block: 1px solid #444; padding-block: 12px; }
+.mixed-queue label, .mixed-queue small { display: block; margin-block: 6px; }
+.mixed-queue input, .mixed-queue select { max-width: 100%; width: 100%; box-sizing: border-box; }
+.mixed-queue li { margin-block: 12px; overflow-wrap: anywhere; }
+.mixed-queue .actions { flex-wrap: wrap; }

@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+import { runInNewContext } from 'node:vm';
+import { webcrypto } from 'node:crypto';
+import { Window } from 'happy-dom';
+
+test('packaged YouTube bridge is idempotent, top-frame-only, nonce-bound and uses the real adapter', async () => {
+  const source = (await build({ entryPoints: ['apps/chrome-extension/src/youtube-content.ts'], bundle: true, write: false, format: 'iife', platform: 'browser' })).outputFiles[0].text;
+  const w = new Window({ url: 'https://www.youtube.com/watch?v=abcdefghijk' });
+  w.document.body.innerHTML = '<ytd-watch-flexy video-id="abcdefghijk"><div id="movie_player"><video class="html5-main-video"></video><button class="ytp-play-button"></button></div></ytd-watch-flexy>';
+  const video = w.document.querySelector('video')!;
+  for (const [key, value] of Object.entries({ readyState: 4, duration: 90, currentTime: 3, paused: true, ended: false, seeking: false })) Object.defineProperty(video, key, { value, writable: true });
+  const listeners: any[] = [], notifications: any[] = []; let tick = () => {};
+  const context = { URL, window: w, document: w.document, crypto: webcrypto, setTimeout, setInterval: (fn: () => void) => { tick = fn; }, chrome: { runtime: { id: 'extension', onMessage: { addListener: (fn: any) => listeners.push(fn) }, sendMessage: async (m: any) => notifications.push(m) } } };
+  const subframe = { ...context, window: { top: {} } }; runInNewContext(source, subframe); assert.equal(listeners.length, 0);
+  runInNewContext(source + source, context); assert.equal(listeners.length, 1);
+  const call = async (message: any, sender: any = { id: 'extension' }) => new Promise<any>(resolve => { if (listeners[0]({ namespace: 'yttv-desktop.youtube.v1', ...message }, sender, resolve) !== true) resolve(undefined); });
+  const binding = { service: 'youtube', tabId: 1, windowId: 1, documentId: 'doc', slotId: 'slot', generation: 1, workerEpoch: 'epoch', playerKey: '' };
+  assert.equal(await call({ type: 'bind', binding, nonce: 'nonce' }, { id: 'other' }), undefined);
+  assert.equal(await call({ type: 'bind', binding, nonce: 'nonce' }, { id: 'extension', tab: { id: 1 } }), undefined);
+  const bound = await call({ type: 'bind', binding, nonce: 'nonce' }); assert.equal(bound.result.status, 'ok'); assert.equal(bound.result.value.content.videoId, 'abcdefghijk');
+  assert.equal(await call({ type: 'observe', nonce: 'wrong' }), undefined);
+  const volume = await call({ type: 'execute', nonce: 'nonce', binding: bound.result.value.binding, command: { type: 'volume', value: .36 } });
+  assert.equal(volume.result.status, 'ok'); assert.equal(video.volume, .36);
+  tick(); assert.equal(notifications[0].type, 'changed'); assert.equal(notifications[0].observation, undefined);
+  const pending = call({ type: 'execute', nonce: 'nonce', binding: bound.result.value.binding, command: { type: 'play' } });
+  await call({ type: 'bind', binding: { ...binding, generation: 2 }, nonce: 'next' });
+  video.volume = .72; video.muted = true;
+  const oldReply = await pending;
+  assert.equal(oldReply.result.status, 'unknown'); assert.equal(oldReply.nonce, 'nonce');
+  assert.equal(video.volume, .72); assert.equal(video.muted, true);
+  await w.happyDOM.abort();
+});

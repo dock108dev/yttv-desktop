@@ -47,6 +47,7 @@ test('already-open players without old ownership are counted and explicitly conn
   await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' }); await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' });
   for (const key of Object.keys(h.session)) delete h.session[key];
   delete h.local['yttv-desktop.managed-recovery.v1'];
+  delete h.local['yttv-desktop.mixed-workspace.v1'];
   h.start(); let state = await h.send({ type: 'GET_SNAPSHOT' });
   assert.equal(state.panes.length, 1); assert.equal(state.openPlayerWindowCount, 3); assert.equal(state.unassignedPlayers.length, 2);
   const before = h.log.length;

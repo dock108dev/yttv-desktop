@@ -1,3 +1,4 @@
+import { auditManifest } from './permission-audit.mjs';
 import { build } from 'esbuild';
 import { mkdir, copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -8,13 +9,9 @@ if (process.argv.slice(2).some(arg => arg !== '--check')) throw new Error('Unsup
 const checkOnly = process.argv.includes('--check');
 const outdir = resolve(root, 'dist/chrome-extension');
 const manifest = JSON.parse(await readFile(resolve(root, 'apps/chrome-extension/manifest.json'), 'utf8'));
-// Validate permissions before writing anything.
-if (JSON.stringify(manifest.permissions) !== JSON.stringify(['storage'])) throw new Error('Unexpected permission expansion');
-if (JSON.stringify(manifest.optional_permissions) !== JSON.stringify(['system.display', 'scripting'])) throw new Error('Unexpected optional permission expansion');
-const expectedHosts = ['https://tv.youtube.com/*'];
-if (JSON.stringify(manifest.host_permissions) !== JSON.stringify(expectedHosts)) throw new Error('Unexpected host expansion');
+auditManifest(manifest);
 // Stable runtime identity for the actual inputs, including uncommitted repairs.
-const inputs = ['scripts/build.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html', 'apps/chrome-extension/area-picker.html'];
+const inputs = ['scripts/build.mjs', 'scripts/permission-audit.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html', 'apps/chrome-extension/area-picker.html'];
 for (const folder of ['apps/chrome-extension/src', 'packages']) {
   for (const file of await readdir(resolve(root, folder), { recursive: true })) {
     if (/\.(ts|tsx|css)$/.test(file) && !file.includes('node_modules') && !file.endsWith('.test.ts')) inputs.push(`${folder}/${file}`);
@@ -37,10 +34,10 @@ const inlineCSS = {
   },
 };
 if (!checkOnly) await mkdir(outdir, { recursive: true });
-for (const [name, format] of [['content', 'iife'], ['background', 'esm'], ['panel', 'iife'], ['remote', 'iife'], ['area-picker', 'esm']]) {
+for (const [name, format] of [['content', 'iife'], ['youtube-content', 'iife'], ['prime-video-content', 'iife'], ['netflix-content', 'iife'], ['background', 'esm'], ['panel', 'iife'], ['remote', 'iife'], ['area-picker', 'esm']]) {
   await build({
     absWorkingDir: root,
-    entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' || name === 'area-picker' ? 'ts' : 'tsx'}`],
+    entryPoints: [`apps/chrome-extension/src/${name}.${name === 'background' || name === 'area-picker' || name === 'youtube-content' || name === 'prime-video-content' || name === 'netflix-content' ? 'ts' : 'tsx'}`],
     outfile: `${outdir}/${name}.js`, bundle: true, format, write: !checkOnly,
     platform: 'browser', target: 'chrome120', minify: false,
     define: { 'process.env.NODE_ENV': '"production"', __YTTV_VERSION__: JSON.stringify(manifest.version), __YTTV_BUILD__: JSON.stringify(sourceFingerprint.slice(0, 16)) },
@@ -55,4 +52,4 @@ if (!checkOnly) {
   await writeFile(resolve(outdir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   await writeFile(resolve(outdir, 'build-identity.json'), JSON.stringify({ version: manifest.version, sourceFingerprint, sourceInputs }, null, 2) + '\n');
 }
-console.log(`${checkOnly ? 'Compiled in memory' : `Built ${outdir}`}; source ${sourceFingerprint}; exact permission audit passed (storage + tv.youtube.com; optional system.display + scripting).`);
+console.log(`${checkOnly ? 'Compiled in memory' : `Built ${outdir}`}; source ${sourceFingerprint}; exact permission audit passed (storage + tv.youtube.com; optional system.display + scripting + www.youtube.com + www.primevideo.com + www.netflix.com).`);
