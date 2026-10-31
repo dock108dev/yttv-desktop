@@ -2,6 +2,20 @@
 
 The runtime is a Chrome Manifest V3 extension with a React remote and an isolated page drawer. Video, sign-in and account controls remain in native provider windows. The separate loopback fixture preview has no playback or account integration. There is no backend, account sync, protected-stream composition or remote telemetry.
 
+## Agreed delivery requirements
+
+The agreed goal is one reusable remote, one ordered mixed-service queue and one to four native player windows arranged in a selected screen area, using YouTube TV, regular YouTube, Prime Video and Netflix, including repeated services. Arranged native windows are the accepted surface; a single containing playback window is not required. The screen/area is independent of the remote's position.
+
+The delivery must support deliberate enqueue, manual Play next, explicit replacement when full, safe existing-player connection, supported playback/audio controls, saved placement and recovery. Native sign-in, profile, episode, purchase and entitlement decisions remain with the owner. Queue items do not consume capacity; active, pending and uncertain windows do. Restart and queue edits must not launch playback, and focus, placement and recovery must preserve audio. No silent eviction or automatic advancement is required.
+
+Completion requires supported main-content identity/readiness, controls and readback, safe title-to-episode association where needed, queue consumption, Connect and replacement in both directions for each service, plus mixed lifecycle verification and owner-operated ordinary-use review. Ended classification must distinguish main content from ads and live content; it does not authorize automatic advancement. A confirmation may resolve intended association only when observable identity supports it; confirmation cannot manufacture missing player authority.
+
+The existing YouTube TV experience is the owner-reported working baseline. Preserve its guide, remote, settings, Return and layout behavior rather than restarting a standalone acceptance campaign. The current Prime/Netflix attention-only behavior below does **not** meet the full four-service goal. If required capabilities cannot be supported within the security boundaries, an explicit owner scope decision is necessary; native fallback alone does not establish completion.
+
+### Optional backlog
+
+Automatic queue advancement, universal catalog/search, broader regional and alternate URL forms, and literal single-window composition are outside the agreed first delivery. They have no assigned execution work or completion dependency. Native macOS/Safari clients and independent sports scores remain outside this Chrome delivery.
+
 ## Module ownership
 
 | Responsibility | Authoritative module | Callers |

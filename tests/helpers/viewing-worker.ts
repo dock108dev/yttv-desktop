@@ -34,7 +34,13 @@ export async function harness() {
         players.set(id, { muted: true, volume: 1, readyState: 0, key: `guide-${id}`, documentId: `guide-doc-${id}`, route: 'guide' });
         log.push({ type: 'discovery', id, row }); return tab;
       },
-      query: async (query: any = {}) => { if (controls.queryFails) throw new Error('private query'); return [...tabs.values()].filter(tab => (query.windowId === undefined || tab.windowId === query.windowId) && (!query.url || tab.url?.startsWith(query.url.replace('*', '')))); },
+      query: async (query: any = {}) => {
+        if (controls.queryFails) throw new Error('private query');
+        // Worker queries use a literal origin followed by a trailing path wildcard.
+        const prefix = query.url?.endsWith('/*') ? query.url.slice(0, -1) : undefined;
+        return [...tabs.values()].filter(tab => (query.windowId === undefined || tab.windowId === query.windowId)
+          && (!query.url || (prefix === undefined ? tab.url === query.url : tab.url?.startsWith(prefix))));
+      },
       get: async (id: number) => { if (controls.tabGetFails === id) throw new Error('Transient tab lookup'); if (!tabs.has(id)) throw new Error('closed'); return tabs.get(id); },
       update: async (id: number, value: any) => { log.push({ type: 'tab', id, value }); const tab = tabs.get(id); if (controls.tabFails) throw new Error('test tab failure'); if (!tab) throw new Error('closed'); Object.assign(tab, value); if ('muted' in value) tab.mutedInfo = { muted: value.muted, reason: 'extension' }; return tab; },
       sendMessage: async (id: number, message: any, options: any) => {
