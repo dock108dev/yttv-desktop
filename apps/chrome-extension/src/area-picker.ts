@@ -6,7 +6,7 @@ import type { ActionResult } from '../../../packages/ui/src/types';
 
 export async function mountAreaPicker(root: HTMLElement) {
   const reply: AreaPickerReply = await chrome.runtime.sendMessage(envelope({ type: 'GET_AREA_PICKER' })).catch(() => ({ ok: false, reason: 'The remote disconnected. Open a new drawing window.' }));
-  if (!reply.ok || !reply.picker) { root.textContent = reply.reason ?? 'Open a new drawing window from the remote.'; return; }
+  if (!reply?.ok || !reply.picker) { root.textContent = reply?.reason ?? 'Open a new drawing window from the remote.'; return; }
   const config = reply.picker, custom = config.mode === 'custom';
   const initial = config.area && planLayout(config.area, config.count, 8, config.mode, config.slots);
   let boxes: (Rect | undefined)[] = custom
@@ -111,4 +111,4 @@ export async function mountAreaPicker(root: HTMLElement) {
   });
   draw(); query<HTMLButtonElement>('.cancel').focus();
 }
-const root = document.getElementById('picker-root'); if (root) void mountAreaPicker(root);
+const root = document.getElementById('picker-root'); if (root) void mountAreaPicker(root).catch(() => { root.textContent = 'Layout controls could not start. Close this window and use Save current positions or the small preview in the remote.'; });

@@ -40,7 +40,12 @@ export function createAreaPickerSession(api: typeof chrome) {
     },
     async read(sender: chrome.runtime.MessageSender): Promise<AreaPickerReply> {
       await opening?.catch(() => undefined);
-      if (!active || sender.id !== api.runtime.id || sender.url !== url || sender.tab?.id !== active.tabId || sender.tab.windowId !== active.windowId || !await owned()) return { ok: false, reason: 'Open a new drawing window from the remote.' };
+      let tabId = sender.tab?.id, windowId = sender.tab?.windowId;
+      if (!tabId && sender.documentId && api.runtime.getContexts) {
+        const contexts = await api.runtime.getContexts({ documentIds: [sender.documentId] });
+        const context = contexts.find(c => c.documentUrl === url); tabId = context?.tabId; windowId = context?.windowId;
+      }
+      if (!active || sender.id !== api.runtime.id || sender.url !== url || tabId !== active.tabId || windowId !== active.windowId || !await owned()) return { ok: false, reason: 'Open a new drawing window from the remote.' };
       return { ok: true, picker: structuredClone(active.config) };
     },
     close,

@@ -8,10 +8,11 @@ import { validPreferencePatch, type Preferences } from '../../../packages/storag
 export const MESSAGE_NAMESPACE = 'yttv-desktop.v1';
 export type Command =
   | { type: 'QUEUE'; intent: QueueIntent }
-  | { type: 'NEW_SHOW' | 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' | 'APPLY_LAYOUT' | 'GET_AREA_PICKER' | 'CANCEL_AREA_PICKER' }
+  | { type: 'AUTO_CONNECT' | 'SAVE_CURRENT_LAYOUT' | 'NEW_SHOW' | 'OPEN_REMOTE' | 'RECONNECT_MAIN' | 'START_WORKSPACE' | 'RETURN_MAIN' | 'ARRANGE' | 'APPLY_LAYOUT' | 'GET_AREA_PICKER' | 'CANCEL_AREA_PICKER' }
   | ({ type: 'OPEN_AREA_PICKER' } & import('./area-picker-session').AreaPickerConfig)
   | { type: 'SAVE_AREA_PICKER'; area: import('../../../packages/quadbox/src/geometry').Rect; customSlots?: import('../../../packages/quadbox/src/geometry').Rect[] }
-  | { type: 'CHOOSE_MAIN' | 'CONNECT_PANE' | 'CONNECT_YOUTUBE' | 'CONNECT_PRIME_VIDEO' | 'CONNECT_NETFLIX'; tabId: number }
+  | { type: 'CHOOSE_MAIN' | 'CONNECT_YOUTUBE' | 'CONNECT_PRIME_VIDEO' | 'CONNECT_NETFLIX'; tabId: number }
+  | { type: 'CONNECT_PANE'; tabId: number; verify?: boolean }
   | { type: 'FOCUS_PANE'; paneId: string }
   | { type: 'AUTO_ARRANGE'; enabled: boolean }
   | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string; layout?: import('../../../packages/quadbox/src/geometry').LayoutMode; customSlots?: import('../../../packages/quadbox/src/geometry').Rect[]; plannedCount?: number }
@@ -32,7 +33,7 @@ export type Command =
   | { type: 'SET_DRAWER_STATE'; opened: boolean }
   | { type: 'GET_DRAWER_STATE' }
   | { type: 'GET_OBSERVATION'; connectionNonce?: string }
-  | { type: 'STATE_CHANGED' | 'TOGGLE_DESKTOP' };
+  | { type: 'STATE_CHANGED' | 'TOGGLE_DESKTOP' | 'HIDE_DESKTOP' };
 export const envelope = (command: Command) => ({ namespace: MESSAGE_NAMESPACE, ...command });
 export const isMessage = (value: unknown): value is Command & { namespace: string } =>
   Boolean(value && typeof value === 'object' && (value as Record<string, unknown>).namespace === MESSAGE_NAMESPACE && typeof (value as Record<string, unknown>).type === 'string');
@@ -52,8 +53,9 @@ export function validCommand(value: unknown): value is Command {
   };
   switch (row.type) {
     case 'QUEUE': return Object.keys(row).every(k => ['namespace', 'type', 'intent'].includes(k)) && validQueueIntent(row.intent);
-    case 'NEW_SHOW': case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': case 'APPLY_LAYOUT': case 'GET_AREA_PICKER': case 'CANCEL_AREA_PICKER': return true;
-    case 'CHOOSE_MAIN': case 'CONNECT_PANE': case 'CONNECT_YOUTUBE': case 'CONNECT_PRIME_VIDEO': case 'CONNECT_NETFLIX': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
+    case 'AUTO_CONNECT': case 'SAVE_CURRENT_LAYOUT': case 'NEW_SHOW': case 'OPEN_REMOTE': case 'RECONNECT_MAIN': case 'START_WORKSPACE': case 'RETURN_MAIN': case 'ARRANGE': case 'APPLY_LAYOUT': case 'GET_AREA_PICKER': case 'CANCEL_AREA_PICKER': return true;
+    case 'CONNECT_PANE': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0 && (row.verify === undefined || typeof row.verify === 'boolean');
+    case 'CHOOSE_MAIN': case 'CONNECT_YOUTUBE': case 'CONNECT_PRIME_VIDEO': case 'CONNECT_NETFLIX': return Number.isSafeInteger(row.tabId) && (row.tabId as number) > 0;
     case 'OPEN_AREA_PICKER': return validRect(row.workArea) && id(row.displayId) && isLayoutMode(row.mode) && isManagedFeedCount(row.count) && (row.area === undefined || validRect(row.area) && contains(row.workArea, row.area)) && (row.slots === undefined || validCustomSlots(row.slots, Number(row.count)));
     case 'SAVE_AREA_PICKER': return validRect(row.area) && (row.customSlots === undefined || validCustomSlots(row.customSlots));
     case 'AUTO_ARRANGE': return typeof row.enabled === 'boolean';
@@ -61,7 +63,7 @@ export function validCommand(value: unknown): value is Command {
     case 'GET_SNAPSHOT': case 'PREVIOUS': case 'MUTE': case 'REFRESH':
     case 'RESTORE_LAYOUT': case 'OPEN_NATIVE_GUIDE': case 'FOCUS_MAIN': case 'GET_DRAWER_STATE':
     case 'GET_OBSERVATION': return row.connectionNonce === undefined || id(row.connectionNonce);
-    case 'STATE_CHANGED': case 'TOGGLE_DESKTOP': return true;
+    case 'STATE_CHANGED': case 'TOGGLE_DESKTOP': case 'HIDE_DESKTOP': return true;
     case 'NAVIGATE': return id(row.channelId);
     case 'DUPLICATE_PANE': case 'FOCUS_PANE': case 'SELECT_PANE': case 'EXPAND_PANE': case 'REMOVE_PANE': return id(row.paneId);
     case 'CREATE_PANE': case 'REPLACE_PANE': return id(row.channelId) &&

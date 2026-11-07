@@ -34,13 +34,14 @@ test('default channel uses last watched when live and otherwise the first eligib
   }
 });
 
-test('New show starts from no player: blank, muted Live, fresh channel, ready native Play exactly once', async () => {
+test('New show starts with permission-limited creation metadata: owned preparation page, muted Live, ready native Play exactly once', async () => {
   const h = await cold();
+  h.controls.hideBlankUrl = true; h.controls.initialUrlHidden = true;
   h.tabs.set(90, { id: 90, windowId: 90, url: 'https://example.test', mutedInfo: { muted: false } });
   h.controls.playback = async id => { h.players.get(id).playing = true; return { ok: true, value: { playing: true } }; };
   assert.equal((await h.send({ type: 'NEW_SHOW' })).ok, true);
   assert.equal(h.log.filter(row => row.type === 'create').length, 1);
-  assert.equal(h.log.find(row => row.type === 'create').row.url, 'about:blank');
+  assert.equal(h.log.find(row => row.type === 'create').row.url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html');
   const updates = h.log.filter(row => row.type === 'tab' && row.id === 2);
   assert.equal(updates[0].value.muted, true);
   assert.equal(updates.at(-1).value.url, LIVE);
@@ -123,4 +124,25 @@ test('New show is remote-only and failure to mute a blank window cannot load You
   await h.remove(); h.controls.tabFails = true;
   assert.equal((await h.send({ type: 'NEW_SHOW' })).code, 'WINDOW_FAILED');
   assert.equal(h.tabs.has(2), false); assert.equal(h.log.some(row => row.value?.url), false);
+});
+
+test('interrupted legacy opening stays reserved until explicit closure confirmation, then New show can retry', async () => {
+  const h = await cold();
+  const first = await h.send({ type: 'GET_SNAPSHOT' });
+  const record = structuredClone(first.mixed.record), slot = record.slots.find((s: any) => s.role === 'original');
+  record.claims.push({ source: 'legacy', operationId: crypto.randomUUID(), requestId: crypto.randomUUID(), slotId: slot.id, generation: slot.generation, phase: 'claimed' });
+  h.local['yttv-desktop.mixed-workspace.v1'] = record;
+  h.tabs.set(99, { id: 99, windowId: 99, url: 'chrome-extension://test/remote.html' });
+  h.session['yttv-desktop.remote.v1'] = 99;
+  h.start();
+  const before = h.log.length;
+  const blocked = await h.send({ type: 'NEW_SHOW' });
+  assert.equal(blocked.code, 'OPENING_INTERRUPTED');
+  assert.match(blocked.reason, /I closed the interrupted window/);
+  assert.equal(h.log.slice(before).some(row => row.type === 'create'), false);
+  const state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.equal(state.mixed.record.claims.length, 1);
+  assert.equal((await h.sendFrom({ type: 'QUEUE', intent: { action: 'confirm-closed', requestId: crypto.randomUUID(), revision: state.mixed.record.revision, slotId: slot.id, generation: slot.generation } }, { id: 'test', url: 'chrome-extension://test/remote.html', tab: h.tabs.get(99) })).ok, true);
+  assert.equal((await h.send({ type: 'NEW_SHOW' })).ok, true);
+  await h.send({ type: 'MUTE' });
 });

@@ -11,7 +11,7 @@ const outdir = resolve(root, 'dist/chrome-extension');
 const manifest = JSON.parse(await readFile(resolve(root, 'apps/chrome-extension/manifest.json'), 'utf8'));
 auditManifest(manifest);
 // Stable runtime identity for the actual inputs, including uncommitted repairs.
-const inputs = ['scripts/build.mjs', 'scripts/permission-audit.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html', 'apps/chrome-extension/area-picker.html'];
+const inputs = ['scripts/build.mjs', 'scripts/permission-audit.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'apps/chrome-extension/manifest.json', 'apps/chrome-extension/panel.html', 'apps/chrome-extension/demo.html', 'apps/chrome-extension/remote.html', 'apps/chrome-extension/area-picker.html', 'apps/chrome-extension/player-start.html'];
 for (const folder of ['apps/chrome-extension/src', 'packages']) {
   for (const file of await readdir(resolve(root, folder), { recursive: true })) {
     if (/\.(ts|tsx|css)$/.test(file) && !file.includes('node_modules') && !file.endsWith('.test.ts')) inputs.push(`${folder}/${file}`);
@@ -45,7 +45,7 @@ for (const [name, format] of [['content', 'iife'], ['youtube-content', 'iife'], 
   });
 }
 if (!checkOnly) {
-  for (const file of ['panel.html', 'demo.html', 'remote.html', 'area-picker.html']) {
+  for (const file of ['panel.html', 'demo.html', 'remote.html', 'area-picker.html', 'player-start.html']) {
     await copyFile(resolve(root, 'apps/chrome-extension', file), resolve(outdir, file));
   }
   await copyFile(resolve(root, 'apps/chrome-extension/src/area-picker.css'), resolve(outdir, 'area-picker.css'));

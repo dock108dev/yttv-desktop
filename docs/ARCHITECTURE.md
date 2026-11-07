@@ -35,6 +35,8 @@ Automatic queue advancement, universal catalog/search, broader regional and alte
 | Cached guide presentation | `packages/storage/src/guide-cache.ts` | Worker |
 | Temporary native guide discovery | `apps/chrome-extension/src/guide-sync.ts` | Worker |
 | Placement, enrollment and Return | `apps/chrome-extension/src/workspace.ts` | Worker |
+| Bounded automatic player discovery/connection | `apps/chrome-extension/src/auto-connect.ts` | Worker; identity validation and serialized mutations remain in the worker |
+| New-window preparation identity | `apps/chrome-extension/src/player-window.ts`, `packages/core/src/player-start.ts` | Worker and mixed workspace; storage validates the saved URL shape |
 | Durable recovery and stored bounds | `apps/chrome-extension/src/recovery.ts` | Worker and workspace |
 | Static diagnostic counters and log sanitation | `apps/chrome-extension/src/diagnostics.ts` | Worker and lifecycle |
 | Monitor drawing and coordinate preparation | `area-picker-session.ts`, `area-picker.ts`, `area-selection.ts` in the Chrome app | Worker and drawing window |
@@ -57,13 +59,15 @@ Cancellation revokes pending work but retains uncertain resources until exact cl
 
 Preferences use a serialized store. Live edits from both IPC and preview use storage-owned validation and patch merging. Confirmed switches alone update current/previous/recent channel history. Cached guide data contains presentation metadata, never watch targets. Mixed queue records use a separate bounded versioned envelope; unreadable or newer records remain read-only rather than being reset.
 
-Session records and durable local backups recover known ownership and geometry. Recovery observes audio without replaying enable/mute, Play or navigation. Changed browser IDs require explicit Connect and cannot inherit historical Return authority. Legacy saved-layout identifiers remain readable, but saved targets and the retired mute-lock field grant no control authority. Browser mutations and storage writes are separate operations, so a failure does not imply complete rollback.
+Session records and durable local backups recover known ownership and geometry. Recovery observes audio without replaying enable/mute, Play or navigation. The remote automatically connects detected YouTube TV watch players within the four-player limit, with fresh adapter validation and visible overflow/failure recovery. Changed browser IDs cannot inherit historical Return authority. Legacy saved-layout identifiers remain readable, but saved targets and the retired mute-lock field grant no control authority. Browser mutations and storage writes are separate operations, so a failure does not imply complete rollback.
 
 ## Layout and drawing
 
 Geometry, storage, command counts and UI share quadbox's supported one-to-four-show counts. Layouts include Best fit, stacked, side by side, grid, larger-main and custom positions. Custom rectangles are normalized to a selected monitor work area and saved separately per show count. Missing custom positions use a labeled Best fit fallback. Fixed layouts require the selected monitor and matching work area.
 
 The monitor drawing page is a temporary extension window, not a screen capture or transparent desktop overlay. Its commands bind the exact owned page/tab/window. Cancel leaves saved intent unchanged; save uses workspace placement with readback and rollback. A valid layout can be saved with no players or a different current count without moving windows. Explicit Arrange applies it later.
+
+Save current positions records connected single-player windows on one monitor as a custom layout without moving them or changing audio. It checks stable tab/window identity, Return fields and bounds twice; changing titles and audio observations do not invalidate placement. Automatic arrangement stays off until explicitly enabled.
 
 With an enrolled workspace or explicit layout, Expand/Restore uses workspace geometry. In Best fit without enrollment, added players use native maximize/restore; the original requires enrollment. Return uses captured original placement or reports a normal-window fallback. Windows shared with unrelated tabs are not silently rearranged.
 

@@ -49,7 +49,7 @@ test('compact remote reconnects snapshot, separates focus/audio, searches with k
   const click = async (text: string) => { const button = [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!; assert(button); await api.act(async () => button.click()); };
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    assert.match(window.document.body.textContent!, /1 \/ 4 windows/); assert.equal(commands.length, 0);
+    assert.match(window.document.body.textContent!, /1 \/ 4 connected/); assert.equal(commands.length, 0);
     await click('Focus'); assert.deepEqual(calls, ['focus:main']); await click('Pick a channel');
     const search = window.document.querySelector('input[type=search]')!;
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'nonmatching channel');
@@ -172,11 +172,11 @@ test('layout setup gives simple steps, supports all counts and sends full-size d
     assert.equal(window.document.querySelector('[aria-label="Content picker"]'), null, 'existing players are offered for connection before Add');
     state.workspace.intent = areaIntent(work, { left: 900, top: 100, width: 1000, height: 950 }, true, 'monitor'); state.workspace.layout = 'top-bottom'; await api.act(async () => listener());
     commands.length = 0; await click('Arrange shows'); assert.deepEqual(commands.map(c => c.type), ['APPLY_LAYOUT']);
-    await click('Connect Intended existing show'); assert.equal(commands.at(-1).type, 'CONNECT_PANE'); assert.equal(commands.at(-1).tabId, 8);
+    await click('Connect'); assert.equal(commands.at(-1).type, 'CONNECT_PANE'); assert.equal(commands.at(-1).tabId, 8);
     state.unassignedPlayers = []; state.panes.push({ id: 'connected-8', isMain: false, channelId: 'second', channelName: 'Second', muted: true }); await api.act(async () => listener());
     commands.length = 0; await click('Arrange shows'); assert.deepEqual(commands.map(c => c.type), ['APPLY_LAYOUT']); assert.equal(window.document.querySelector('[role=dialog]'), null);
-    assert.match(window.document.querySelector('.window-cards')!.textContent!, /Top · Original.*Bottom · Window/s);
-    await click('Change layout');
+    assert.match(window.document.querySelector('.window-cards')!.textContent!, /Top · Original.*Bottom · /s);
+    await click('Set TV area');
     const countAgain = window.document.querySelector('select[aria-label="Number of shows"]')!;
     const layoutAgain = window.document.querySelector('select[aria-label="Show layout"]')!;
     (countAgain as any).value = '4'; await api.act(async () => countAgain.dispatchEvent(new window.Event('change', { bubbles: true })));
@@ -290,4 +290,93 @@ test('Netflix enable is a direct permission gesture; denial retains queue and un
     granted = true; await api.act(async () => button('Enable Netflix').click()); assert.equal(button('Enable Netflix'), undefined);
     await api.act(async () => button('Connect Native Netflix').click()); assert.equal(commands.at(-1).type, 'CONNECT_NETFLIX'); assert.equal(commands.at(-1).tabId, 55);
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('interrupted opening is recoverable above collapsed extras and does not count unconnected players', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`);
+  window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), state = await bridge.getSnapshot();
+  state.panes = []; state.openPlayerWindowCount = 2; state.originalMissing = true;
+  state.originalCandidates = [{ tabId: 8, label: 'Existing game' }];
+  state.unassignedPlayers = [{ tabId: 8, label: 'Existing game' }, { tabId: 9, label: 'Another game' }];
+  const record = state.mixed!.record!, slot = record.slots[0];
+  record.claims.push({ source: 'legacy', operationId: crypto.randomUUID(), requestId: crypto.randomUUID(), slotId: slot.id, generation: slot.generation, phase: 'claimed' });
+  state.pendingFeedCreations = 1; // Capacity reservation is not proof an opening is still running.
+  const intents: any[] = []; let fail = true;
+  bridge.getSnapshot = () => structuredClone(state);
+  bridge.queueIntent = async intent => {
+    intents.push(intent);
+    if (fail) return { ok: false, reason: 'That window is still open.' };
+    record.claims = []; state.pendingFeedCreations = 0; return { ok: true };
+  };
+  let dispose = () => {};
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.equal(window.document.querySelector('.window-count')!.textContent, '0 / 4 connected · 2 found');
+    assert.equal((window.document.querySelector('.queue-tools') as any).open, false);
+    assert.equal(window.document.querySelector('[aria-label="Existing windows"]'), null, 'no duplicate disabled connection list');
+    const recovery = window.document.querySelector('.launch-recovery')!;
+    assert.equal(recovery.closest('details'), null);
+    assert(recovery.compareDocumentPosition(window.document.querySelector('.existing-players')!) & 4, 'recovery precedes original choice');
+    assert.equal(button('New show').disabled, true); assert.equal(button('Connect').disabled, true);
+    await api.act(async () => button('I closed the interrupted window').click());
+    assert.match(recovery.textContent!, /still open/); assert.equal(record.claims.length, 1);
+    assert.equal(intents[0].action, 'confirm-closed'); assert.equal(intents[0].slotId, slot.id); assert.equal(intents[0].revision, record.revision); assert.equal(intents[0].generation, slot.generation);
+    fail = false; await api.act(async () => button('I closed the interrupted window').click());
+    assert.equal(window.document.querySelector('.launch-recovery'), null);
+    assert.equal(button('New show').disabled, false); assert.equal(button('Connect').disabled, false);
+    assert.equal((window.document.querySelector('.queue-tools') as any).open, false, 'recovery never requires opening service setup');
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('all detected players are visible and Connect all chooses the original then connects the others before saving positions', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), state = await bridge.getSnapshot(), calls: any[] = [];
+  state.panes = []; state.originalMissing = true; state.unassignedPlayers = [{ tabId: 8, label: 'First game' }, { tabId: 9, label: 'Second game' }]; state.originalCandidates = [...state.unassignedPlayers];
+  let listener = () => {}, dispose = () => {};
+  bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; }; bridge.refresh = async () => { listener(); return { ok: true }; };
+  (window as any).chrome = { permissions: { request: async (r: any) => { calls.push(r); return true; } }, runtime: { sendMessage: async (c: any) => {
+    calls.push(c);
+    if (c.type === 'CHOOSE_MAIN' || c.type === 'CONNECT_PANE') { state.panes.push({ id: c.type === 'CHOOSE_MAIN' ? 'main' : 'second', tabId: c.tabId, channelId: 'test', channelName: 'Game', muted: true }); state.unassignedPlayers = state.unassignedPlayers!.filter(p => p.tabId !== c.tabId); state.originalCandidates = []; }
+    return { ok: true };
+  } } };
+  const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    assert.equal(window.document.querySelectorAll('.existing-player').length, 2);
+    assert.equal(window.document.querySelector('.existing-players select'), null, 'both players are visible without opening a dropdown');
+    assert.equal(button('Save current positions').disabled, true); assert.equal(button('Set TV area').closest('details'), null);
+    await api.act(async () => button('Connect all').click());
+    assert.deepEqual(calls.map(c => c.type ?? c.permissions[0]), ['scripting', 'CHOOSE_MAIN', 'CONNECT_PANE']);
+    assert.equal(calls[1].tabId, 8); assert.equal(calls[2].tabId, 9);
+    assert.equal(window.document.querySelectorAll('.existing-player').length, 0);
+    assert.equal(button('Save current positions').disabled, false);
+    await api.act(async () => button('Save current positions').click());
+    assert.deepEqual(calls.slice(-2).map(c => c.type ?? c.permissions[0]), ['system.display', 'SAVE_CURRENT_LAYOUT']);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
+});
+
+test('remote automatically detects on mount, reports failure without a retry loop and retries on a direct gesture', async () => {
+  const window = new Window({ url:'http://127.0.0.1/',settings:{enableJavaScriptEvaluation:true,suppressInsecureJavaScriptEnvironmentWarning:true} });
+  Object.defineProperty(window,'MessageChannel',{value:class {port1={onmessage:null as null|(()=>void)};port2={postMessage:()=>window.setTimeout(()=>this.port1.onmessage?.(),0)};}});
+  window.console.timeStamp=()=>{};
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI=RemoteUI;`);window.document.body.innerHTML='<div id="test-root"></div>';
+  const api=(window as any).RemoteUI, bridge=createDemoBridge(); let calls=0, granted=0, listener=()=>{},dispose=()=>{};
+  bridge.autoConnect=async()=>{calls++;return calls===1?{ok:false,reason:'Five players found. Choose four.'}:{ok:true}};
+  bridge.subscribe=fn=>{listener=fn;return()=>{}};
+  (window as any).chrome={permissions:{request:async()=>{granted++;return true}}};
+  try{
+    await api.act(async()=>{dispose=api.mountRemote(window.document.getElementById('test-root'),bridge)});
+    assert.equal(calls,1);assert.match(window.document.body.textContent!,/Five players found/);
+    await api.act(async()=>{listener();listener()});assert.equal(calls,1,'failed detections are not retried on every observation');
+    const retry=[...window.document.querySelectorAll('button')].find(b=>b.textContent==='Retry detection')!;
+    await api.act(async()=>retry.click());assert.equal(calls,2);assert.equal(granted,1);assert.doesNotMatch(window.document.body.textContent!,/Five players found/);
+  }finally{await api.act(async()=>dispose());await window.happyDOM.abort()}
 });

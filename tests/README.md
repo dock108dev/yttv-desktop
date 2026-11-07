@@ -16,6 +16,8 @@ It also guards storage-owned preference validation in the preview/IPC and delega
 
 `new-show.test.ts` covers cold startup from the remote, default channel selection, mute before navigation, waiting for native player readiness, one Play request, repeated clicks, four-show capacity, native fallback, explicit retry and cancellation. Remote UI tests cover the first-use action and opening/full states.
 
+New-show fixtures also hide initial tab metadata and ordinary blank-tab URLs, matching permission-limited reads. `player-window.test.ts` checks delayed preparation-page identity, moved/shared/repurposed tab refusal and storage compatibility. Interrupted legacy claims require explicit closure confirmation before retry; neither these fixtures nor a preparation-page commit proves provider playback.
+
 The geometry, layout-editor, workspace, domain, remote UI/journey and window-recovery suites cover all one-to-four-show presets, separate custom positions per count, full-size pointer screen coordinates, drawing-window ownership/cancel/save, shared preview/placement, Add preflight, channel replacement, bounds/rollback, Expand/Restore and recovery. Pure planning/coordinate assertions are in `geometry.test.ts`; mocked browser lifecycle and placement are in `workspace.test.ts`. These synthetic checks cannot validate placement on a physical monitor.
 
 The UI suite also verifies shortcut draft discard, focus trapping and return to the launcher after the dialog closes, in addition to saved bindings and conflict rejection.
@@ -34,12 +36,25 @@ Prime negative adapter/bridge fixtures are in `prime-video-adapter.test.ts`; per
 
 Netflix negative adapter/packaged bridge and parser boundaries are in `netflix-adapter.test.ts`; service permissions, attention launch/recovery, shared capacity, replacement refusal, late callbacks, cleanup, audio and connection rejection are in `netflix-worker.test.ts`. The remote test covers the direct permission gesture, denial and disabled controls/native fallback. These fixtures contain no positive Netflix playback evidence. Supported-provider consumption-save/retry, layouts, Return and settings remain covered by the shared worker/regression suites.
 
-## Verification record and limits
+## Focused regression review
 
-The completed queue and YouTube implementation was reported locally checked with strict types, focused synthetic tests, in-memory compilation and permission validation. The prior execution plan reported 113 queue-focused tests, 135 distinct YouTube-focused tests across successive runs and 124 distinct Prime-focused tests across successive runs. These are historical reports, not additive counts or a fresh result for current source. Netflix's reported focused checks cover its attention foundation, not positive playback support. The coverage descriptions above identify the maintained suites.
+| Behavior / scenario | Test references | Failure caught and test boundary | Disposition |
+| --- | --- | --- | --- |
+| Automatic connection, overflow and retry | `auto-connect.test.ts`, automatic-start case in `remote-ui.test.ts`, `remote-journey.test.ts` | Prevents arbitrary adoption of five players, retry loops and audio changes; pure coordinator, simulated DOM and actual bundled worker with Chrome fakes | Keep |
+| Prepared windows and interrupted opening | `player-window.test.ts`, `new-show.test.ts`, `mixed-worker.test.ts` | Refuses missing/foreign identity, preserves uncertain capacity and checks mute before navigation; synthetic browser/storage failures | Keep |
+| Saved window positions | Save-position cases in `workspace.test.ts` | Checks no browser mutations, exact later restore and refusal of changed identity/bounds; changing title/audio metadata remains allowed | Strengthened |
+| Unobstructed original player | `chrome-runtime.test.ts`, `chrome-integration.test.ts` | Checks hidden page controls and idempotent hide after stale saved drawer state; packaged content/worker with DOM and Chrome fakes | Strengthened |
+| Drawing and remote startup | `layout-editor.test.ts`, `remote-launch.test.ts` | Checks actual HTML module loading contract, sender identity and explicit launch/storage failures; synthetic runtime | Keep |
+| Required distribution assets | `scripts/ci/test_contract.py` | Missing preparation page must fail output validation and report qualification; disposable files, no installed browser | Strengthened |
 
-Retained local reports from October 30, 2026 (`test-results/ci-review-20261030/source-final/summary.md` and `security-final/summary.md` under the same directory) were inspected during documentation reconciliation. They record 237/237 synthetic tests, 19 reporting-contract tests, strict types, in-memory build/permissions, docs/script checks, a clean build and fixture smoke passing. The security report records passing actionlint, dependency and secret scans with zero reported findings. These reports tested a then-uncommitted working tree based on `be8b272`, before subsequent cleanup; they do not certify the later committed source. Raw local outputs remain ignored and are not required to read this documentation.
+The table covers the recent remote, connection, preparation and placement changes; it is not an audit of every repository test. Local focused runs use explicit Node test-file arguments because the current runner has recursive discovery but no dependency-based selector or reusable result cache. Full CI discovery remains unchanged. Prior results are reusable only when all relevant source, tests, configuration and dependencies are unchanged.
 
-The subsequent source cleanup was reported to pass 44 focused tests, strict types, in-memory build and documentation checks. No new runtime tests or security scan were run during this documentation reconciliation. Prior passing results can be reused only for unchanged behavior; the [development instructions](../docs/DEVELOPMENT.md#tests) define checks for further edits.
+## Verification limits
 
-The owner reported the existing YouTube TV experience working. Regular YouTube's selectors and all new-provider/mixed live behavior remain unverified here. Prime Video and Netflix have only negative capability fixtures. No result above establishes loaded Chrome identity, entitlements, pictures, heard sound, physical placement, all-four-service concurrency or owner acceptance. Current hosted CI was not inspected in this reconciliation.
+Synthetic checks cannot establish which build Chrome loaded, provider access, pictures, heard sound, physical monitor placement or owner acceptance. Prime Video and Netflix have negative capability fixtures, not positive playback evidence. User-operated native checks and exact-commit hosted CI are separate from local source validation. Generated reports remain ignored and are not prerequisites for reading this documentation.
+
+The compact remote checks cover collapsed optional services, connected-only counts, visible interrupted-opening recovery, closure failure/retry, and unobstructed playback without page launchers. A synthetic browser preview at 380 × 570 confirmed the two-player controls fit without scrolling; it does not establish installed playback.
+
+Existing-player UI checks cover a visible two-player list, serial Connect all, and direct permission gestures. Workspace tests verify Save current positions writes a recoverable custom layout without window/audio mutations, restores exact positions later, and refuses shared/minimized/offscreen/moving windows. The journey checks reconnecting an outdated original adapter without navigation.
+
+`auto-connect.test.ts` covers automatic one-to-four connection, overflow, detection errors, partial failure and explicit retries. Remote tests cover automatic startup and suppression of repeated failed attempts. Drawing tests check the actual HTML module declaration, startup fallback and extension-page sender identity without a tab. These checks remain synthetic.

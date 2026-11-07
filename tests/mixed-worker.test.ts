@@ -5,6 +5,17 @@ import { harness } from './helpers/viewing-worker';
 import { MIXED_KEY } from '../packages/storage/src/media-queue';
 
 const content = { service: 'yttv', kind: 'live-channel', channelId: 'yttv:cbs' } as const;
+test('a restored preparation URL from another extension never grants focus or player ownership', async () => {
+  const h = await setup();
+  const foreign = 'chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/player-start.html';
+  const record = h.local[MIXED_KEY], owner = record.ownership[0], slot = record.slots.find((s: any) => s.id === owner.slotId);
+  owner.ordinaryUrl = foreign; owner.createdHere = true; h.tabs.get(owner.tabId).url = foreign;
+  h.start();
+  const before = h.log.length;
+  assert.equal((await h.command({ action: 'focus', slotId: slot.id, generation: slot.generation })).code, 'SUPERSEDED');
+  assert.equal(h.log.slice(before).some(row => ['tab', 'bounds', 'player', 'create'].includes(row.type)), false);
+  assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).panes.length, 0);
+});
 async function setup() {
   const h = await harness(); h.controls.nowOffset = 2000; await h.observe();
   h.tabs.set(99, { id: 99, windowId: 99, url: 'chrome-extension://test/remote.html' }); h.session['yttv-desktop.remote.v1'] = 99;
@@ -103,7 +114,7 @@ test('ownership-save failure and failed cleanup retain uncertainty across worker
   const h = await setup(); const item = await h.add(); let r = (await h.snapshot()).record;
   h.controls.afterCreate = async () => { h.controls.localFails = true; h.controls.removeFails = true; };
   assert.equal((await h.command({ action: 'play', itemId: item.id, slotId: r.slots[1].id, generation: 0 })).ok, true); await h.settle();
-  assert.equal(h.tabs.get(2).url, 'about:blank'); assert.equal(h.local[MIXED_KEY].claims[0].phase, 'claimed');
+  assert.equal(h.tabs.get(2).url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html'); assert.equal(h.local[MIXED_KEY].claims[0].phase, 'claimed');
   h.controls.localFails = false; h.controls.afterCreate = undefined;
   const before = h.log.length; h.start(); await h.send({ type: 'GET_SNAPSHOT' });
   r = (await h.snapshot()).record;
@@ -120,7 +131,7 @@ test('restart in the create-to-binding gap holds reservation and never scans/ado
   const before = h.log.length; h.start(); const state = await h.send({ type: 'GET_SNAPSHOT' });
   assert.equal(state.mixed.record.claims.length, 1); assert.equal(state.panes.length, 1);
   assert(!h.log.slice(before).some(x => x.type === 'create' || x.type === 'playback' || x.value?.url));
-  assert.equal(h.tabs.get(2).url, 'about:blank');
+  assert.equal(h.tabs.get(2).url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html');
 });
 
 test('fresh guide, unique player and current document are required; closure retains the item without auto advancement', async () => {
@@ -165,7 +176,7 @@ test('legacy New show persists its reservation before creation and binding befor
     h.controls.localFails = true; h.controls.removeFails = true;
   };
   assert.equal((await h.send({ type: 'NEW_SHOW' })).ok, false); assert(sawClaim);
-  assert.equal(h.tabs.get(2).url, 'about:blank'); assert.equal(h.local[MIXED_KEY].claims[0].source, 'legacy');
+  assert.equal(h.tabs.get(2).url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html'); assert.equal(h.local[MIXED_KEY].claims[0].source, 'legacy');
   h.controls.localFails = false; const boundary = h.log.length; h.start(); await h.send({ type: 'GET_SNAPSHOT' });
   assert.equal(h.local[MIXED_KEY].claims.length, 1);
   assert(!h.log.slice(boundary).some(x => x.value?.url || x.type === 'create' || x.type === 'playback'));

@@ -39,7 +39,7 @@ function start() {
     existing.dispatchEvent(new Event('yttv-bridge-probe'));
     if (existing.dataset.bridgeHealthy === 'true') { lifecycle.dispose(); return; }
   }
-  // Explicit re-injection replaces only the old extension launcher; the native player is untouched.
+  // Explicit re-injection replaces only the old extension bridge; the native player is untouched.
   if (existing) { if (!existing.shadowRoot?.querySelector('.drawer')) return; existing.dispatchEvent(new Event('yttv-bridge-dispose')); existing.remove(); }
   host = document.createElement('div'); host.id = HOST_ID; host.dataset.extensionBuild = build;
   host.style.cssText = 'position:fixed;right:16px;top:72px;z-index:2147483600;font-family:system-ui,sans-serif;';
@@ -61,34 +61,20 @@ function start() {
   });
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
-  style.textContent = ':host{color-scheme:dark}*{box-sizing:border-box}.toggle{position:fixed;right:16px;top:18px;padding:9px 16px;border:1px solid #596582;background:#111b2a;color:#ecf3ff;border-radius:10px;font:600 13px system-ui;cursor:pointer;box-shadow:0 4px 20px #0007}.drawer{width:min(440px,calc(100vw - 32px));height:calc(100vh - 90px);overflow:auto;background:#0b1220;border:1px solid #324159;border-radius:14px;box-shadow:0 12px 48px #000b}.drawer[hidden]{display:none}';
+  style.textContent = ':host{color-scheme:dark}*{box-sizing:border-box}.drawer{width:min(440px,calc(100vw - 32px));height:calc(100vh - 90px);overflow:auto;background:#0b1220;border:1px solid #324159;border-radius:14px;box-shadow:0 12px 48px #000b}.drawer[hidden]{display:none}';
   const uiStyle = document.createElement('style'); uiStyle.textContent = uiCss;
-  const toggle = document.createElement('button'); toggle.className = 'toggle'; toggle.textContent = 'Desktop'; toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Open YouTube TV desktop guide');
   const drawer = document.createElement('div'); drawer.className = 'drawer'; drawer.hidden = true; drawer.style.containerType = 'inline-size';
   let unmount: (() => void) | undefined;
-  let drawerTouched = false;
-  const applyDrawerState = (opened: boolean) => {
-    drawer.hidden = !opened; toggle.setAttribute('aria-expanded', String(opened));
-    toggle.setAttribute('aria-label', `${opened ? 'Close' : 'Open'} YouTube TV desktop guide`);
+  const setDrawerOpen = (opened: boolean) => {
+    drawer.hidden = !opened;
+    if (lifecycle.active) void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'SET_DRAWER_STATE', opened: !drawer.hidden })));
   };
-  const toggleDrawer = () => {
-    drawerTouched = true;
-    const opened = drawer.hidden !== false; applyDrawerState(opened);
-    if (lifecycle.active) void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'SET_DRAWER_STATE', opened })));
-  };
-  toggle.addEventListener('click', toggleDrawer);
-  const remote = document.createElement('button'); remote.className = 'toggle'; remote.style.right = '120px'; remote.textContent = 'Open remote';
-  remote.addEventListener('click', () => { applyDrawerState(false); void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'OPEN_REMOTE' }))); });
-  shadow.append(style, uiStyle, remote, toggle, drawer); document.documentElement.append(host);
+  // The toolbar opens the remote. No permanent controls or restored overlays cover playback.
+  shadow.append(style, uiStyle, drawer); document.documentElement.append(host);
   lifecycle.onInvalidated(() => {
     unmount?.(); unmount = undefined;
     host!.setAttribute('data-extension-state', 'refresh-required');
-    toggle.textContent = 'Desktop · Reconnect';
-    toggle.setAttribute('aria-label', 'Desktop updated. Use the remote Connection control to reconnect');
-    const notice = document.createElement('p'); notice.setAttribute('role', 'status');
-    notice.style.cssText = 'margin:0;padding:24px;color:#ecf3ff;font:14px/1.6 system-ui;';
-    notice.textContent = 'Desktop extension updated. Use Reconnect original player in the remote Connection section. Your underlying playback remains available.';
-    drawer.replaceChildren(notice);
+    drawer.hidden = true; drawer.replaceChildren();
   });
   const renewPlayer = (event: Event) => { if (event.target instanceof HTMLVideoElement) playerKeys.set(event.target, crypto.randomUUID()); };
   document.addEventListener('loadstart', renewPlayer, true);
@@ -132,7 +118,10 @@ function start() {
       const key = playerKey();
       void lifecycle.guard(() => adapter!.setAudio(message)).then(value => { if (lifecycle.active) sendResponse(key === playerKey() ? value : { ok: false, code: 'PLAYER_CHANGED', audioFailure: 'PLAYER_CHANGED' }); }); return true; }
     if (message.type === 'MUTE') { void lifecycle.guard(() => adapter!.mute()).then(value => { if (lifecycle.active) void lifecycle.guard(() => sendResponse(value)); }); return true; }
-    if (message.type === 'TOGGLE_DESKTOP') { toggleDrawer(); void lifecycle.guard(() => sendResponse({ ok: true })); return false; }
+    if (message.type === 'TOGGLE_DESKTOP' || message.type === 'HIDE_DESKTOP') {
+      setDrawerOpen(message.type === 'TOGGLE_DESKTOP' && drawer.hidden !== false);
+      void lifecycle.guard(() => sendResponse({ ok: true })); return false;
+    }
     return false;
   };
   void lifecycle.guard(() => {
@@ -152,11 +141,7 @@ function start() {
   void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'GET_SNAPSHOT' }))).then(snapshot => {
     if (snapshot?.mode === 'extension' && Array.isArray(snapshot.guide)) adapter?.seedGuide(snapshot.guide);
   });
-  // Tab-scoped extension session storage survives native hard navigation without touching
-  // YouTube TV's own storage. A newly created managed tab has no saved open state.
-  void lifecycle.guard(() => chrome.runtime.sendMessage(envelope({ type: 'GET_DRAWER_STATE' }))).then(state => {
-    if (!drawerTouched && typeof state?.opened === 'boolean') applyDrawerState(state.opened);
-  });
+
 }
 if (document.documentElement) start();
 else {

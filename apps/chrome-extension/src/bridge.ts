@@ -43,6 +43,7 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
   void refresh();
   return {
     dispose: () => lifecycle.dispose(),
+    autoConnect: async () => { const result = await request({ type: 'AUTO_CONNECT' }); await refresh(); return result; },
     getSnapshot: () => snapshot,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     recoverGuide: () => request({ type: 'OPEN_NATIVE_GUIDE' }),

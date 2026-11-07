@@ -1,4 +1,5 @@
 import { watchNavigationUrl } from '../../core/src/index';
+import { isPlayerStartUrl } from '../../core/src/player-start';
 import { isUUID, mediaLabel, sanitizeContent, type MixedRecordV1, type QueueItem } from '../../core/src/media';
 export const MIXED_KEY = 'yttv-desktop.mixed-workspace.v1';
 const integer = (v: unknown) => Number.isSafeInteger(v) && Number(v) >= 0;
@@ -24,10 +25,11 @@ export function inspectMixed(raw: any): { record?: MixedRecordV1; writable: bool
     const ownership = raw.ownership.map((o: any) => {
       if (!slots.some((s: any) => s.id === o.slotId) || !['yttv', 'youtube', 'prime-video', 'netflix'].includes(o.service) || !integer(o.tabId) || !integer(o.windowId) || typeof o.createdHere !== 'boolean' || typeof o.ordinaryUrl !== 'string') throw Error();
       if (/[\x00-\x20\x7f]|%2f|%5c|\\/i.test(o.ordinaryUrl)) throw Error();
-      const u = new URL(o.ordinaryUrl === 'about:blank' ? 'https://tv.youtube.com/' : o.ordinaryUrl);
+      const preparing = isPlayerStartUrl(o.ordinaryUrl) && o.createdHere === true;
+      const u = new URL(o.ordinaryUrl === 'about:blank' || preparing ? 'https://tv.youtube.com/' : o.ordinaryUrl);
       const hosts = { yttv: 'tv.youtube.com', youtube: 'www.youtube.com', 'prime-video': 'www.primevideo.com', netflix: 'www.netflix.com' };
-      if (u.protocol !== 'https:' || u.username || u.password || u.port || u.hash || o.ordinaryUrl !== 'about:blank' && u.hostname !== hosts[o.service as keyof typeof hosts] || o.ordinaryUrl.length > 2048) throw Error();
-      if (o.ordinaryUrl !== 'about:blank' && (o.service === 'yttv' ? !(watchNavigationUrl(o.ordinaryUrl) === o.ordinaryUrl || /^https:\/\/tv\.youtube\.com\/(live|library)?$/.test(o.ordinaryUrl)) : !sanitizeContent({ service: o.service, kind: o.service === 'youtube' ? 'video' : o.service === 'prime-video' ? 'detail' : u.pathname.split('/')[1], videoId: u.searchParams.get('v'), titleId: u.pathname.split('/')[2], url: o.ordinaryUrl }))) throw Error();
+      if (u.protocol !== 'https:' || u.username || u.password || u.port || u.hash || o.ordinaryUrl !== 'about:blank' && !preparing && u.hostname !== hosts[o.service as keyof typeof hosts] || o.ordinaryUrl.length > 2048) throw Error();
+      if (o.ordinaryUrl !== 'about:blank' && !preparing && (o.service === 'yttv' ? !(watchNavigationUrl(o.ordinaryUrl) === o.ordinaryUrl || /^https:\/\/tv\.youtube\.com\/(live|library)?$/.test(o.ordinaryUrl)) : !sanitizeContent({ service: o.service, kind: o.service === 'youtube' ? 'video' : o.service === 'prime-video' ? 'detail' : u.pathname.split('/')[1], videoId: u.searchParams.get('v'), titleId: u.pathname.split('/')[2], url: o.ordinaryUrl }))) throw Error();
       return { slotId: o.slotId, service: o.service, tabId: o.tabId, windowId: o.windowId, ordinaryUrl: o.ordinaryUrl, createdHere: o.createdHere };
     });
     const items = raw.items.map(item).filter(Boolean) as QueueItem[];

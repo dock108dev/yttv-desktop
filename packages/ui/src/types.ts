@@ -78,6 +78,7 @@ export interface DesktopSnapshot {
 }
 
 export interface ClientBridge {
+  autoConnect?(): Promise<ActionResult>;
   queueIntent?(intent: import('../../core/src/media').QueueIntent): Promise<ActionResult>;
   getSnapshot(): DesktopSnapshot | Promise<DesktopSnapshot>;
   subscribe(listener: () => void): () => void;

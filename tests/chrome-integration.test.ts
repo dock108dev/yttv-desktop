@@ -30,7 +30,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
       local: { get: async (key: string) => ({ [key]: structuredClone(local[key]) }), set: async (value: object) => Object.assign(local, structuredClone(value)) },
       session: { get: async (key: string) => ({ [key]: structuredClone(session[key]) }), set: async (value: object) => Object.assign(session, structuredClone(value)) },
     },
-    runtime: { id: 'local', getURL: (path: string) => `chrome-extension://local/${path}`, sendMessage: async () => undefined,
+    runtime: { id: 'local', getURL: (path: string) => `chrome-extension://${path === 'player-start.html' ? 'a'.repeat(32) : 'local'}/${path}`, sendMessage: async () => undefined,
       onMessage: { addListener: (fn: typeof listener) => { listener = fn; } } },
     permissions: { contains: async () => injectionPermission },
     scripting: { executeScript: async (value: any) => { log.push({ operation: 'inject', value }); return []; } },
@@ -39,6 +39,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
       update: async (id: number, value: object) => { log.push({ operation: 'update', id, value }); if (failMuteOnce && id === 1 && (value as any).muted === true) { failMuteOnce = false; throw new Error('synthetic mute failure'); }
         Object.assign(tabs.get(id), value); if ('muted' in value) tabs.get(id).mutedInfo = { muted: (value as any).muted, reason: 'extension' }; return tabs.get(id); },
       sendMessage: async (id: number, message: any) => {
+        if (message.type === 'TOGGLE_DESKTOP' || message.type === 'HIDE_DESKTOP') log.push({ operation: 'drawer', id, value: message });
         if (message.type === 'GET_OBSERVATION') return reconnectResponse?.(message);
         if (message.type === 'NAVIGATE') { log.push({operation:'navigate',id,value:message}); return {ok:false,code:'TIMEOUT',reason:'Synthetic playback not confirmed'}; }
         if (message.type !== 'PLAYER_AUDIO') return undefined;
@@ -91,6 +92,8 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, false);
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true }, originalSender)).ok, true);
   assert.equal((await send({ type: 'GET_DRAWER_STATE' }, originalSender)).opened, true);
+  assert.equal((await send({ type: 'FOCUS_MAIN' })).ok, true);
+  assert.equal(log.filter(item => item.operation === 'drawer').at(-1)?.value.type, 'HIDE_DESKTOP', 'focus explicitly hides instead of toggling stale drawer state');
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true })).ok, false, 'popup cannot change another tab’s drawer');
   assert.equal((await send({ type: 'SET_DRAWER_STATE', opened: true }, { ...originalSender, id: 'unrelated' })).ok, false, 'another extension cannot impersonate the content bridge');
   observation.observedAt = new Date().toISOString();
@@ -114,7 +117,7 @@ test('managed sessions route audio safely, bounded creation, isolated replacemen
   assert.equal(pendingSnapshot.pendingFeedCreations, 1); assert.equal(pendingSnapshot.panes.length, 1);
   releaseCreation(); assert.equal((await pendingCreation).ok, true); createGate = undefined; creationStarted = undefined;
   const creation = log.findIndex(item => item.operation === 'create');
-  assert.equal(log[creation].value.url, 'about:blank');
+  assert.equal(log[creation].value.url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html');
   assert.deepEqual(log[creation + 1], { operation: 'update', id: 2, value: { muted: true } });
   assert.equal(log[creation + 2].value.muted, true); assert.equal(log[creation + 2].value.url, observation.guide[0].target!.url);
   const snapshot = await send({ type: 'GET_SNAPSHOT' }); const paneId = snapshot.panes[1].id;

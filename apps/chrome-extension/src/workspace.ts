@@ -1,8 +1,9 @@
 import { CURRENT_MANAGED_FEED_LIMIT, isManagedFeedCount } from '../../../packages/quadbox/src/policy';
 import { sanitizeWorkspaceLayout, WORKSPACE_LAYOUT_KEY } from '../../../packages/storage/src/index';
 import { recoveredSession, saveWorkspaceSession } from './recovery';
-import { areaIntent, boundingArea, contains, planLayout, readIntent, resolveArea, validRect, MIN_PLAYER, type LayoutMode, type AreaIntent, type Rect } from '../../../packages/quadbox/src/geometry';
+import { areaIntent, boundingArea, normalizeSlots, contains, planLayout, readIntent, resolveArea, validRect, MIN_PLAYER, type LayoutMode, type AreaIntent, type Rect } from '../../../packages/quadbox/src/geometry';
 import type { ActionResult } from '../../../packages/ui/src/types';
+import type { FailureCode } from './diagnostics';
 export const AREA_KEY = 'yttv-desktop.tv-area.v1';
 const RETURN_KEY = 'yttv-desktop.main-return.v1';
 const EXPANDED_KEY = 'yttv-desktop.expanded-bounds.v1';
@@ -17,7 +18,7 @@ function bounds(w: chrome.windows.Window): Rect {
   if (!validRect(r)) throw new Error('Window bounds unavailable'); return r;
 }
 /** Geometry has no audio/navigation port. Callers serialize mutations with feed lifecycle. */
-export function createWorkspace(api: typeof chrome, players: () => Promise<Player[]>) {
+export function createWorkspace(api: typeof chrome, players: () => Promise<Player[]>, report: (code: FailureCode) => void = () => {}) {
   let available = true;
   let layout = sanitizeWorkspaceLayout(null);
   let intent: AreaIntent | null = null, origin: Origin | undefined, remoteId: number | undefined;
@@ -168,14 +169,25 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
     },
     async openRemote() {
       const next = remoteQueue.catch(() => undefined).then(async () => {
-        await ready; if (!available) return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.');
+        await ready;
+        if (!available) { report('REMOTE_STORAGE_UNAVAILABLE'); return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.'); }
+        let remoteExists = false;
         if (remoteId) try {
           const tabs = await api.tabs.query({ windowId: remoteId });
-          if (tabs.length === 1 && tabs[0].url === api.runtime.getURL('remote.html')) { await api.windows.update(remoteId, { focused: true }); return success('Remote focused.'); }
+          remoteExists = tabs.length === 1 && tabs[0].url === api.runtime.getURL('remote.html');
         } catch { /* closed */ }
-        const w = await api.windows.create({ url: api.runtime.getURL('remote.html'), type: 'popup', width: 420, height: 640, focused: true });
-        if (!w?.id) return failure('REMOTE_UNAVAILABLE', 'Remote could not be opened. Use the player controls.');
-        remoteId = w.id; await saveWorkspaceSession(api, { [REMOTE_KEY]: remoteId }); return success('Remote opened. Closing it leaves playback intact.');
+        if (remoteExists) {
+          try { await api.windows.update(remoteId!, { focused: true }); return success('Remote focused.'); }
+          catch { report('REMOTE_FOCUS_FAILED'); return failure('REMOTE_FOCUS_FAILED', 'The remote exists, but Chrome could not bring it forward. Select TV remote from Chrome’s Window menu.'); }
+        }
+        let w: chrome.windows.Window | undefined;
+        try { w = await api.windows.create({ url: api.runtime.getURL('remote.html'), type: 'popup', width: 380, height: 600, focused: true }); }
+        catch { report('REMOTE_CREATE_FAILED'); return failure('REMOTE_CREATE_FAILED', 'Chrome could not open the remote window. Native player controls remain available.'); }
+        if (!w?.id) { report('REMOTE_CREATE_FAILED'); return failure('REMOTE_CREATE_FAILED', 'Chrome did not confirm a remote window. Inspect existing windows before retrying.'); }
+        remoteId = w.id;
+        try { await saveWorkspaceSession(api, { [REMOTE_KEY]: remoteId }); }
+        catch { report('REMOTE_SAVE_FAILED'); return failure('REMOTE_SAVE_FAILED', 'The remote opened, but its recovery record could not be saved. Keep that window open and use native controls if needed.'); }
+        return success('Remote opened. Closing it leaves playback intact.');
       }); remoteQueue = next; return next;
     },
     async setArea(work: Rect, area: Rect, displayId?: string, mode?: LayoutMode, customSlots?: Rect[], plannedCount?: number) {
@@ -203,6 +215,58 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
         return { ...success(notice), code: 'LAYOUT_SAVED' };
       }
       if (origin && intent.autoArrange) { const result = await arrange(); if (!result.ok) { await api.storage.local.set({ [AREA_KEY]: prior, [WORKSPACE_LAYOUT_KEY]: priorLayout }); intent = prior; layout = priorLayout; } return result; } return success(notice);
+    },
+    async saveCurrentPositions() {
+      await ready;
+      if (!available) return failure('STORAGE_UNAVAILABLE', 'Saved layouts are unavailable; current windows remain unchanged.');
+      if (expanded) return failure('EXPANDED', 'Restore the expanded player before saving positions.');
+      const rows = await players(), main = rows.find(p => p.id === 'main');
+      if (!main || !isManagedFeedCount(rows.length)) return failure('PLAYERS_UNAVAILABLE', 'Connect your existing players first.');
+      if (!await api.permissions.contains({ permissions: ['system.display'] })) return failure('DISPLAY_PERMISSION', 'Allow monitor access to save current positions.');
+      try {
+        const capture = async () => {
+          const captured = [];
+          for (const p of rows) {
+            const tab = await api.tabs.get(p.tabId), siblings = await api.tabs.query({ windowId: p.windowId }), w = await api.windows.get(p.windowId);
+            if (tab.windowId !== p.windowId || siblings.length !== 1 || siblings[0].id !== p.tabId || w.state !== 'normal')
+              throw Error('Each player must be in its own normal Chrome window. Current windows were not changed.');
+            // Compare placement and Return identity, not changing playback metadata
+            // such as audible, title or lastAccessed.
+            const identity = { url: tab.url, pendingUrl: tab.pendingUrl, index: tab.index, pinned: tab.pinned };
+            captured.push({ player: { id: p.id, tabId: p.tabId, windowId: p.windowId }, tab: identity, rect: bounds(w) });
+          }
+          return captured;
+        };
+        const captured = await capture();
+        const display = (await api.system.display.getInfo()).find(d => validRect(d.workArea) && captured.every(r => contains(d.workArea, r.rect)));
+        if (!display) return failure('DISPLAY_UNAVAILABLE', 'Place all connected players fully on one monitor, then save their positions.');
+        const slots = normalizeSlots(display.workArea, captured.map(r => r.rect));
+        const plan = planLayout(display.workArea, rows.length, 8, 'custom', slots);
+        if (!plan.ok) return failure('INVALID_AREA', plan.reason);
+        const nextIntent = areaIntent(display.workArea, display.workArea, false, display.id)!;
+        const nextLayout = sanitizeWorkspaceLayout({ ...layout, version: 1, mode: 'custom', customLayouts: { ...layout.customLayouts, [rows.length]: slots } });
+        const original = captured.find(r => r.player.id === 'main')!;
+        if (origin && origin.tabId !== main.tabId) return failure('MAIN_CHANGED', 'The original player changed. Reconnect it before saving positions.');
+        const nextOrigin: Origin = origin ? { ...origin, dedicatedWindowId: main.windowId } : { tabId: main.tabId, windowId: main.windowId, index: original.tab.index, pinned: original.tab.pinned, bounds: original.rect, dedicatedWindowId: main.windowId };
+        // Recheck identities and bounds before saving; saving never moves or focuses a window.
+        if (JSON.stringify(await capture()) !== JSON.stringify(captured)) return failure('PLAYER_MOVED', 'A player moved while saving. Try Save current positions again.');
+        const nextPlacement = captured.map(r => ({ player: r.player, rect: r.rect }));
+        const prior = { intent, layout, origin, placement };
+        try {
+          await api.storage.local.set({ [AREA_KEY]: nextIntent, [WORKSPACE_LAYOUT_KEY]: nextLayout });
+          await saveWorkspaceSession(api, { [RETURN_KEY]: nextOrigin, [PLACEMENT_KEY]: nextPlacement });
+        } catch {
+          try {
+            await api.storage.local.set({ [AREA_KEY]: prior.intent, [WORKSPACE_LAYOUT_KEY]: prior.layout });
+            await saveWorkspaceSession(api, { [RETURN_KEY]: prior.origin ?? null, [PLACEMENT_KEY]: prior.placement });
+          } catch { available = false; }
+          return failure('SAVE_FAILED', 'Positions could not be saved. Current windows were not changed.');
+        }
+        intent = nextIntent; layout = nextLayout; origin = nextOrigin; placement = nextPlacement;
+        actual = captured.map(r => ({ id: r.player.id, bounds: r.rect }));
+        notice = 'Current positions saved. Arrange shows restores this arrangement; automatic arrangement is off.';
+        return success(notice);
+      } catch (error) { return failure('PLAYER_UNAVAILABLE', error instanceof Error ? error.message : 'Current positions unavailable.'); }
     },
     async validatePlayers() {
       const rows = await players();

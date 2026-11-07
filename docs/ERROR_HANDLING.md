@@ -29,6 +29,14 @@ Exception text, stacks, URLs, guide text, provider bodies and identifiers are no
 
 ## Recovery procedure
 
+Open the remote from Chrome’s extension toolbar icon. Playback no longer has floating extension buttons, and saved drawer visibility is not restored over video. After Reload, automatic connection replaces an old page bridge when reconnect permission is already granted. If old buttons remain, use **Retry detection** in the remote and allow reconnect access, or refresh the affected player when convenient. Reconnection preserves native playback and audio. Old contexts stop observing and hide their drawer after invalidation.
+
+If the toolbar launcher also fails, inspect the **service worker → Console** from the existing extension card. `WORKER_INITIALIZATION_FAILED` identifies worker startup failure. `REMOTE_STORAGE_UNAVAILABLE`, `REMOTE_CREATE_FAILED`, `REMOTE_FOCUS_FAILED` and `REMOTE_SAVE_FAILED` distinguish unreadable workspace records, refused window creation, refused focus and failed recovery persistence. A focus failure retains the existing remote without creating a duplicate. `REMOTE_CONNECTION_FAILED` means the remote opened but selecting the original tab failed; `GUIDE_SYNC_FAILED` identifies later guide discovery failure. These static codes do not include private exception text. An old `CONTEXT_INVALIDATED` entry from `content.js` does not diagnose a toolbar failure.
+
+An empty saved workspace can legitimately lack an original tab ID. Recovery skips missing or invalid IDs before calling Chrome and handles both synchronous lookup failures and rejected promises. It does not rewrite the saved ownership record or change native playback while checking it.
+
+New player windows use the packaged `player-start.html` page because ordinary blank-tab URL metadata may be withheld by Chrome. Creation waits for the exact extension-owned page in the original single-tab window; missing metadata is not treated as proof of identity. The existing mute-before-navigation rule still applies, and permissions are unchanged. An interrupted, unbound opening stays reserved until the owner closes its window and confirms closure in the recovery section at the top of the remote. Older `about:blank` ownership records remain readable.
+
 1. Check the installed version under **Settings & layout → Connection**. Source changes appear only after rebuilding and reloading the existing extension entry; a successful build cannot confirm live playback.
 2. For storage failures, preserve existing records. Retry a failed settings patch only when storage is available. After a read failure, writes remain blocked until a later worker initialization reads the record successfully. Storage is never reset automatically. Do not clear storage or reinstall.
 3. For audio isolation or cleanup failure, use the original native mute and close the affected added window. Treat player/tab readback and heard sound separately. Never retry audio enable while managed identity is unknown.
@@ -38,3 +46,7 @@ Exception text, stacks, URLs, guide text, provider bodies and identifiers are no
 ## Recovery limits
 
 Expected capability failures include stale/missing targets, absent/loading players and missing receivers during navigation. They leave native controls available. Audio transfer mutes before enabling one player and compensates failed enable operations with mute. Queues recover from a prior rejection so later operations can run; the original caller still receives its failure. Preview-only preference fallback is visit-scoped and labeled.
+
+Automatic player connection runs one bounded pass per detected-player change. Failed queries, stale adapters, unavailable storage and more than four candidates remain visible with Retry detection; connection does not move or alter sound. Reconnect permission is requested only on an explicit retry/connection gesture.
+
+The full-size drawing page loads its bundle as a JavaScript module. A static startup message remains visible if loading fails, and unavailable configuration produces recovery text. Extension-page document identity is resolved through runtime contexts when Chrome omits the sender tab.

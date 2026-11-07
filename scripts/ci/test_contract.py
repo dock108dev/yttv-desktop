@@ -55,7 +55,7 @@ class Contracts(unittest.TestCase):
         for name in ('area-picker.js', 'area-picker.css'):
             (self.root / name).write_text('synthetic')
         validate_output(self.root)
-        for name in ('youtube-content.js', 'prime-video-content.js', 'netflix-content.js'):
+        for name in ('youtube-content.js', 'prime-video-content.js', 'netflix-content.js', 'player-start.html'):
             (self.root / name).unlink()
             with self.subTest(asset=name), self.assertRaises(ValueError):
                 validate_output(self.root)

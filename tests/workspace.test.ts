@@ -31,8 +31,9 @@ function harness() {
     },
   };
   const players = async () => [{ id: 'main', tabId: 1, windowId: tabs.get(1).windowId }, ...extra];
-  const make = () => createWorkspace(api, players);
-  return { api, make, local, session, tabs, windows, log, extra, add(id: number) { tabs.set(id, { id, windowId: id, index: 0, url: 'https://tv.youtube.com/watch?v=extra' }); windows.set(id, { id, ...area, state: 'normal' }); extra.push({ id: `pane-${id}`, tabId: id, windowId: id }); }, fail(id: number) { failWindow = id; }, clamp() { clamp = true; }, permission(v: boolean) { permission = v; }, displays(v: any[]) { displays = v; } };
+  const failures: string[] = [];
+  const make = () => createWorkspace(api, players, code => failures.push(code));
+  return { api, make, local, session, tabs, windows, log, failures, extra, add(id: number) { tabs.set(id, { id, windowId: id, index: 0, url: 'https://tv.youtube.com/watch?v=extra' }); windows.set(id, { id, ...area, state: 'normal' }); extra.push({ id: `pane-${id}`, tabId: id, windowId: id }); }, fail(id: number) { failWindow = id; }, clamp() { clamp = true; }, permission(v: boolean) { permission = v; }, displays(v: any[]) { displays = v; } };
 }
 test('layout planning saves before opening shows and validates the selected count without moving a different current count', async () => {
   const h = harness(); h.permission(true);
@@ -58,9 +59,34 @@ test('singleton remote survives worker reconnect, close/reopen leaves players in
   const h = harness(), w = h.make(); await Promise.all([w.openRemote(), w.openRemote(), w.openRemote()]);
   assert.equal(h.log.filter(x => x[0] === 'create').length, 1);
   const again = h.make(); await again.openRemote(); assert.equal(h.log.filter(x => x[0] === 'create').length, 1);
+  assert.equal(h.log.find(x => x[0] === 'create')[2].width, 380);
+  assert.equal(h.log.find(x => x[0] === 'create')[2].height, 600);
   const remote = h.log.find(x => x[0] === 'create')[1]; h.tabs.delete(remote); h.windows.delete(remote);
   await again.openRemote(); assert.equal(h.log.filter(x => x[0] === 'create').length, 2); assert.equal(h.tabs.get(1).windowId, 10); assert.equal(h.tabs.get(1).mutedInfo.muted, true);
   assert(!h.log.some(x => x[0] === 'tab' || x[0] === 'move'));
+});
+test('remote launch failures identify their boundary, preserve players and never duplicate a remote after failed focus or save', async () => {
+  const h = harness(), w = h.make(); await w.ready;
+  const native = structuredClone([...h.tabs]);
+  const create = h.api.windows.create;
+  h.api.windows.create = async () => { throw Error('private Chrome failure'); };
+  assert.equal((await w.openRemote()).code, 'REMOTE_CREATE_FAILED');
+  assert.deepEqual(h.failures, ['REMOTE_CREATE_FAILED']);
+  assert.deepEqual([...h.tabs], native);
+  h.api.windows.create = create;
+  const save = h.api.storage.session.set;
+  h.api.storage.session.set = async () => { throw Error('private storage failure'); };
+  assert.equal((await w.openRemote()).code, 'REMOTE_SAVE_FAILED');
+  h.api.storage.session.set = save;
+  const update = h.api.windows.update;
+  h.api.windows.update = async () => { throw Error('private focus failure'); };
+  assert.equal((await w.openRemote()).code, 'REMOTE_FOCUS_FAILED');
+  assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
+  h.api.windows.update = update;
+  assert.equal((await w.openRemote()).ok, true);
+  assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
+  assert.deepEqual([...h.tabs].filter(([id]) => id === 1 || id === 9), native);
+  assert.deepEqual(h.failures, ['REMOTE_CREATE_FAILED', 'REMOTE_SAVE_FAILED', 'REMOTE_FOCUS_FAILED']);
 });
 test('main same-tab enrollment, actual layout, Add/Close reflow, manual mode, Expand/Restore and return preserve owner tabs/bounds', async () => {
   const h = harness(), w = h.make(); await w.ready;
@@ -133,6 +159,7 @@ test('workspace storage failure preserves records and cannot create a duplicate 
   h.api.storage.session.get = async () => { throw Error('synthetic unavailable storage'); };
   const w = h.make(); await w.ready; assert.equal(w.snapshot().available, false);
   assert.equal((await w.openRemote()).code, 'STORAGE_UNAVAILABLE');
+  assert.deepEqual(h.failures, ['REMOTE_STORAGE_UNAVAILABLE']);
   assert.equal((await w.enroll()).code, 'STORAGE_UNAVAILABLE'); assert.equal(h.log.length, 0);
   assert.equal(h.session['yttv-desktop.remote.v1'], 20);
 });
@@ -277,5 +304,53 @@ test('custom layouts for all four counts survive reopening and retain precise po
     const preserved = structuredClone(reopened.snapshot().customLayouts);
     assert.equal((await reopened.setArea(large, large, 'monitor', 'grid')).ok, true); assert.equal((await reopened.setArea(large, large, 'monitor', 'custom')).ok, true);
     assert.deepEqual(reopened.snapshot().customLayouts, preserved);
+  }
+});
+
+test('save current positions captures existing single-player windows without moving them and restores exact positions later', async () => {
+  const h = harness(); h.tabs.get(9).windowId = 99;
+  h.tabs.get(1).index = 0; h.permission(true); h.add(30);
+  const chosen = [{ left: -1900, top: 0, width: 1200, height: 480 }, { left: -1900, top: 500, width: 1200, height: 480 }];
+  Object.assign(h.windows.get(10), chosen[0]); Object.assign(h.windows.get(30), chosen[1]);
+  const before = structuredClone([...h.tabs]), w = h.make();
+  assert.equal((await w.saveCurrentPositions()).ok, true);
+  assert.equal(h.log.length, 0, 'save does not move, resize, focus, navigate or change audio');
+  assert.deepEqual([...h.tabs], before); assert.equal(w.snapshot().enrolled, true);
+  assert.equal(w.snapshot().layout, 'custom'); assert.equal(w.snapshot().intent!.autoArrange, false);
+  assert.deepEqual(w.snapshot().actual.map(r => r.bounds), chosen);
+  const again = h.make(); await again.ready; assert.equal(again.snapshot().layout, 'custom');
+  h.windows.get(10).left += 50;
+  assert.equal((await again.arrange()).ok, true);
+  assert.deepEqual(again.snapshot().actual.map(r => r.bounds), chosen);
+  assert(!h.log.some(x => ['create', 'move', 'tab'].includes(x[0])));
+});
+
+test('save positions ignores changing playback metadata but preserves native choices', async () => {
+  const h = harness(); h.permission(true); h.tabs.get(9).windowId = 99;
+  Object.assign(h.windows.get(10), { left: -1900, top: 0, width: 1000, height: 700 });
+  let read = 0;
+  const get = h.api.tabs.get;
+  h.api.tabs.get = async (id: number) => ({ ...await get(id), title: `Live title ${++read}`, audible: read % 2 === 0, lastAccessed: read });
+  const w = h.make();
+  assert.equal((await w.saveCurrentPositions()).ok, true);
+  assert.equal(h.log.length, 0, 'changing metadata does not cause writes to native players');
+  assert.equal(h.tabs.get(1).mutedInfo.muted, true);
+});
+
+test('save positions refuses shared, minimized, moving, navigating or off-monitor windows and preserves saved settings', async () => {
+  for (const scenario of ['shared', 'minimized', 'offscreen', 'moving', 'navigating', 'permission', 'write-failure']) {
+    const h = harness(), w = h.make(); h.permission(scenario !== 'permission');
+    if (scenario !== 'shared') h.tabs.get(9).windowId = 99;
+    Object.assign(h.windows.get(10), { left: -1900, top: 0, width: 1000, height: 700 });
+    if (scenario === 'minimized') h.windows.get(10).state = 'minimized';
+    if (scenario === 'offscreen') h.windows.get(10).left = 100;
+    if (scenario === 'moving') { const get = h.api.windows.get; h.api.windows.get = async (id: number) => { const r = await get(id); h.windows.get(id).left++; return r; }; }
+    if (scenario === 'navigating') { const get = h.api.tabs.get; let read = 0; h.api.tabs.get = async (id: number) => ({ ...await get(id), pendingUrl: `https://tv.youtube.com/watch?v=changed${++read}` }); }
+    await w.ready;
+    const before = structuredClone(h.local);
+    if (scenario === 'write-failure') { const set = h.api.storage.local.set; let once = true; h.api.storage.local.set = async (v: object) => { if (once) { once = false; throw Error('synthetic'); } return set(v); }; }
+    assert.equal((await w.saveCurrentPositions()).ok, false, scenario);
+    assert.equal(h.log.length, 0, scenario); assert.equal(w.snapshot().enrolled, false, scenario);
+    if (scenario !== 'write-failure') assert.deepEqual(h.local, before, scenario);
   }
 });

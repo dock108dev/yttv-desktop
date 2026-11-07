@@ -1,6 +1,6 @@
 # Using the Chrome client
 
-Install or update the extension as described in [development](docs/DEVELOPMENT.md). Click the extension toolbar icon, then **New show**. You do not need to open YouTube TV first.
+Install or update the extension as described in [development](docs/DEVELOPMENT.md). Click the extension toolbar icon. Existing YouTube TV players connect automatically when the remote opens or detects a newly loaded player. Otherwise press **New show**.
 
 ## Windows and placement
 
@@ -10,13 +10,15 @@ Install or update the extension as described in [development](docs/DEVELOPMENT.m
 
 The limit is four total managed players, including the original and pending creation. Account concurrency is separate. Each card offers Play/Pause, audio, volume, Change channel, Focus, Expand/Restore and Remove (Return for the original).
 
-**Settings & layout** contains the TV area, Start, Arrange, automatic/manual placement and Connection. Add enrolls the original into a saved area when needed. Manual placement stays manual until automatic arrangement is selected. Return restores supported original placement; if its former parent is closed, a normal-window fallback is reported. Remove closes an added player only.
+**Set TV area** and **Save current positions** are directly below the main controls. **Settings & layout** contains Start, automatic/manual placement and Connection. Add enrolls the original into a saved area when needed. Manual placement stays manual until automatic arrangement is selected. Return restores supported original placement; if its former parent is closed, a normal-window fallback is reported. Remove closes an added player only.
 
-Known windows recover after remote reopen or extension Reload. Open players without surviving ownership records require **Connect existing player**. Connecting does not move, navigate or change audio. A restored tab with a different ID cannot inherit a historical original Return position.
+Known windows recover after remote reopen or extension Reload. Open players without surviving ownership records appear in the visible **existing players found** list. Up to four players connect automatically. If more than four are detected, close extras or use **Connect** beside the players you want; the remote does not choose an arbitrary subset. Failed detection or connection shows **Retry detection**. The header distinguishes connected players from detected players waiting to connect. Chrome may request reconnect access; the worker can then refresh a stale extension adapter without reloading the page. Connecting does not move, navigate or change audio. A restored tab with a different ID cannot inherit a historical original Return position.
 
 ## Arrange one to four shows
 
-Press **Arrange shows**. You can plan and save positions before opening any shows. To change a saved setup, press **Change layout**.
+Already placed your players manually? Once automatic connection finishes, press **Save current positions**. Allow monitor access if Chrome asks. This saves the current sizes and positions without moving, focusing or changing sound. All connected players must be separate normal windows fully on one monitor. **Arrange shows** later restores these positions; automatic arrangement stays off.
+
+To choose a different area, press **Set TV area**. You can plan positions before connecting or opening shows:
 
 1. Choose **1–4 shows** and a layout: Best fit, Stacked, Side by side, Grid, a larger show on one side, or **Place each show myself**.
 2. Press **Choose monitor** and select the screen you want.
@@ -29,7 +31,7 @@ Press **Arrange shows** to put the current shows back in place. **Channel** chan
 
 ## Manual video queue
 
-Open **Add video** in the remote. Choose a YouTube TV channel from the loaded guide, or save a supported plain YouTube, Prime Video or Netflix link. Saving and editing the queue does not launch anything or change sound. Enabled regular YouTube can play supported watch links. Prime Video and Netflix open muted native attention windows and retain their queue items; their remote playback controls are unavailable.
+Open **Videos & services → Add video** in the remote. Choose a YouTube TV channel from the loaded guide, or save a supported plain YouTube, Prime Video or Netflix link. Saving and editing the queue does not launch anything or change sound. Enabled regular YouTube can play supported watch links. Prime Video and Netflix open muted native attention windows and retain their queue items; their remote playback controls are unavailable.
 
 Use **Play next in** to select an empty slot or explicitly replace a named slot. Replacements reuse the same player window and start muted, retaining the volume choice. An item leaves the queue only after a matching native player is ready and consumption is saved; readiness does not prove playback. If native Play is refused, use the player's controls. There is no automatic advancement.
 
@@ -43,11 +45,13 @@ A save error never authorizes launch or consumption. **Retry storage** retries a
 
 New windows start muted; creating one preserves existing windows' audio and volume. Explicit **Channel** replacement mutes the selected player and its tab before navigation; it retains the volume choice for recovery on the replacement player and leaves other players' audio alone. Use **Enable audio** when you want sound from that replacement. Startup waits up to 15 seconds for a ready player and requests its unique native Play control once. Starting the first show also allows 15 seconds for its Live listings. If the show needs attention, use Play or finish setup in its YouTube TV window. A worker restart cancels waiting startup rather than retrying it.
 
+A new window briefly shows **Preparing your show**, an inert page belonging to the extension. The worker verifies that page and mutes its tab before opening the provider. If an earlier attempt left a blank window, close that window yourself and use **I closed the interrupted window** at the top of the remote before retrying **New show**. Keep any actual player windows open.
+
 Volume changes never unmute. **Enable audio** explicitly transfers audio through mute-all-before-enable-one policy at the selected player's existing volume. Focus, Play/Pause and placement do not transfer audio. Player mute and Chrome tab mute are separate; site mute can be unknown. Readback and advancing clocks do not prove a visible picture or heard sound.
 
 ## Guide, Sports and shortcuts
 
-The page's **Desktop** launcher opens the drawer. Guide supports search, favorites, recents, order and hiding. Previous uses confirmed channel history. Native captions, quality, seeking, Library/DVR and account controls remain available.
+Use Chrome’s extension toolbar icon to open the remote; playback has no floating extension buttons. **Pick a channel** opens channel search in the remote. Native captions, quality, seeking, Library/DVR and account controls remain available.
 
 Sports searches competition, team and program text from native listings. Current/next/upcoming labels describe guide context, not game status. There are no independent live scores. The labeled Fixture Lab is illustrative and cannot Watch/Add.
 
@@ -84,3 +88,5 @@ Choose **Enable Netflix** to request only `www.netflix.com` and scripting access
 The page opens browser-muted and counts toward the shared four-window limit. Its queue item stays pending. **Focus slot** or **Native player** lets you finish profile, sign-in, episode, maturity and account decisions yourself. The remote shows general attention; it cannot distinguish these prompts reliably. Play/Pause, native mute/volume and ended detection remain unknown. Connect explains the missing identity evidence without adopting or changing your player. Shared Enable audio is blocked while Netflix or Prime state is unknown.
 
 Replacement into Netflix reuses the selected tab. Replacement out and Retry are refused before mutation because native volume cannot be preserved reliably; close the native window before reusing its slot. Focus and recovery do not navigate, play, consume intent or change sound. Permission denial/revocation retains intent and counted resources. See [provider boundaries](docs/ARCHITECTURE.md#provider-integration) for the implementation limits.
+
+The remote opens at 380 × 600 pixels. The main view shows connected player controls, New show and layout actions. Videos & services and Settings & layout stay collapsed until opened. Interrupted openings appear above player selection; unconnected native windows do not count as connected controls.

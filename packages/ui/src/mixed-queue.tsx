@@ -3,7 +3,7 @@ import { recognizeContent, type ContentRef, type QueueIntent } from '../../core/
 import type { ActionResult, DesktopSnapshot } from './types';
 
 /** Snapshot-only UI: only worker intents may change the durable envelope. */
-export function MixedQueue({ state, send, enableYouTube, connectYouTube, enablePrimeVideo, connectPrimeVideo, enableNetflix, connectNetflix }: { state: DesktopSnapshot; send(intent: QueueIntent): Promise<ActionResult>; enableNetflix?(): Promise<ActionResult>; connectNetflix?(tabId: number): Promise<ActionResult>; enablePrimeVideo?(): Promise<ActionResult>; connectPrimeVideo?(tabId: number): Promise<ActionResult>; enableYouTube?(): Promise<ActionResult>; connectYouTube?(tabId: number): Promise<ActionResult> }) {
+export function MixedQueue({ hideRecovery = false, state, send, enableYouTube, connectYouTube, enablePrimeVideo, connectPrimeVideo, enableNetflix, connectNetflix }: { hideRecovery?: boolean; state: DesktopSnapshot; send(intent: QueueIntent): Promise<ActionResult>; enableNetflix?(): Promise<ActionResult>; connectNetflix?(tabId: number): Promise<ActionResult>; enablePrimeVideo?(): Promise<ActionResult>; connectPrimeVideo?(tabId: number): Promise<ActionResult>; enableYouTube?(): Promise<ActionResult>; connectYouTube?(tabId: number): Promise<ActionResult> }) {
   const mixed = state.mixed, record = mixed?.record;
   const [service, setService] = useState('yttv'), [link, setLink] = useState(''), [channel, setChannel] = useState('');
   const [label, setLabel] = useState(''), [editing, setEditing] = useState<string>(), [destination, setDestination] = useState('');
@@ -36,6 +36,7 @@ export function MixedQueue({ state, send, enableYouTube, connectYouTube, enableP
     }
   }
   return <section className="mixed-queue" aria-label="Video queue">
+    {!hideRecovery && <MixedRecovery state={state} send={send} />}
     <div><strong>YouTube</strong> {state.youtubeEnabled ? <small>Enabled · native watch videos</small> : <button disabled={busy || !enableYouTube} onClick={() => { const request = enableYouTube!(); void request.then(r => setError(r.ok ? '' : r.reason ?? 'Access denied. Use native YouTube.')); }}>Enable YouTube</button>}
       {state.youtubeEnabled && state.youtubeCandidates?.map(p => <button key={p.tabId} disabled={busy || !connectYouTube} onClick={() => void connectYouTube!(p.tabId).then(r => setError(r.ok ? '' : r.reason ?? 'Use native controls.'))}>Connect {p.label}</button>)}
     </div>
@@ -74,13 +75,32 @@ export function MixedQueue({ state, send, enableYouTube, connectYouTube, enableP
         </div></li>;
       })}</ol>
       <h2>Now playing slots</h2>
-      {record.slots.map(s => {
-        const owner = record.ownership.find(o => o.slotId === s.id), claim = record.claims.find(c => c.slotId === s.id);
+      {record.slots.filter(s => record.ownership.some(o => o.slotId === s.id)).map(s => {
+        const owner = record.ownership.find(o => o.slotId === s.id);
         return <div key={s.id}><strong>Slot {s.order + 1}{owner ? ` · ${owner.service} · ${state.panes.find(p => p.tabId === owner.tabId)?.channelName ?? 'Native player'}` : ''}</strong><small>{mixed.states[s.id] ?? (owner ? owner.service === 'prime-video' || owner.service === 'netflix' ? 'Identity unverified · use native controls' : 'Connected · use controls below' : 'Empty')}</small>
           {owner && <button disabled={disabled} onClick={() => void run({ ...base(), action: 'focus', slotId: s.id, generation: s.generation })}>Focus slot {s.order + 1}</button>}
-          {(claim || owner && mixed.states[s.id]?.includes('unavailable')) && <button disabled={disabled} onClick={() => void run({ ...base(), action: 'confirm-closed', slotId: s.id, generation: s.generation })}>I closed the interrupted window</button>}
         </div>;
       })}
     </>}
+  </section>;
+}
+
+/** Recovery stays visible even while optional queue and provider setup are collapsed. */
+export function MixedRecovery({ state, send }: { state: DesktopSnapshot; send(intent: QueueIntent): Promise<ActionResult> }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const mixed = state.mixed, record = mixed?.record;
+  const slots = record?.slots.filter(s => record.claims.some(c => c.slotId === s.id) || record.ownership.some(o => o.slotId === s.id) && mixed?.states[s.id]?.includes('unavailable')) ?? [];
+  if (!slots.length) return null;
+  const opening = Boolean(state.openingDefaultShow);
+  return <section className="launch-recovery" aria-label="Interrupted opening" role="status">
+    <h2>{opening ? 'Opening your show…' : 'Finish interrupted opening'}</h2>
+    {!opening && <p>Close only the blank or preparing window from the failed attempt, then confirm below. Keep your playing windows open.</p>}
+    {error && <p role="alert">{error}</p>}
+    {!opening && slots.map(s => <button key={s.id} disabled={busy || !mixed?.writable} onClick={() => {
+      setBusy(true); setError('');
+      void send({ action: 'confirm-closed', requestId: crypto.randomUUID(), revision: record!.revision, slotId: s.id, generation: s.generation })
+        .then(r => { if (!r.ok) setError(r.reason ?? 'Could not clear the interrupted opening.'); })
+        .catch(() => setError('Recovery unavailable. Try again.')).finally(() => setBusy(false));
+    }}>I closed the interrupted window{slots.length > 1 ? ` · ${s.order + 1}` : ''}</button>)}
   </section>;
 }

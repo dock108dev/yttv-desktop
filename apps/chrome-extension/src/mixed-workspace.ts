@@ -1,4 +1,5 @@
 import { watchNavigationUrl } from '../../../packages/core/src/index';
+import { isPlayerStartUrl } from '../../../packages/core/src/player-start';
 import { isUUID, sanitizeContent, type MixedRecordV1, type MixedSnapshot, type QueueIntent, type PlayerBinding, type ContentRef } from '../../../packages/core/src/media';
 import { createMixedStore, emptyMixed } from '../../../packages/storage/src/media-queue';
 import { consumeQueue, editQueue, mixedCapacity } from '../../../packages/quadbox/src/queue';
@@ -11,6 +12,7 @@ type Attempt = { id: string; slotId: string; generation: number; itemId: string;
   created?: boolean; createPending?: boolean; revoked?: boolean;
   phase: 'creating' | 'navigating' | 'observing' | 'committing' | 'done' | 'cancelled'; resource?: Owner; identity?: PlayerBinding; deadline: number; remove?: boolean };
 interface Host {
+  startupUrl?: string;
   captureReplacement?(owner: Owner): Promise<void>;
   available?(service: string): Promise<boolean>; uuid(): string; serial<T>(fn: () => Promise<T>): Promise<T>; notify(): Promise<void>;
   get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void>;
@@ -70,7 +72,7 @@ export function createMixedWorkspace(host: Host) {
       for (const o of record()?.ownership ?? []) {
         try {
           const tab = await host.getTab(o.tabId);
-          if (tab.windowId !== o.windowId || tab.url !== o.ordinaryUrl || !['yttv', 'youtube', 'prime-video', 'netflix'].includes(o.service)) { states[o.slotId] = 'Player changed — native controls available'; continue; }
+          if (tab.windowId !== o.windowId || tab.url !== o.ordinaryUrl || isPlayerStartUrl(o.ordinaryUrl) && o.ordinaryUrl !== host.startupUrl || !['yttv', 'youtube', 'prime-video', 'netflix'].includes(o.service)) { states[o.slotId] = 'Player changed — native controls available'; continue; }
           const item = record()?.items.find(i => i.id === record()?.claims.find(c => c.slotId === o.slotId)?.itemId);
           if (!host.liveTabs().includes(o.tabId) || o.service !== 'yttv') await host.enroll(o, item?.content.service === 'yttv' ? item.content.channelId : 'restored-player', record()!.slots.find(s => s.id === o.slotId)?.role === 'original', true);
         } catch { states[o.slotId] = 'Player unavailable — confirm it is closed'; }
@@ -103,7 +105,7 @@ export function createMixedWorkspace(host: Host) {
     return current(a) && tab?.windowId === a.resource.windowId && (tab.url === a.resource.ordinaryUrl || tab.url === a.url || tab.pendingUrl === a.url);
   }
   async function cleanLate(a: Attempt, owner: Owner) {
-    const closed = await host.cleanup(owner, 'about:blank').catch(() => false);
+    const closed = await host.cleanup(owner, host.startupUrl ?? 'about:blank').catch(() => false);
     if (closed) await persist(r => {
       r.ownership = r.ownership.filter(o => o.tabId !== owner.tabId);
       r.claims = r.claims.filter(c => c.operationId !== a.id);
@@ -120,7 +122,8 @@ export function createMixedWorkspace(host: Host) {
         a.createPending = false; a.created = true;
         await host.serial(async () => {
           if (!tab.id || !Number.isInteger(tab.windowId)) throw Error('UNCERTAIN');
-          const owner: Owner = { slotId: a.slotId, service: a.service, tabId: tab.id, windowId: tab.windowId, ordinaryUrl: 'about:blank', createdHere: true };
+          if (tab.url !== (host.startupUrl ?? 'about:blank')) throw Error('SUPERSEDED');
+          const owner: Owner = { slotId: a.slotId, service: a.service, tabId: tab.id, windowId: tab.windowId, ordinaryUrl: tab.url, createdHere: true };
           a.resource = owner;
           if (!current(a)) { await cleanLate(a, owner); return; }
           try { await persist(r => { r.ownership.push(owner); Object.assign(r.claims.find(c => c.operationId === a.id)!, { phase: 'resource-bound', tabId: owner.tabId, windowId: owner.windowId }); }); }
@@ -167,6 +170,7 @@ export function createMixedWorkspace(host: Host) {
         if (intent.action === 'focus') {
           const owner = r.ownership.find(o => o.slotId === intent.slotId);
           if (!owner || !r.slots.some(s => s.id === intent.slotId && s.generation === intent.generation)) throw Error('SUPERSEDED');
+          if (isPlayerStartUrl(owner.ordinaryUrl) && owner.ordinaryUrl !== host.startupUrl) throw Error('SUPERSEDED');
           await host.focus(owner); return success('Native player focused. Audio unchanged.');
         } else if (intent.action === 'confirm-closed') {
           const s = r.slots.find(s => s.id === intent.slotId && s.generation === intent.generation); if (!s) throw Error('STALE_QUEUE');
@@ -204,7 +208,7 @@ export function createMixedWorkspace(host: Host) {
           if (!owner && !canAddManagedFeed(mixedCapacity(r, host.liveTabs(), host.pending()))) throw Error('CAPACITY');
           if (owner) {
             const tab = await host.getTab(owner.tabId);
-            if (tab.windowId !== owner.windowId || (tab.url !== owner.ordinaryUrl && !(owner.service === 'yttv' && tab.url && watchNavigationUrl(tab.url) === tab.url))) throw Error('SUPERSEDED');
+            if (isPlayerStartUrl(owner.ordinaryUrl) && owner.ordinaryUrl !== host.startupUrl || tab.windowId !== owner.windowId || (tab.url !== owner.ordinaryUrl && !(owner.service === 'yttv' && tab.url && watchNavigationUrl(tab.url) === tab.url))) throw Error('SUPERSEDED');
             // Explicit replacement can reuse a same-service native channel change, never another service.
             owner.ordinaryUrl = tab.url!;
           }
@@ -277,10 +281,10 @@ export function createMixedWorkspace(host: Host) {
       states[slot.id] = 'Opening YouTube TV'; return operationId;
     },
     async bindLegacy(operationId: string, tab: Tab) {
-      if (!tab.id || !Number.isInteger(tab.windowId) || tab.url !== 'about:blank') throw Error('SUPERSEDED');
+      if (!tab.id || !Number.isInteger(tab.windowId) || tab.url !== (host.startupUrl ?? 'about:blank')) throw Error('SUPERSEDED');
       await persist(r => {
         const c = r.claims.find(c => c.operationId === operationId); if (!c) throw Error('SUPERSEDED');
-        r.ownership.push({ slotId: c.slotId, service: 'yttv', tabId: tab.id!, windowId: tab.windowId, ordinaryUrl: 'about:blank', createdHere: true });
+        r.ownership.push({ slotId: c.slotId, service: 'yttv', tabId: tab.id!, windowId: tab.windowId, ordinaryUrl: tab.url!, createdHere: true });
         Object.assign(c, { phase: 'resource-bound', tabId: tab.id, windowId: tab.windowId });
       });
     },

@@ -19,7 +19,7 @@ The independent `CI health` workflow runs Mondays at 09:53 UTC or manually. It r
 
 ## Source checks and reports
 
-Local `npm test` and CI share recursive `.test.ts`/`.test.tsx` discovery under `tests`, `apps` and `packages`. CI requires an unskipped JUnit case for each discovered file. A disposable source export independently installs the lockfile, builds the extension, validates manifest content scripts, all three dynamically injected provider scripts, and all four HTML pages with their referenced assets, and serves the fixture preview. It leaves local build output untouched.
+Local `npm test` and CI share recursive `.test.ts`/`.test.tsx` discovery under `tests`, `apps` and `packages`. CI requires an unskipped JUnit case for each discovered file. A disposable source export independently installs the lockfile, builds the extension, validates manifest content scripts, all three dynamically injected provider scripts, and all five HTML pages (including the inert player-start page) with their referenced assets, and serves the fixture preview. It leaves local build output untouched.
 
 Source reports include JUnit, LCOV, the discovered test-file list and bundle sizes/hashes. Coverage measures executed application/package code through tsx; tests that bundle and evaluate code do not provide complete original-TypeScript coverage. Coverage and bundle size are advisory, with no percentage or size threshold. Missing or malformed required reports still fail the job.
 

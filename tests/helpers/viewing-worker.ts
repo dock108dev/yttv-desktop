@@ -11,7 +11,7 @@ export async function harness() {
   const tabs = new Map<number, any>([[1, { id: 1, windowId: 1, url: 'https://tv.youtube.com/watch?v=main', mutedInfo: { muted: false }, active: true }]]);
   const windows = new Map<number, any>([[1, { id: 1, left: 20, top: 30, width: 1000, height: 700, state: 'normal' }]]);
   const players = new Map<number, any>([[1, { muted: false, volume: 1, readyState: 4, key: 'player-1', documentId: 'document-1', route: 'watch' }]]);
-  const controls: { netflixPermission?: boolean; primeVideoPermission?: boolean; youtubePermission?: boolean; youtubeReply?: (id: number, result: any) => any; afterCreate?: () => Promise<void>; nowOffset?: number; playback?: (id: number, message: any, options: any) => Promise<any>; guideSync?: boolean; tabGetFails?: number; audio?: (id: number, message: any) => Promise<any>; tabFails?: boolean; localFails?: boolean; sessionFails?: boolean; removeFails?: boolean; queryFails?: boolean; sessionReadFails?: boolean } = {};
+  const controls: { hideBlankUrl?: boolean; initialUrlHidden?: boolean; netflixPermission?: boolean; primeVideoPermission?: boolean; youtubePermission?: boolean; youtubeReply?: (id: number, result: any) => any; afterCreate?: () => Promise<void>; nowOffset?: number; playback?: (id: number, message: any, options: any) => Promise<any>; guideSync?: boolean; tabGetFails?: number; audio?: (id: number, message: any) => Promise<any>; tabFails?: boolean; localFails?: boolean; sessionFails?: boolean; removeFails?: boolean; queryFails?: boolean; sessionReadFails?: boolean } = {};
   const log: any[] = []; let next = 2; let listeners: any[] = []; const listener = (message: any, sender: any, reply: any) => { for (const fn of listeners) if (fn(message, sender, reply) === true) return true; reply(undefined); return false; }; let removed: any; let updated: any; let clock = Date.now() + 1000; let permissionsRemoved: any;
   const youtubeBindings = new Map<number, any>();
   const observation = (id = 1) => { const player = players.get(id); const now = new Date(++clock).toISOString(); const guideTime = new Date(Date.now() - 10).toISOString(); return {
@@ -26,7 +26,7 @@ export async function harness() {
     storage: Object.fromEntries(['local', 'session'].map(area => { const data = area === 'local' ? local : session; return [area, {
       get: async (key: string | string[]) => { if (area === 'session' && controls.sessionReadFails) throw new Error('private session read'); return Object.fromEntries((Array.isArray(key) ? key : [key]).map(k => [k, structuredClone(data[k])])); }, set: async (value: object) => { if (area === 'local' ? controls.localFails : controls.sessionFails) throw new Error('private token=synthetic'); Object.assign(data, structuredClone(value)); },
     }]; })),
-    runtime: { id: 'test', getURL: (path: string) => `chrome-extension://test/${path}`, sendMessage: async () => undefined, onMessage: { addListener: (fn: any) => { listeners.push(fn); } } },
+    runtime: { id: 'test', getURL: (path: string) => `chrome-extension://${path === 'player-start.html' ? 'a'.repeat(32) : 'test'}/${path}`, sendMessage: async () => undefined, onMessage: { addListener: (fn: any) => { listeners.push(fn); } } },
     tabs: {
       create: async (row: any) => {
         if (!controls.guideSync) throw new Error('Discovery disabled in unrelated fixture');
@@ -41,7 +41,7 @@ export async function harness() {
         return [...tabs.values()].filter(tab => (query.windowId === undefined || tab.windowId === query.windowId)
           && (!query.url || (prefix === undefined ? tab.url === query.url : tab.url?.startsWith(prefix))));
       },
-      get: async (id: number) => { if (controls.tabGetFails === id) throw new Error('Transient tab lookup'); if (!tabs.has(id)) throw new Error('closed'); return tabs.get(id); },
+      get: async (id: number) => { if (controls.tabGetFails === id) throw new Error('Transient tab lookup'); if (!tabs.has(id)) throw new Error('closed'); const tab = tabs.get(id); return controls.hideBlankUrl && tab.url === 'about:blank' ? { ...tab, url: undefined, pendingUrl: undefined } : tab; },
       update: async (id: number, value: any) => { log.push({ type: 'tab', id, value }); const tab = tabs.get(id); if (controls.tabFails) throw new Error('test tab failure'); if (!tab) throw new Error('closed'); Object.assign(tab, value); if ('muted' in value) tab.mutedInfo = { muted: value.muted, reason: 'extension' }; return tab; },
       sendMessage: async (id: number, message: any, options: any) => {
         if (message.namespace === 'yttv-desktop.netflix.v1' || message.namespace === 'yttv-desktop.youtube.v1' || message.namespace === 'yttv-desktop.prime-video.v1') {
@@ -88,7 +88,7 @@ export async function harness() {
       onRemoved: { addListener: (fn: any) => { removed = fn; } }, onUpdated: { addListener: (fn: any) => { updated = fn; } },
     },
     windows: {
-      create: async (row: any) => { const id = next++; windows.set(id, { id, left: 20, top: 30, width: 780, height: 520, state: 'normal', ...row }); log.push({ type: 'create', id, row }); if (row.tabId) { tabs.get(row.tabId).windowId = id; return { ...windows.get(id), tabs: [tabs.get(row.tabId)] }; } const tab = { id, windowId: id, url: 'about:blank', mutedInfo: { muted: true } }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24, readyState: 4, key: `player-${id}`, documentId: `document-${id}`, route: 'watch' }); await controls.afterCreate?.(); return { id, tabs: [tab] }; },
+      create: async (row: any) => { const id = next++; windows.set(id, { id, left: 20, top: 30, width: 780, height: 520, state: 'normal', ...row }); log.push({ type: 'create', id, row }); if (row.tabId) { tabs.get(row.tabId).windowId = id; return { ...windows.get(id), tabs: [tabs.get(row.tabId)] }; } const tab = { id, windowId: id, url: row.url ?? 'about:blank', mutedInfo: { muted: true } }; tabs.set(id, tab); players.set(id, { muted: true, volume: .24, readyState: 4, key: `player-${id}`, documentId: `document-${id}`, route: 'watch' }); await controls.afterCreate?.(); return { id, tabs: [controls.initialUrlHidden || controls.hideBlankUrl && tab.url === 'about:blank' ? { ...tab, url: undefined } : tab] }; },
       get: async (id: number) => { if (!windows.has(id)) windows.set(id, { id, left: 20, top: 30, width: 1000, height: 700, state: 'normal' }); return { ...windows.get(id) }; },
       update: async (id: number, value: any) => { log.push({ type: 'bounds', id, value }); Object.assign(windows.get(id) ?? {}, value); return { ...windows.get(id), id }; }, remove: async (id: number) => { if (controls.removeFails) throw new Error('private cleanup'); tabs.delete(id); removed(id); },
     },

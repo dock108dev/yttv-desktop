@@ -24,7 +24,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   const windows = new Map<number, any>([[10, { id: 10, left: 20, top: 30, width: 1200, height: 800, state: 'normal' }]]);
   const now = new Date().toISOString();
   const guide: GuideEntry[] = ['Alpha', 'Beta', 'Gamma', 'Delta'].map((name, i) => ({ channel: { id: `yttv:${i}`, name }, programTitle: `${name} NHL Live`, programs: [{ title: `${name} NHL Live`, context: 'CURRENT' }], available: true, target: { kind: 'navigation', channelId: `yttv:${i}`, url: `https://tv.youtube.com/watch?v=feed${i}`, verifiedAt: now, evidenceClass: 'LIVE' }, observedAt: now, evidenceClass: 'LIVE' }));
-  let clockOffset = 0;
+  let clockOffset = 0, staleAdapterTab: number | undefined;
   let replacementAudioReset = false, refusePlay = false, replaceDuringPlay = false; let replaceDuringAudio: number | undefined;
   const playing = new Map<number, boolean>();
   const observation = (id: number): AdapterObservation & { playerKey: string } => ({ route: 'watch', playerKey: `player-${id}`, currentChannelId: guide.find(e => e.target?.url === tabs.get(id)?.url)?.channel.id ?? 'yttv:0', currentProgram: 'Synthetic program', guide, guideObservedAt: now, observedAt: new Date(Date.now() + clockOffset).toISOString(), playback: { playing: playing.get(id) ?? false, muted: !replacementAudioReset, volume: replacementAudioReset ? 1 : .37, currentTime: 50, readyState: 4, width: 1280, height: 720 } });
@@ -33,7 +33,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   const event = (set = new Set<any>()) => ({ addListener: (fn: any) => set.add(fn), removeListener: (fn: any) => set.delete(fn) });
   const sender = { id: 'local', url: 'chrome-extension://local/remote.html' };
   const api: any = {
-    runtime: { id: 'local', getURL: (p: string) => `chrome-extension://local/${p}`, onMessage: event(listeners), sendMessage: (m: any) => {
+    runtime: { id: 'local', getURL: (p: string) => `chrome-extension://${p === 'player-start.html' ? 'a'.repeat(32) : 'local'}/${p}`, onMessage: event(listeners), sendMessage: (m: any) => {
       if (m.type === 'STATE_CHANGED') { for (const fn of [...listeners]) fn(m, sender, () => {}); return Promise.resolve(); }
       return new Promise(res => { for (const fn of [...listeners]) fn(m, sender, res); });
     } },
@@ -44,12 +44,12 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
       query: async (q: any) => [...tabs.values()].filter(t => q.windowId !== undefined ? t.windowId === q.windowId : t.url.startsWith('https://tv.youtube.com/')),
       update: async (id: number, v: any) => { log.push(['tab', id, v]); if (deferNavigation && v.url) { const { url, ...rest } = v; Object.assign(tabs.get(id), rest, { pendingUrl: url }); } else Object.assign(tabs.get(id), v); if (v.muted !== undefined) tabs.get(id).mutedInfo = { muted: v.muted }; return tabs.get(id); },
       move: async (id: number, v: any) => { log.push(['move', id, v]); Object.assign(tabs.get(id), v); return tabs.get(id); },
-      sendMessage: async (id: number, m: any) => { if (m.type === 'GET_OBSERVATION') return { ...observation(id), connectionBuild: 'source', connectionNonce: m.connectionNonce }; if (m.type === 'STATE_CHANGED') return; log.push(['player', id, m]); if (m.type === 'PLAYER_PLAYBACK') { if (replaceDuringPlay) { replaceDuringPlay = false; for (const fn of listeners) fn(envelope({ type: 'OBSERVE', playerKey: 'changed-mid-command', observation: observation(id) }), { id: 'local', url: tabs.get(id).url, tab: tabs.get(id), documentId: `new-doc-${id}` }, () => {}); } if (refusePlay) return { ok: false, reason: 'Synthetic service refusal. Use native Play.' }; playing.set(id, m.playing); return { ok: true, value: { ...observation(id).playback, playing: m.playing } }; } if (m.type === 'PLAYER_AUDIO') { if (replaceDuringAudio && id === 1 && m.muted === true) { const replaced = replaceDuringAudio; replaceDuringAudio = undefined; for (const fn of listeners) fn(envelope({ type: 'OBSERVE', playerKey: 'changed-during-isolation', observation: observation(replaced) }), { id: 'local', url: tabs.get(replaced).url, tab: tabs.get(replaced), documentId: `new-doc-${replaced}` }, () => {}); } replacementAudioReset = false; return { ok: true, value: { muted: m.muted ?? true, volume: m.volume ?? .37 } }; } return { ok: false, code: 'TIMEOUT', reason: 'Synthetic native navigation refused' }; },
+      sendMessage: async (id: number, m: any) => { if (m.type === 'GET_OBSERVATION') return { ...observation(id), connectionBuild: staleAdapterTab === id ? 'old-build' : 'source', connectionNonce: m.connectionNonce }; if (m.type === 'STATE_CHANGED') return; log.push(['player', id, m]); if (m.type === 'PLAYER_PLAYBACK') { if (replaceDuringPlay) { replaceDuringPlay = false; for (const fn of listeners) fn(envelope({ type: 'OBSERVE', playerKey: 'changed-mid-command', observation: observation(id) }), { id: 'local', url: tabs.get(id).url, tab: tabs.get(id), documentId: `new-doc-${id}` }, () => {}); } if (refusePlay) return { ok: false, reason: 'Synthetic service refusal. Use native Play.' }; playing.set(id, m.playing); return { ok: true, value: { ...observation(id).playback, playing: m.playing } }; } if (m.type === 'PLAYER_AUDIO') { if (replaceDuringAudio && id === 1 && m.muted === true) { const replaced = replaceDuringAudio; replaceDuringAudio = undefined; for (const fn of listeners) fn(envelope({ type: 'OBSERVE', playerKey: 'changed-during-isolation', observation: observation(replaced) }), { id: 'local', url: tabs.get(replaced).url, tab: tabs.get(replaced), documentId: `new-doc-${replaced}` }, () => {}); } replacementAudioReset = false; return { ok: true, value: { muted: m.muted ?? true, volume: m.volume ?? .37 } }; } return { ok: false, code: 'TIMEOUT', reason: 'Synthetic native navigation refused' }; },
       remove: async (id: number) => { log.push(['close', id]); tabs.delete(id); for (const fn of removed) fn(id); }, onRemoved: event(removed), onUpdated: event(),
     },
     windows: {
       get: async (id: number) => { if (!windows.has(id)) throw Error('closed'); return { ...windows.get(id) }; },
-      create: async (v: any) => { if (v.url === 'about:blank' && duplicateSourceChange) { tabs.get(duplicateSourceChange).url = 'https://tv.youtube.com/watch?v=native-replacement'; duplicateSourceChange = undefined; } const id = next++; log.push(['create', id, v]); windows.set(id, { id, left: 10, top: 40, width: 960, height: 640, state: 'normal', ...v }); const tabId = v.tabId ?? id; if (v.tabId) tabs.get(tabId).windowId = id; else tabs.set(id, { id, windowId: id, url: v.url, index: 0 }); return { ...windows.get(id), tabs: [tabs.get(tabId)] }; },
+      create: async (v: any) => { if (v.url === 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html' && duplicateSourceChange) { tabs.get(duplicateSourceChange).url = 'https://tv.youtube.com/watch?v=native-replacement'; duplicateSourceChange = undefined; } const id = next++; log.push(['create', id, v]); windows.set(id, { id, left: 10, top: 40, width: 960, height: 640, state: 'normal', ...v }); const tabId = v.tabId ?? id; if (v.tabId) tabs.get(tabId).windowId = id; else tabs.set(id, { id, windowId: id, url: v.url, index: 0 }); return { ...windows.get(id), tabs: [tabs.get(tabId)] }; },
       update: async (id: number, v: any) => { log.push(['bounds', id, v]); if (failPlacement && v.width) { failPlacement = false; throw Error('Synthetic placement refusal'); } Object.assign(windows.get(id), v); return { ...windows.get(id) }; },
       remove: async (id: number) => { windows.delete(id); for (const [tid, tab] of tabs) if (tab.windowId === id) await api.tabs.remove(tid); },
     },
@@ -66,12 +66,13 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
   window.document.body.innerHTML = '<div id="test-root"></div>';
   const uiApi = (window as any).RemoteUI;
   let dispose = () => {}, bridge: any;
-  const mount = async () => { bridge = uiApi.createClientBridge(); await uiApi.act(async () => { dispose = uiApi.mountRemote(window.document.getElementById('test-root'), bridge); await bridge.refresh(); }); };
+  const mount = async () => { bridge = uiApi.createClientBridge(); bridge.autoConnect = undefined; // Automatic entry is exercised explicitly below.
+ await uiApi.act(async () => { dispose = uiApi.mountRemote(window.document.getElementById('test-root'), bridge); await bridge.refresh(); }); };
   const sync = async () => { await uiApi.act(async () => { await bridge.refresh(); }); };
   const interactions: string[] = [];
   const click = async (label: string, scope: any = window.document) => { const b = [...scope.querySelectorAll('button')].find((b: any) => b.textContent === label) as any; assert(b, label); assert.equal(b.disabled, false, label); interactions.push(label); await uiApi.act(async () => b.click()); await sync(); };
   const row = (name: string) => [...window.document.querySelectorAll('.results article')].find(r => r.querySelector('strong')?.textContent === name)!;
-  const card = (id: string) => { const pane = [...window.document.querySelectorAll('.window-cards article')].find(r => r.querySelector('strong')?.textContent?.includes(id))!; assert(pane); return pane; };
+  const card = (id: string) => { const pane = [...window.document.querySelectorAll('.window-cards article')].find(r => r.getAttribute('aria-label')?.includes(id))!; assert(pane); return pane; };
   const select = async (id: string) => { await send({ type: 'FOCUS_PANE', paneId: id }); await sync(); };
   const snapshot = () => send({ type: 'GET_SNAPSHOT' });
   // Opening Live must retain the paused original's native choices for its next watch player.
@@ -89,7 +90,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     deferNavigation = true; await click('Pick a channel'); await click('Choose Beta', row('Beta'));
     let pending = await snapshot(); assert.equal(pending.workspace.enrolled, true, 'Add automatically enrolls/arranges in saved area'); assert.notEqual(tabs.get(1).windowId, 10); assert.equal(pending.panes.length, 2, 'pending watch navigation retains owned feed');
     assert.equal(pending.workspace.actual.length, 2, 'pending feed participates in arrangement');
-    const loading = tabs.get(pending.panes[1].tabId); assert.equal(loading.url, 'about:blank');
+    const loading = tabs.get(pending.panes[1].tabId); assert.equal(loading.url, 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/player-start.html');
     loading.url = loading.pendingUrl; delete loading.pendingUrl; deferNavigation = false; await sync();
     const extra = pending.panes[1]; const startBoundary = log.length;
     await observePlayer(extra.tabId, 1); assert.equal(log.slice(startBoundary).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 0);
@@ -104,7 +105,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     api.permissions.contains = async () => true; api.permissions.request = async () => true;
     api.system = { display: { getInfo: async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }] } };
     const pairSetupAt = log.length;
-    await click('Change layout'); assert(window.document.querySelector('[role=dialog]'));
+    await click('Set TV area'); assert(window.document.querySelector('[role=dialog]'));
     await click('Choose monitor');
     const layoutSelect = window.document.querySelector('select[aria-label="Show layout"]')!;
     (layoutSelect as any).value = 'top-bottom'; await uiApi.act(async () => layoutSelect.dispatchEvent(new window.Event('change', { bubbles: true })));
@@ -143,7 +144,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     api.system.display.getInfo = async () => [{ id: 'other-monitor', workArea: displayWork }];
     const lostAt = log.length; await click('Arrange shows');
     assert.match(window.document.body.textContent!, /Saved monitor.*unavailable/); assert(log.slice(lostAt).every(x => x[0] === 'bounds' && Object.keys(x[2]).every(k => k === 'focused')), 'failure may focus remote, never move players');
-    assert(window.document.querySelector('button') && [...window.document.querySelectorAll('button')].some(b => b.textContent === 'Change layout'));
+    assert(window.document.querySelector('button') && [...window.document.querySelectorAll('button')].some(b => b.textContent === 'Set TV area'));
     const addLostAt = log.length; assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:2' })).code, 'AREA_UNAVAILABLE');
     assert(!log.slice(addLostAt).some(x => x[0] === 'create' || x[0] === 'tab' || x[0] === 'player'), 'fixed-area Add also preflights before creation');
     api.system.display.getInfo = async () => [{ id: 'fixed-monitor', name: 'Synthetic monitor', workArea: displayWork }];
@@ -177,7 +178,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal(log.slice(replacedAt).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 0, 'replacement cancels delayed Add');
     assert.match((await snapshot()).panes[3].error, /Player changed/);
     assert.equal(s.panes.length, 4); assert.equal(s.workspace.actual.length, 4);
-    assert.match(window.document.body.textContent!, /4 \/ 4 windows/);
+    assert.match(window.document.body.textContent!, /4 \/ 4 connected/);
     assert.equal((window.document.querySelector('button.primary') as any).disabled, true); assert.equal(window.document.querySelectorAll('.window-cards article').length, 4);
     const created = log.filter(x => x[0] === 'create').length;
     assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:1' })).code, 'SESSION_BOUND'); assert.equal(log.filter(x => x[0] === 'create').length, created);
@@ -197,7 +198,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal(s.panes[2].feedNumber, 4, 'surviving feed retains number after another closes');
     // Native close publishes count and reflow to the open remote.
     await uiApi.act(async () => api.tabs.remove(s.panes[1].tabId)); await sync(); s = await snapshot(); assert.equal(s.panes.length, 2); assert.equal(s.workspace.actual.length, 2);
-    await uiApi.act(async () => dispose()); await mount(); assert.match(window.document.body.textContent!, /2 \/ 4 windows/);
+    await uiApi.act(async () => dispose()); await mount(); assert.match(window.document.body.textContent!, /2 \/ 4 connected/);
     await click('Arrange now'); failPlacement = true; await click('Arrange now'); assert.match(window.document.body.textContent!, /Previous bounds restored/);
     // The full-size picker saves real screen coordinates through the worker, not the small preview.
     const customBoxes = [{ left: 50, top: 100, width: 850, height: 450 }, { left: 1000, top: 600, width: 850, height: 400 }];
@@ -251,14 +252,33 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     tabs.set(30, { id: 30, windowId: 30, index: 0, pinned: false, url: guide[0].target!.url, mutedInfo: { muted: true } });
     windows.set(30, { id: 30, left: 70, top: 80, width: 1200, height: 800, state: 'normal' });
     await sync(); assert.equal((await snapshot()).panes.length, 0, 'new owner tab is never silently adopted');
-    assert.match(window.document.body.textContent!, /previous original player was closed/);
+    assert.match(window.document.body.textContent!, /Automatic connection could not include/);
     assert.equal((await send({ type: 'CHOOSE_MAIN', tabId: 9 })).code, 'PLAYER_UNAVAILABLE');
-    const recoveryBoundary = log.length; await click('Use this player');
+    staleAdapterTab = 30;
+    api.scripting = { executeScript: async (request: any) => { log.push(['inject', request.target.tabId]); staleAdapterTab = undefined; return []; } };
+    const recoveryBoundary = log.length; assert.equal((await send({ type: 'AUTO_CONNECT' })).ok, true); await sync();
     s = await snapshot(); assert.equal(s.panes[0].tabId, 30); assert.equal(s.workspace.enrolled, false);
-    assert.equal(log.length, recoveryBoundary, 'explicit choice changes no playback, audio, windows or navigation');
+    assert.deepEqual(log.slice(recoveryBoundary), [['inject', 30]], 'stale adapter reconnects once without playback, audio, windows or navigation changes');
     assert.equal(session['yttv-desktop.closed-original.v1'].origin.tabId, 1, 'closed original evidence retained');
-    await click('Start TV workspace'); assert.equal((await snapshot()).workspace.enrolled, true);
+    const remoteTab = [...tabs.values()].find(t => t.url === 'chrome-extension://local/remote.html');
+    (sender as any).tab = remoteTab;
+    const saveBoundary = log.length;
+    await click('Save current positions');
+    const savedPositions = await snapshot();
+    assert.equal(savedPositions.workspace.enrolled, true); assert.equal(savedPositions.workspace.layout, 'custom');
+    assert.deepEqual(JSON.parse(JSON.stringify(savedPositions.workspace.actual[0].bounds)), { left: 70, top: 80, width: 1200, height: 800 });
+    assert.equal(log.length, saveBoundary, 'saving an existing native window requires no movement, focus, navigation or audio mutation');
     assert.equal((await send({ type: 'CHOOSE_MAIN', tabId: 30 })).code, 'ORIGINAL_EXISTS');
     assert.equal(log.some(x => x[2]?.muted === false), false, 'entire journey stays muted');
+    tabs.get(30).mutedInfo = { muted: false };
+    tabs.set(31, { id:31, windowId:31, index:0, pinned:false, url:guide[1].target!.url, mutedInfo:{muted:false} });
+    windows.set(31, {id:31,left:80,top:100,width:1000,height:700,state:'normal'});
+    const audibleBoundary = log.length;
+    assert.equal((await send({type:'AUTO_CONNECT'})).ok,true);
+    await observePlayer(30); await observePlayer(31); await sync();
+    assert.equal((await snapshot()).panes.length,2);
+    assert.equal(tabs.get(30).mutedInfo.muted,false); assert.equal(tabs.get(31).mutedInfo.muted,false);
+    assert.equal(log.length,audibleBoundary,'automatic connection and subsequent observations preserve existing native tab audio choices');
+
   } finally { await uiApi.act(async () => dispose()); await window.happyDOM.abort(); }
 });

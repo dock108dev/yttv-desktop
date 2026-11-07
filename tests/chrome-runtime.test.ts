@@ -38,7 +38,7 @@ test('bridge unregisters runtime/storage listeners and stops sending after inval
   bridge.dispose();
 });
 
-test('content invalidation disposes observers/timers, preserves native audio choice and one notice; reinjection/SPA never duplicate UI', async () => {
+test('content invalidation disposes observers/timers, preserves native audio choice without overlay controls; reinjection/SPA never duplicate UI', async () => {
   const bundle = await build({ entryPoints: [new URL('../apps/chrome-extension/src/content.tsx', import.meta.url).pathname], bundle: true, write: false, format: 'iife', platform: 'browser',
     plugins: [{ name: 'isolated-content-fixture', setup(builder) {
       builder.onResolve({ filter: /packages\/ui\/src\/index$/ }, () => ({ path: 'ui-fixture', namespace: 'fixture' }));
@@ -64,7 +64,10 @@ test('content invalidation disposes observers/timers, preserves native audio cho
     chrome: { runtime: {
       get id() { return invalid ? undefined : 'local'; },
       getManifest() { if (invalid) throw new Error('Extension context invalidated.'); return {}; },
-      sendMessage: () => { calls++; if (invalid) throw new Error('Extension context invalidated.'); return Promise.resolve(undefined); },
+      sendMessage: (_message: any) => {
+        calls++; if (invalid) throw new Error('Extension context invalidated.');
+        return Promise.resolve(undefined);
+      },
       onMessage: { addListener: (fn: Function) => runtimeListeners.add(fn), removeListener: (fn: Function) => runtimeListeners.delete(fn) },
     }, storage: { onChanged: { addListener: (fn: Function) => storageListeners.add(fn), removeListener: (fn: Function) => storageListeners.delete(fn) } } },
   };
@@ -77,17 +80,31 @@ test('content invalidation disposes observers/timers, preserves native audio cho
     window.location.href = 'https://tv.youtube.com/watch?v=fixture'; window.document.body.append(window.document.createElement('div'));
     await new Promise(resolve => setTimeout(resolve, 10));
     assert.equal(context.fixtureMounts, 1); assert.equal(intervals.size, 1);
-    invalid = true;
     const host = window.document.getElementById('yttv-desktop-local-beta')!;
-    (host.shadowRoot!.querySelector('.toggle') as any).click();
+    const drawer = host.shadowRoot!.querySelector('.drawer') as any;
+    assert.equal(host.shadowRoot!.querySelector('.launchers, .toggle'), null, 'playback has no permanent page launchers');
+    assert.equal(drawer.hidden, true);
+    const drawerCommand = (type: string) => {
+      for (const fn of runtimeListeners) fn({ namespace: 'yttv-desktop.v1', type }, { id: 'local' }, () => {});
+    };
+    drawerCommand('HIDE_DESKTOP');
+    assert.equal(drawer.hidden, true, 'focusing a hidden drawer cannot reopen it from stale session state');
+    drawerCommand('TOGGLE_DESKTOP');
+    assert.equal(drawer.hidden, false);
+    drawerCommand('HIDE_DESKTOP');
+    drawerCommand('HIDE_DESKTOP');
+    assert.equal(drawer.hidden, true, 'hide is idempotent for both visible and hidden drawers');
+    invalid = true;
+    const beforeInvalid = calls;
+    host.dispatchEvent(new window.Event('yttv-bridge-probe'));
     await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(calls, beforeInvalid, 'invalidated bridge never tries to launch or call its replacement');
+    assert.equal(drawer.hidden, true, 'Reload does not place recovery messages over video');
     assert.equal(context.fixtureUnmounts, 1); assert.equal(intervals.size, 0); assert.equal(timeouts.size, 0);
     assert.equal(runtimeListeners.size, 0); assert.equal(storageListeners.size, 0); assert(disconnects >= 1);
-    assert.equal(host.shadowRoot!.querySelectorAll('[role="status"]').length, 1);
-    assert.match(host.shadowRoot!.textContent!, /Reconnect original player/);
+    assert.equal(host.shadowRoot!.querySelectorAll('[role="status"]').length, 0);
     const stoppedCalls = calls;
     window.document.body.append(window.document.createElement('div'));
-    (host.shadowRoot!.querySelector('.toggle') as any).click();
     await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(calls, stoppedCalls);
     const video = window.document.querySelector('video')!; video.muted = false;
     video.dispatchEvent(new window.Event('playing', { bubbles: true })); assert.equal(video.muted, false);
@@ -108,7 +125,7 @@ test('content invalidation disposes observers/timers, preserves native audio cho
     await new Promise(resolve => setTimeout(resolve, 10));
     assert.equal(context.fixtureMounts, 3); assert.equal(context.fixtureUnmounts, 2);
     assert.equal(intervals.size, 1); assert.equal(runtimeListeners.size, 2); assert.equal(storageListeners.size, 1);
-    // A reload can invalidate runtime.id before the old launcher is marked invalid.
+    // A reload can invalidate runtime.id before the old bridge is marked invalid.
     invalid = true;
     runInNewContext('var __YTTV_BUILD__ = "next-build";\n' + bundle.outputFiles[0].text, context);
     await new Promise(resolve => setTimeout(resolve, 10));

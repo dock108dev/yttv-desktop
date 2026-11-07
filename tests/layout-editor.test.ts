@@ -85,6 +85,10 @@ test('drawing-window lifecycle opens only on selected monitor and cancellation c
   assert.deepEqual(log[0], { url: 'chrome-extension://test/area-picker.html', type: 'popup', focused: true, ...work });
   const sender: any = { id: 'test', url: 'chrome-extension://test/area-picker.html', tab: tabs.get(51) };
   assert.deepEqual((await picker.read(sender)).picker, config);
+  api.runtime.getContexts = async () => [{ documentUrl: sender.url, tabId: 51, windowId: 50 }];
+  assert.deepEqual((await picker.read({ id: 'test', url: sender.url, documentId: 'picker-document' })).picker, config, 'extension pages identify their document even when Chrome omits sender.tab');
+  api.runtime.getContexts = async () => [{ documentUrl: sender.url, tabId: 99, windowId: 99 }];
+  assert.equal((await picker.read({ id: 'test', url: sender.url, documentId: 'other-document' })).ok, false);
   assert.equal((await picker.read({ ...sender, url: 'https://tv.youtube.com/watch?v=unrelated' })).ok, false);
   tabs.set(52, { id: 52, windowId: 50, url: 'https://owner.example/' });
   assert.equal((await picker.read(sender)).ok, false); await picker.close(); assert.equal(log.length, 1, 'a shared or repurposed window is left alone');
@@ -121,5 +125,18 @@ test('full-size drawing page saves separate boxes from pointer screen coordinate
   const saved = commands.filter(c => c.type === 'SAVE_AREA_PICKER').length;
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })); await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(commands.at(-1).type, 'CANCEL_AREA_PICKER'); assert.equal(commands.filter(c => c.type === 'SAVE_AREA_PICKER').length, saved);
+  await window.happyDOM.abort();
+});
+
+test('packaged drawing HTML loads its exported JavaScript as a module and has visible startup fallback', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { build } = await import('esbuild');
+  const { Window } = await import('happy-dom');
+  const html = await readFile('apps/chrome-extension/area-picker.html', 'utf8');
+  const window = new Window(); window.document.write(html);
+  assert.equal(window.document.querySelector('script[src="area-picker.js"]')?.getAttribute('type'), 'module');
+  assert.match(window.document.querySelector('#picker-root')!.textContent!, /Loading layout controls/);
+  const source = await build({ entryPoints: ['apps/chrome-extension/src/area-picker.ts'], bundle: true, write: false, format: 'esm', platform: 'browser' });
+  assert.match(source.outputFiles[0].text, /export\s*\{/);
   await window.happyDOM.abort();
 });

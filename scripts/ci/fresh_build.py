@@ -10,7 +10,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_ASSETS = ('manifest.json', 'background.js', 'content.js', 'panel.html', 'panel.js', 'remote.html', 'remote.js',
-                   'demo.html', 'area-picker.html', 'area-picker.js', 'area-picker.css', 'build-identity.json',
+                   'demo.html', 'area-picker.html', 'area-picker.js', 'area-picker.css', 'player-start.html', 'build-identity.json',
                    'youtube-content.js', 'prime-video-content.js', 'netflix-content.js')
 
 
@@ -29,7 +29,7 @@ def validate_output(output):
     for content in manifest['content_scripts']:
         for name in content.get('js', []) + content.get('css', []):
             asset(name)
-    for page in ('panel.html', 'remote.html', 'demo.html', 'area-picker.html'):
+    for page in (name for name in REQUIRED_ASSETS if name.endswith('.html')):
         for name in re.findall(r'(?:src|href)="([^"]+)"', asset(page).read_text()):
             asset(name)
 

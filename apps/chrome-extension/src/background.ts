@@ -1,3 +1,4 @@
+import { autoConnectPlayers } from './auto-connect';
 import { createNetflixConnection, NETFLIX_NAMESPACE, netflixContent } from './netflix';
 import { createPrimeVideoConnection, PRIME_VIDEO_NAMESPACE, primeVideoContent } from './prime-video';
 import { createYouTubeConnection, youtubeContent, YOUTUBE_NAMESPACE } from './youtube';
@@ -9,6 +10,7 @@ import { MANAGED_RECOVERY_KEY, restoredBounds, type Bounds } from './recovery';
 import { createGuideSync, isGuideSyncURL } from './guide-sync';
 import { captureUsable, continuity, type PlayerCapture } from './continuity';
 import { createWorkspace } from './workspace';
+import { isPlayerStart, playerStartUrl, readyPlayerWindow } from './player-window';
 import { defaultChannel } from './default-channel';
 import { createAreaPickerSession } from './area-picker-session';
 import { contains, planLayout } from '../../../packages/quadbox/src/geometry';
@@ -103,13 +105,14 @@ async function syncGuide() {
 }
 const observations = new Map<number, AdapterObservation>();
 const openDrawers = new Set<number>();
+let autoConnectPending: Promise<ActionResult> | undefined;
 let pendingFeedCreations = 0;
 let managedQueue: Promise<unknown> = Promise.resolve();
 let drawerWriteQueue: Promise<void> = Promise.resolve();
 function runManaged<T>(operation: () => Promise<T>): Promise<T> {
   const next = managedQueue.catch(() => undefined).then(operation); managedQueue = next; return next;
 }
-const workspace = createWorkspace(chrome, controlledPanes);
+const workspace = createWorkspace(chrome, controlledPanes, failures.record);
 const areaPicker = createAreaPickerSession(chrome);
 const ok = (message?: string): ActionResult => ({ ok: true, message });
 const fail = (code: string, reason: string): ActionResult => ({ ok: false, code, reason });
@@ -161,6 +164,7 @@ async function connectProviderOwner(id: number) {
   if (o) acceptProvider(id, o);
 }
 const mixed = createMixedWorkspace({
+  startupUrl: playerStartUrl(chrome),
   available: service => service === 'netflix' ? netflix.permitted() : service === 'youtube' ? youtube.permitted() : service === 'prime-video' ? primeVideo.permitted() : Promise.resolve(true),
   uuid: () => crypto.randomUUID(), serial: runManaged, notify,
   get: async key => (await chrome.storage.local.get(key))[key],
@@ -173,7 +177,7 @@ const mixed = createMixedWorkspace({
     for (const id of controlledIds()) {
       if (optionalOwner(id)) continue;
       const tab = await chrome.tabs.get(id);
-      if (!tab.url || (!isYTTV(tab.url) && tab.url !== 'about:blank')) throw Error('IDENTITY_UNAVAILABLE');
+      if (!tab.url || (!isYTTV(tab.url) && tab.url !== 'about:blank' && !isPlayerStart(chrome, tab.url))) throw Error('IDENTITY_UNAVAILABLE');
       result.push({ tabId: id, windowId: tab.windowId, url: tab.url, original: id === mainTabId, createdHere: id === mainTabId ? mainWasCreated : !sourceId(id)?.startsWith('connected-') });
     }
     return result;
@@ -187,7 +191,7 @@ const mixed = createMixedWorkspace({
     return workspace.snapshot().layout === 'auto' ? ok() : workspace.validateLayout(count);
   },
   getTab: id => chrome.tabs.get(id),
-  create: async () => { const w = await chrome.windows.create({ url: 'about:blank', type: 'popup', focused: false, width: 780, height: 520 }); if (!w?.tabs?.[0]) throw Error('UNCERTAIN'); return w.tabs[0]; },
+  create: async () => { const w = await chrome.windows.create({ url: playerStartUrl(chrome), type: 'popup', focused: false, width: 780, height: 520 }); if (!w) throw Error('UNCERTAIN'); return readyPlayerWindow(chrome, w); },
   captureReplacement: async owner => {
     if (owner.service === 'netflix') throw Error('NETFLIX_IDENTITY_UNVERIFIED');
     if (owner.service === 'prime-video') throw Error('PRIME_IDENTITY_UNVERIFIED');
@@ -278,9 +282,14 @@ const init = (async () => {
   if (!session && managedSessionReadable) {
     const backup = (await chrome.storage.local.get(MANAGED_RECOVERY_KEY))[MANAGED_RECOVERY_KEY] as any;
     if (backup && Array.isArray(backup.panes)) {
-      const matches = async (id: number) => {
-        const tab = await chrome.tabs.get(id).catch(() => undefined);
-        return Boolean(tab && isYTTV(tab.url) && backup.ownedUrls?.[id] === tab.url);
+      const matches = async (id: unknown) => {
+        // Empty workspaces legitimately have no original. Chrome argument validation
+        // can throw before returning a Promise, so .catch() on the call is insufficient.
+        if (!Number.isSafeInteger(id) || Number(id) <= 0) return false;
+        try {
+          const tab = await chrome.tabs.get(id as number);
+          return Boolean(tab && (isYTTV(tab.url) || isPlayerStart(chrome, tab.url)) && backup.ownedUrls?.[id as number] === tab.url);
+        } catch { return false; }
       };
       const recovered = [];
       for (const pane of backup.panes.slice(0, CURRENT_MANAGED_FEED_LIMIT - 1)) if (await matches(pane?.tabId)) recovered.push(pane);
@@ -299,7 +308,7 @@ const init = (async () => {
       try {
         const tab = await lookupOwnedTab(pane.tabId, pane.windowId);
         if (!tab) continue;
-        if (isYTTV(tab.url) || pendingWatch(tab) || !tab.url || tab.url === 'about:blank') {
+        if (isYTTV(tab.url) || pendingWatch(tab) || !tab.url || tab.url === 'about:blank' || isPlayerStart(chrome, tab.url)) {
           panes.push({ id: pane.id, channelId: pane.channelId, channelName: typeof pane.channelName === 'string' ? pane.channelName.slice(0, 150) : 'Added feed',
             feedNumber: Number.isInteger(pane.feedNumber) && pane.feedNumber! >= 2 && pane.feedNumber! <= CURRENT_MANAGED_FEED_LIMIT && !panes.some(p => p.feedNumber === pane.feedNumber) ? pane.feedNumber : MANAGED_FEED_COUNTS.slice(1).find(n => !panes.some(p => p.feedNumber === n)),
             eventId: validId(pane.eventId) ? pane.eventId : undefined, tabId: pane.tabId, windowId: tab.windowId, muted: null,
@@ -310,20 +319,20 @@ const init = (async () => {
     }
     // Restoring layout never restores audio authority.
     if ((!session.mainService || session.mainService === 'yttv') && Number.isInteger(session.mainTabId)) {
-      try { const tab = await chrome.tabs.get(session.mainTabId as number); if (isYTTV(tab.url) && !panes.some(p => p.tabId === tab.id)) mainTabId = tab.id; mainWasDesignated = true; } catch { /* closed */ }
+      try { const tab = await chrome.tabs.get(session.mainTabId as number); if ((isYTTV(tab.url) || session.mainWasCreated === true && isPlayerStart(chrome, tab.url)) && !panes.some(p => p.tabId === tab.id)) mainTabId = tab.id; mainWasDesignated = true; } catch { /* closed */ }
     }
     mainWasCreated = Boolean(mainTabId && session.mainWasCreated === true);
     if (mainTabId) await readTabAudio(mainTabId);
     const routed = controlledIds().filter(id => tabAudio.get(id)?.tabMuted === false);
     // Observe existing routing rather than replaying a saved enable or muting on reopen.
-    if (routed.length === 1) audioFocusId = sourceId(routed[0]);
+    audioFocusId = routed.length === 1 ? sourceId(routed[0]) : undefined;
     const hasPane = (id: unknown) => id === 'main' ? Boolean(mainTabId) : panes.some(pane => pane.id === id);
     if (typeof session.activePaneId === 'string' && hasPane(session.activePaneId)) activePaneId = session.activePaneId;
     if (typeof session.expandedPaneId === 'string' && hasPane(session.expandedPaneId)) expandedPaneId = session.expandedPaneId;
   }
 })();
 // Keep initialization rejection observable even before the first command arrives.
-void init.catch(() => failures.record('COMMAND_FAILED'));
+void init.catch(() => failures.record('WORKER_INITIALIZATION_FAILED'));
 
 function controlledIds(): number[] { return [...new Set([...(mainTabId ? [mainTabId] : []), ...panes.map(p => p.tabId)])]; }
 function sourceId(tabId: number): string | undefined { return tabId === mainTabId ? 'main' : panes.find(p => p.tabId === tabId)?.id; }
@@ -339,7 +348,7 @@ function audioReadback(tabId?: number) {
 }
 async function mainPane(): Promise<Pane | null> {
   if (!mainTabId) return null;
-  try { const tab = await chrome.tabs.get(mainTabId); if (optionalOwner(mainTabId) ? tab.url !== optionalOwner(mainTabId)!.ordinaryUrl : !isYTTV(tab.url)) return null;
+  try { const tab = await chrome.tabs.get(mainTabId); if (optionalOwner(mainTabId) ? tab.url !== optionalOwner(mainTabId)!.ordinaryUrl : !isYTTV(tab.url) && !(mainWasCreated && isPlayerStart(chrome, tab.url))) return null;
     const observed = observations.get(mainTabId);
     const requested = guideFor(mainTabId).find(e => e.target?.url === tab.url);
     const channelId = observed?.currentChannelId ?? requested?.channel.id ?? preferences.currentChannel ?? 'main-player';
@@ -477,7 +486,7 @@ async function saveControlIdentity() {
     const record = { panes, mainService: mainTabId && optionalOwner(mainTabId) ? optionalOwner(mainTabId)!.service : 'yttv', mainTabId, mainWasDesignated, mainWasCreated, mainEvent, activePaneId, expandedPaneId };
     await chrome.storage.session.set({ [SESSION_KEY]: record });
     const ownedUrls: Record<number, string> = {};
-    for (const id of controlledIds()) { const tab = await chrome.tabs.get(id).catch(() => undefined); if (isYTTV(tab?.url)) ownedUrls[id] = tab!.url!; }
+    for (const id of controlledIds()) { const tab = await chrome.tabs.get(id).catch(() => undefined); if (isYTTV(tab?.url) || isPlayerStart(chrome, tab?.url)) ownedUrls[id] = tab!.url!; }
     await chrome.storage.local.set({ [MANAGED_RECOVERY_KEY]: { ...record, ownedUrls } });
     await mixed.syncLegacy();
   }
@@ -540,7 +549,7 @@ async function observe(tabId: number, raw: AdapterObservation, preserveAudio = f
     Object.assign(pane, audioReadback(tabId));
     pane.status = observation.currentChannelId === pane.channelId && advancing ? 'Player observed advancing' : 'Navigation requested; playback not confirmed';
   }
-  if (!preserveAudio && !handoffRunning && panes.length && controlledIds().includes(tabId) && sourceId(tabId) !== audioFocusId && tabAudio.get(tabId)?.tabMuted === false) {
+  if (!preserveAudio && audioFocusId && !handoffRunning && panes.length && controlledIds().includes(tabId) && sourceId(tabId) !== audioFocusId && tabAudio.get(tabId)?.tabMuted === false) {
     await setTabMuted(tabId, true, 'observation inactive feed').catch(() => { audioError = 'Inactive feed tab mute failed; audio state is unknown. Use Mute all.'; });
     await readTabAudio(tabId);
   }
@@ -550,10 +559,11 @@ async function chooseTab(requestingTabId?: number): Promise<number | undefined> 
   await guideSync.ready;
   if (requestingTabId && (guideSync.owns(requestingTabId) || isGuideSyncURL((await chrome.tabs.get(requestingTabId).catch(() => undefined))?.url))) requestingTabId = undefined;
   if (!mainTabId && !mainWasDesignated && requestingTabId && !panes.some(pane => pane.tabId === requestingTabId)) { mainTabId = requestingTabId; mainWasDesignated = true; await saveControlIdentity(); }
-  if (mainTabId) { try { const tab = await chrome.tabs.get(mainTabId); if (isYTTV(tab.url) || optionalOwner(mainTabId)) return mainTabId; } catch { mainTabId = undefined; } }
+  if (mainTabId) { try { const tab = await chrome.tabs.get(mainTabId); if (isYTTV(tab.url) || mainWasCreated && isPlayerStart(chrome, tab.url) || optionalOwner(mainTabId)) return mainTabId; } catch { mainTabId = undefined; } }
   if (mainWasDesignated) return undefined;
   if (mixed.snapshot().record?.ownership.some(o => mixed.snapshot().record?.slots.find(s => s.id === o.slotId)?.role === 'original')) return undefined;
   const tabs = (await chrome.tabs.query({ url: 'https://tv.youtube.com/*' })).filter(tab => !guideSync.owns(tab.id!) && !isGuideSyncURL(tab.url));
+  if (tabs.filter(t => watchNavigationUrl(t.url ?? '')).length > CURRENT_MANAGED_FEED_LIMIT) return undefined;
   const tab = tabs.find(item => item.active && !panes.some(pane => pane.tabId === item.id)) ?? tabs.find(item => !panes.some(pane => pane.tabId === item.id));
   mainTabId = tab?.id; if (mainTabId) mainWasDesignated = true; if (mainTabId) await saveControlIdentity(); return mainTabId;
 }
@@ -639,12 +649,12 @@ async function requirePane(paneId: string): Promise<Pane | null> {
   const pane = paneId === 'main' ? await mainPane() : panes.find(item => item.id === paneId); if (!pane) return null;
   const tab = await lookupOwnedTab(pane.tabId, pane.windowId);
   if (tab && optionalOwner(pane.tabId) && tab.url !== optionalOwner(pane.tabId)!.ordinaryUrl) return null;
-  if (tab && (optionalOwner(pane.tabId) || isYTTV(tab.url) || pendingWatch(tab) || pane.error && tab.url === 'about:blank')) {
+  if (tab && (optionalOwner(pane.tabId) || isYTTV(tab.url) || pendingWatch(tab) || pane.error && (tab.url === 'about:blank' || isPlayerStart(chrome, tab.url)))) {
     // Ownership follows the known tab when the owner moves it; detection never moves it back.
     if (pane.windowId !== tab.windowId) { pane.windowId = tab.windowId; await saveControlIdentity(); }
     return pane;
   }
-  if (tab && (!tab.url || tab.url === 'about:blank')) {
+  if (tab && (!tab.url || tab.url === 'about:blank' || isPlayerStart(chrome, tab.url))) {
     observations.delete(pane.tabId); pane.status = 'Known window is loading; native controls remain available.';
     return null; // Retain its count/slot but do not dispatch player mutations yet.
   }
@@ -743,7 +753,7 @@ async function advanceFirstStart(tabId: number) {
 }
 async function beginFirstStart(tabId: number): Promise<ActionResult> {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
-  if (!tab || !isYTTV(tab.url) && tab.url !== 'about:blank') {
+  if (!tab || !isYTTV(tab.url) && tab.url !== 'about:blank' && !isPlayerStart(chrome, tab.url)) {
     if (tab) await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
     return fail('SIGN_IN_REQUIRED', 'Finish signing in in the new YouTube TV window, then press New show.');
   }
@@ -777,23 +787,29 @@ async function newShow(): Promise<ActionResult> {
     return entry ? createPane(entry.channel.id) : fail('CHANNELS_LOADING', 'Channels are still loading. Try New show again in a moment, or use Pick a channel.');
   }
   const released = await workspace.releaseClosedOriginal(); if (!released.ok) return released;
+  const originalSlot = mixed.snapshot().record?.slots.find(slot => slot.role === 'original');
+  if (mixed.snapshot().record?.claims.some(claim => claim.slotId === originalSlot?.id))
+    return fail('OPENING_INTERRUPTED', 'Close the blank window from the earlier attempt, then use I closed the interrupted window at the top of the remote before pressing New show again.');
   let created: chrome.windows.Window | undefined;
   const previous = { mainWasDesignated, mainWasCreated, activePaneId, mainEvent };
   let claim: string;
   try { claim = await mixed.reserveLegacy(true); } catch { return fail('SAVE_FAILED', 'Could not reserve a player. No window was opened.'); }
   pendingFeedCreations++;
   try {
-    created = await chrome.windows.create({ url: 'about:blank', type: 'popup', focused: false, width: 780, height: 520 });
+    created = await chrome.windows.create({ url: playerStartUrl(chrome), type: 'popup', focused: false, width: 780, height: 520 });
     const tabId = created?.tabs?.[0]?.id; if (created?.id === undefined || tabId === undefined) throw new Error('Window unavailable');
-    await mixed.bindLegacy(claim, created.tabs![0]);
+    const prepared = await readyPlayerWindow(chrome, created);
+    await mixed.bindLegacy(claim, prepared);
     const muted = await setTabMuted(tabId, true, 'create first show');
     if (muted?.mutedInfo?.muted !== true) throw new Error('Mute unconfirmed');
+    const current = await chrome.tabs.get(tabId);
+    if (current.windowId !== created.id || !isPlayerStart(chrome, current.url) || current.pendingUrl && current.pendingUrl !== current.url || current.mutedInfo?.muted !== true) throw Error('SOURCE_CHANGED');
     mainTabId = tabId; mainWasDesignated = true; mainWasCreated = true; activePaneId = 'main'; mainEvent = undefined;
     await saveControlIdentity();
   } catch {
     const tabId = created?.tabs?.[0]?.id;
     const tab = tabId === undefined ? undefined : await chrome.tabs.get(tabId).catch(() => undefined);
-    if (created?.id !== undefined && tab?.windowId === created.id && tab.url === 'about:blank') {
+    if (created?.id !== undefined && tab?.windowId === created.id && isPlayerStart(chrome, tab.url) && (!tab.pendingUrl || tab.pendingUrl === tab.url)) {
       try { const tabs = await chrome.tabs.query({ windowId: tab.windowId }); if (tabs.length !== 1 || tabs[0].id !== tab.id) throw Error('Changed window'); await chrome.tabs.remove(tab.id!); await mixed.closed(tab.id!); await mixed.finishLegacy(claim); }
       catch {
         mainTabId = tab.id; mainWasDesignated = true; mainWasCreated = true;
@@ -802,7 +818,7 @@ async function newShow(): Promise<ActionResult> {
       }
     }
     mainTabId = undefined; mainWasDesignated = previous.mainWasDesignated; mainWasCreated = previous.mainWasCreated; activePaneId = previous.activePaneId; mainEvent = previous.mainEvent;
-    return fail('WINDOW_FAILED', 'Could not open a new show. Try again.');
+    return fail('WINDOW_FAILED', 'The new show could not be prepared safely. If its window remains open, close it and use I closed the interrupted window at the top of the remote before retrying.');
   } finally { pendingFeedCreations--; }
   const started = await beginFirstStart(mainTabId!);
   await mixed.finishLegacy(claim, mainTabId); return started;
@@ -829,13 +845,16 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
   pendingFeedCreations++;
   try {
     // Silence BEFORE the navigation can load or play. Do not create the watch URL directly.
-    const created = await chrome.windows.create({ url: 'about:blank', type: 'popup', focused: false, width: 780, height: 520 });
+    const created = await chrome.windows.create({ url: playerStartUrl(chrome), type: 'popup', focused: false, width: 780, height: 520 });
     if (!created?.id) throw new Error('Missing managed window identity');
     newWindow = created;
     const tabId = created.tabs?.[0]?.id;
     if (!tabId) throw new Error('Missing managed tab identity');
-    await mixed.bindLegacy(claim, created.tabs![0]);
+    const prepared = await readyPlayerWindow(chrome, created);
+    await mixed.bindLegacy(claim, prepared);
     if ((await setTabMuted(tabId, true, 'create blank feed'))?.mutedInfo?.muted !== true) throw Error('Mute unconfirmed');
+    const current = await chrome.tabs.get(tabId);
+    if (current.windowId !== created.id || !isPlayerStart(chrome, current.url) || current.pendingUrl && current.pendingUrl !== current.url || current.mutedInfo?.muted !== true) throw Error('SOURCE_CHANGED');
     if (sourceCurrent && !await sourceCurrent()) throw new Error('SOURCE_CHANGED');
     await setTabMuted(tabId, true, 'create navigate feed', entry.target.url);
     const pane: Pane = { id: `pane-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, channelId, channelName: entry.channel.name,
@@ -852,7 +871,7 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
       try {
         const tabId = newWindow.tabs?.[0]?.id; if (!tabId) throw Error('Unknown tab');
         const tab = await chrome.tabs.get(tabId), group = await chrome.tabs.query({ windowId: newWindow.id });
-        if (tab.windowId !== newWindow.id || !['about:blank', entry.target.url].includes(tab.url ?? '') || group.length !== 1 || group[0].id !== tabId) throw Error('Changed window');
+        if (tab.windowId !== newWindow.id || ![playerStartUrl(chrome), entry.target.url].includes(tab.url ?? '') || tab.pendingUrl && tab.pendingUrl !== tab.url && tab.pendingUrl !== entry.target.url || group.length !== 1 || group[0].id !== tabId) throw Error('Changed window');
         await chrome.tabs.remove(tabId); await mixed.closed(tabId); await mixed.finishLegacy(claim);
         panes = panes.filter(p => p.tabId !== tabId);
       }
@@ -1006,6 +1025,22 @@ async function applyWorkspaceLayout(): Promise<ActionResult> {
   if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); }
   return result;
 }
+async function readExistingPlayer(tab: chrome.tabs.Tab) {
+  const expectedBuild = typeof __YTTV_BUILD__ === 'string' ? __YTTV_BUILD__ : 'source';
+  const read = async () => {
+    const requestedAt = Date.now(), connectionNonce = crypto.randomUUID();
+    const raw = await chrome.tabs.sendMessage(tab.id!, envelope({ type: 'GET_OBSERVATION', connectionNonce })).catch(() => undefined);
+    const clean = cleanObservation(raw);
+    return clean && captureUsable({ ...clean, playerKey: raw?.playerKey }) && raw.connectionBuild === expectedBuild && raw.connectionNonce === connectionNonce && Date.parse(clean.observedAt) >= requestedAt && Date.parse(clean.observedAt) <= Date.now() ? raw : undefined;
+  };
+  let raw = await read();
+  if (!raw && await chrome.permissions.contains({ permissions: ['scripting'] })) {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id! }, files: ['content.js'] });
+    raw = await read();
+  }
+  const current = await chrome.tabs.get(tab.id!).catch(() => undefined);
+  return raw && current?.url === tab.url && current?.windowId === tab.windowId && (!current?.pendingUrl || current.pendingUrl === tab.url) ? raw : undefined;
+}
 async function handle(command: Command, sender: chrome.runtime.MessageSender): Promise<unknown> {
   await init; await workspace.ready;
   await mixed.load();
@@ -1016,16 +1051,37 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       (['CREATE_PANE', 'REPLACE_PANE'].includes(command.type) && 'eventId' in command))
     return fail('UNSUPPORTED_PATH', 'Provider event playback was removed. Use Guide or guide-based Sports programs.');
   if (!validCommand(command)) { failures.record('INVALID_COMMAND'); return fail('INVALID_COMMAND', 'Invalid or oversized extension command.'); }
-  if ((!managedSessionReadable || mixed.unavailable()) && (['NEW_SHOW', 'CONNECT_PANE', 'DUPLICATE_PANE', 'CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'REPLACE_PROGRAM', 'SELECT_PANE'].includes(command.type) ||
+  if ((!managedSessionReadable || mixed.unavailable()) && (['SAVE_CURRENT_LAYOUT', 'NEW_SHOW', 'CONNECT_PANE', 'DUPLICATE_PANE', 'CREATE_PANE', 'ADD_PROGRAM', 'REPLACE_PANE', 'REPLACE_PROGRAM', 'SELECT_PANE'].includes(command.type) ||
       (command.type === 'AUDIO' && command.muted === false)))
     return fail('STORAGE_UNAVAILABLE', 'Managed sessions could not be recovered. Use native mute and existing windows; audio enable and new feeds remain unavailable.');
-  if (['START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE', 'NEW_SHOW', 'APPLY_LAYOUT', 'SAVE_AREA_PICKER'].includes(command.type) && !workspace.snapshot().available)
+  if (['SAVE_CURRENT_LAYOUT', 'START_WORKSPACE', 'RETURN_MAIN', 'ARRANGE', 'SET_TV_AREA', 'AUTO_ARRANGE', 'OPEN_REMOTE', 'NEW_SHOW', 'APPLY_LAYOUT', 'SAVE_AREA_PICKER'].includes(command.type) && !workspace.snapshot().available)
     return fail('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.');
   // Explicit original-player choices revoke the first-start attempt before they queue.
   if (firstStart && (['PREVIOUS', 'OPEN_NATIVE_GUIDE', 'WATCH_PROGRAM', 'RETURN_MAIN'].includes(command.type) ||
       (['REPLACE_PROGRAM', 'REPLACE_PANE', 'SELECT_PANE'].includes(command.type) && 'paneId' in command && command.paneId === 'main') ||
       (command.type === 'NATIVE_VOLUME_INPUT' && sender.tab?.id === firstStart.tabId))) cancelFirstStart();
   switch (command.type) {
+    case 'AUTO_CONNECT': {
+      if (!extensionSender || sender.url !== chrome.runtime.getURL('remote.html')) return fail('INVALID_SENDER', 'Automatic connection belongs to the remote.');
+      if (!autoConnectPending) {
+        const task = autoConnectPlayers({
+          detect: async () => (await chrome.tabs.query({ url: 'https://tv.youtube.com/*' }))
+            .filter(t => t.id && watchNavigationUrl(t.url ?? '') && !guideSync.owns(t.id) && !isGuideSyncURL(t.url))
+            .map((t, i) => ({ id: t.id!, label: `Player ${i + 1}` })),
+          verifyControlled: async tabId => {
+            const raw = await readExistingPlayer(await chrome.tabs.get(tabId));
+            if (!raw) return false;
+            await observe(tabId, raw, true); return true;
+          },
+          controlled: controlledIds, capacity: () => mixed.capacity(), hasOriginal: async () => Boolean(await mainPane()),
+          blocked: () => !managedSessionReadable || mixed.blocked() || Boolean(firstStart || pendingFeedCreations),
+          connect: async (tabId, original) => await handle(original ? { type: 'CHOOSE_MAIN', tabId } : { type: 'CONNECT_PANE', tabId, verify: true }, sender) as ActionResult,
+        });
+        autoConnectPending = task;
+        void task.finally(() => { if (autoConnectPending === task) autoConnectPending = undefined; }).catch(() => undefined);
+      }
+      return autoConnectPending;
+    }
     case 'CONNECT_PRIME_VIDEO': return runManaged(async () => {
       if (!await workspace.isRemoteSender(sender)) return fail('INVALID_SENDER', 'Connect from the current remote.');
       if (!await primeVideo.permitted()) return fail('PRIME_VIDEO_ACCESS_REQUIRED', 'Enable Prime Video, then retry.');
@@ -1060,13 +1116,14 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       if (!mainTabId || !canAddManagedFeed(mixed.capacity())) return fail('SESSION_BOUND', 'Choose the original first; four total managed players is the limit.');
       const tab = await chrome.tabs.get(command.tabId).catch(() => undefined);
       if (!tab || !watchNavigationUrl(tab.url ?? '')) return fail('PLAYER_UNAVAILABLE', 'Existing watch player unavailable.');
+      if (command.verify && !await readExistingPlayer(tab)) return fail('PLAYER_UNAVAILABLE', 'Controls could not connect. Allow reconnect access or refresh this player when convenient, then retry detection.');
       const entry = guideFor(mainTabId).find(row => row.target?.url === tab.url);
       try { await mixed.connectLegacy(tab, false); } catch { return fail('SAVE_FAILED', 'Player ownership could not be saved. Nothing was connected.'); }
       panes.push({ id: `connected-${command.tabId}`, tabId: command.tabId, windowId: tab.windowId, channelId: entry?.channel.id ?? `existing-${command.tabId}`, channelName: entry?.channel.name ?? 'Existing player', feedNumber: MANAGED_FEED_COUNTS.slice(1).find(n => !panes.some(p => p.feedNumber === n)), muted: null });
       await saveControlIdentity();
       for (const id of controlledIds()) await readTabAudio(id);
       const routed = controlledIds().filter(id => tabAudio.get(id)?.tabMuted === false);
-      if (routed.length === 1) audioFocusId = sourceId(routed[0]);
+      audioFocusId = routed.length === 1 ? sourceId(routed[0]) : undefined;
       await refreshObservations(true); await notify();
       return ok('Existing player connected without moving, navigating or changing audio.');
     });
@@ -1076,11 +1133,8 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       if (await mainPane()) return fail('ORIGINAL_EXISTS', 'An original player is already controlled.');
       const tab = await chrome.tabs.get(command.tabId).catch(() => undefined);
       if (!tab || !isYTTV(tab.url) || guideSync.owns(command.tabId) || isGuideSyncURL(tab.url) || panes.some(p => p.tabId === command.tabId)) return fail('PLAYER_UNAVAILABLE', 'Choose an existing unassigned YouTube TV player.');
-      const requestedAt = Date.now(), connectionNonce = crypto.randomUUID();
-      const raw = await chrome.tabs.sendMessage(command.tabId, envelope({ type: 'GET_OBSERVATION', connectionNonce })).catch(() => undefined);
-      const clean = cleanObservation(raw), expectedBuild = typeof __YTTV_BUILD__ === 'string' ? __YTTV_BUILD__ : 'source';
-      if (!clean || !captureUsable({ ...clean, playerKey: raw?.playerKey }) || raw.connectionBuild !== expectedBuild || raw.connectionNonce !== connectionNonce || Date.parse(clean.observedAt) < requestedAt || Date.parse(clean.observedAt) > Date.now())
-        return fail('PLAYER_UNAVAILABLE', 'This player is not connected and ready. Use its native controls; no player was adopted.');
+      const raw = await readExistingPlayer(tab);
+      if (!raw) return fail('PLAYER_UNAVAILABLE', 'Connection not confirmed. Allow reconnect access or refresh this player when convenient, then retry detection. Playback was not changed.');
       const released = await workspace.releaseClosedOriginal(); if (!released.ok) return released;
       try { await mixed.connectLegacy(tab, true); } catch { return fail('SAVE_FAILED', 'Player ownership could not be saved. Resolve old slots before connecting.'); }
       mainTabId = command.tabId; mainWasDesignated = true; mainWasCreated = false; mainEvent = undefined; activePaneId = 'main'; expandedPaneId = undefined; audioFocusId = undefined;
@@ -1134,6 +1188,11 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     });
     case 'APPLY_LAYOUT': return runManaged(async () => { const result = await applyWorkspaceLayout(); await notify(); return result; });
     case 'ARRANGE': return runManaged(async () => { const result = await workspace.arrange(); if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); } await notify(); return result; });
+    case 'SAVE_CURRENT_LAYOUT': return runManaged(async () => {
+      if (!await workspace.isRemoteSender(sender)) return fail('INVALID_SENDER', 'Save positions from the current remote.');
+      if (pendingFeedCreations || firstStart || mixed.blocked()) return fail('PLAYERS_PENDING', 'Finish connecting or recovering your players before saving positions.');
+      const result = await workspace.saveCurrentPositions(); await notify(); return result;
+    });
     case 'SET_TV_AREA': return runManaged(async () => { const result = await workspace.setArea(command.workArea, command.area, command.displayId, command.layout, command.customSlots, command.plannedCount); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
     case 'AUTO_ARRANGE': return runManaged(async () => { const result = await workspace.setAuto(command.enabled); if (workspace.snapshot().enrolled) await syncWorkspaceExpansion(result); await notify(); return result; });
     case 'FOCUS_PANE': return runManaged(async () => {
@@ -1200,7 +1259,8 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
     case 'FOCUS_MAIN': {
       const pane = await mainPane(); if (!pane) return fail('PANE_UNAVAILABLE', 'Original player unavailable.');
       await chrome.tabs.update(pane.tabId, { active: true }); await chrome.windows.update(pane.windowId, { focused: true });
-      if (openDrawers.has(pane.tabId)) await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'TOGGLE_DESKTOP' })).catch(() => undefined);
+      // A newly injected bridge starts hidden even when the old session says open.
+      if (openDrawers.has(pane.tabId)) await chrome.tabs.sendMessage(pane.tabId, envelope({ type: 'HIDE_DESKTOP' })).catch(() => undefined);
       return ok('Focused the existing original player.');
     }
     case 'OPEN_NATIVE_GUIDE': {
@@ -1322,7 +1382,7 @@ chrome.permissions?.onRemoved?.addListener(() => {
 });
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if ([YOUTUBE_NAMESPACE, PRIME_VIDEO_NAMESPACE, NETFLIX_NAMESPACE].includes(message?.namespace)) return handleProviderMessage(message, sender, sendResponse);
-  if (!isMessage(message) || ['STATE_CHANGED', 'GET_OBSERVATION', 'TOGGLE_DESKTOP', 'PLAYER_AUDIO', 'PLAYER_PLAYBACK'].includes(message.type)) return false;
+  if (!isMessage(message) || ['STATE_CHANGED', 'GET_OBSERVATION', 'TOGGLE_DESKTOP', 'HIDE_DESKTOP', 'PLAYER_AUDIO', 'PLAYER_PLAYBACK'].includes(message.type)) return false;
   void handle(message, sender).then(async result => {
     // A newly created/moved popup may take focus before geometry starts. Return control
     // to the initiating remote for operations that do not explicitly focus a player.
@@ -1356,7 +1416,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
     const results = await Promise.allSettled([saveVolumeChoices(),
       openDrawers.delete(tabId) ? saveDrawers() : Promise.resolve(), removed || removedMain ? saveSessions() : Promise.resolve()]);
     if (results.some(result => result.status === 'rejected')) failures.record('TAB_CLOSE_FAILED');
-    if (removed || removedMain) { if (!explicitClose) await reflowWorkspace(); await notify(); }
+    if (removed || removedMain) { if (!explicitClose) await reflowWorkspace(); } await notify();
   })).catch(() => failures.record('TAB_CLOSE_FAILED'));
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
@@ -1365,9 +1425,19 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   if (change.url && controlledIds().includes(tabId)) void init.then(() => runManaged(() => saveControlIdentity())).catch(() => failures.record('SESSION_WRITE_FAILED'));
   if (change.url && firstStart?.tabId === tabId && change.url !== FIRST_LIVE_URL && change.url !== firstStart.watchUrl) cancelFirstStart();
   if (change.url) { forgetProviders(tabId); mixed.revoke(tabId, change.url); playingSeen.delete(tabId); if (addStarts.get(tabId)?.url !== change.url) addStarts.delete(tabId); playbackErrors.delete(tabId); invalidateVolume(tabId); playerIdentities.delete(tabId); observations.delete(tabId); confirmedTabs.delete(tabId); }
-  if (isYTTV(tab.url) && controlledIds().includes(tabId) && panes.length && !handoffRunning && sourceId(tabId) !== audioFocusId && change.mutedInfo?.muted === false)
+  if (change.status === 'complete' && isYTTV(tab.url) && !guideSync.owns(tabId)) void notify();
+  if (isYTTV(tab.url) && controlledIds().includes(tabId) && panes.length && audioFocusId && !handoffRunning && sourceId(tabId) !== audioFocusId && change.mutedInfo?.muted === false)
     void setTabMuted(tabId, true, 'tab update inactive feed').catch(() => { audioError = 'Inactive feed mute failed; use Mute all and inspect audio readback.'; });
 });
 
-chrome.action?.onClicked?.addListener(() => { void init.then(async () => { await workspace.openRemote(); await chooseTab(); remoteGuideRequested = true; await syncGuide(); }).catch(() => failures.record('COMMAND_FAILED')); });
+chrome.action?.onClicked?.addListener(() => {
+  void (async () => {
+    try { await init; } catch { return; } // Initialization already records its own boundary.
+    const result = await workspace.openRemote();
+    if (!result.ok) return;
+    try { await chooseTab(); } catch { failures.record('REMOTE_CONNECTION_FAILED'); return; }
+    remoteGuideRequested = true;
+    await syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED'));
+  })().catch(() => failures.record('COMMAND_FAILED'));
+});
 chrome.system?.display?.onDisplayChanged?.addListener(() => { void init.then(() => runManaged(async () => { await reflowWorkspace(); await notify(); })).catch(() => failures.record('COMMAND_FAILED')); });
