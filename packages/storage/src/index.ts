@@ -1,4 +1,4 @@
-import { isLayoutMode, validCustomSlots, type LayoutMode, type Rect } from '../../quadbox/src/geometry';
+import { isLayoutMode, validCustomSlots, readIntent, type AreaIntent, type LayoutMode, type Rect } from '../../quadbox/src/geometry';
 import { MANAGED_FEED_COUNTS } from '../../quadbox/src/policy';
 import { normalizeText, type GuideEntry, type PlaybackTarget } from '../../core/src/index.js';
 
@@ -166,7 +166,7 @@ export function createPreferencesStore(bridge: StorageBridge) {
 
 /** Additive workspace preference. No targets, identities or audio authority. */
 export const WORKSPACE_LAYOUT_KEY = 'yttv-desktop.workspace-layout.v1';
-export interface WorkspaceLayoutPreference { version: 1; mode: LayoutMode; customLayouts?: Record<string, Rect[]> }
+export interface WorkspaceLayoutPreference { version: 1; mode: LayoutMode; customLayouts?: Record<string, Rect[]>; savedLayouts?: Record<string, { mode: LayoutMode; intent: AreaIntent }> }
 export function sanitizeWorkspaceLayout(value: unknown): WorkspaceLayoutPreference {
   const raw = object(value);
   const result: WorkspaceLayoutPreference = { version: 1, mode: raw.version === 1 && isLayoutMode(raw.mode) ? raw.mode : 'auto' };
@@ -176,6 +176,12 @@ export function sanitizeWorkspaceLayout(value: unknown): WorkspaceLayoutPreferen
     if (validCustomSlots(slots, count)) customLayouts[String(count)] = slots.map(r => ({ left: r.left, top: r.top, width: r.width, height: r.height }));
   }
   if (Object.keys(customLayouts).length) result.customLayouts = customLayouts;
+  const savedLayouts: NonNullable<WorkspaceLayoutPreference['savedLayouts']> = {};
+  if (raw.version === 1) for (const count of MANAGED_FEED_COUNTS) {
+    const saved = object(object(raw.savedLayouts)[String(count)]), intent = readIntent(saved.intent);
+    if (intent && isLayoutMode(saved.mode) && (saved.mode === 'auto' || intent.displayId) && (saved.mode !== 'custom' || customLayouts[String(count)])) savedLayouts[String(count)] = { mode: saved.mode, intent: { ...intent, workArea: { left: intent.workArea.left, top: intent.workArea.top, width: intent.workArea.width, height: intent.workArea.height }, normalized: { left: intent.normalized.left, top: intent.normalized.top, width: intent.normalized.width, height: intent.normalized.height } } };
+  }
+  if (Object.keys(savedLayouts).length) result.savedLayouts = savedLayouts;
   return result;
 }
 

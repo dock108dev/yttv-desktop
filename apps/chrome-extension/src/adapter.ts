@@ -16,7 +16,7 @@ export type Command =
   | { type: 'FOCUS_PANE'; paneId: string }
   | { type: 'AUTO_ARRANGE'; enabled: boolean }
   | { type: 'SET_TV_AREA'; workArea: import('../../../packages/quadbox/src/geometry').Rect; area: import('../../../packages/quadbox/src/geometry').Rect; displayId?: string; layout?: import('../../../packages/quadbox/src/geometry').LayoutMode; customSlots?: import('../../../packages/quadbox/src/geometry').Rect[]; plannedCount?: number }
-  | { type: 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
+  | { type: 'REFRESH_CHANNELS' | 'GET_SNAPSHOT' | 'PREVIOUS' | 'MUTE' | 'REFRESH' | 'RESTORE_LAYOUT' | 'OPEN_NATIVE_GUIDE' | 'FOCUS_MAIN' }
   | { type: 'WATCH_PROGRAM' | 'ADD_PROGRAM'; channelId: string; title: string; observedAt: string }
   | { type: 'REPLACE_PROGRAM'; paneId: string; channelId: string; title: string; observedAt: string }
   | { type: 'DUPLICATE_PANE'; paneId: string }
@@ -60,7 +60,7 @@ export function validCommand(value: unknown): value is Command {
     case 'SAVE_AREA_PICKER': return validRect(row.area) && (row.customSlots === undefined || validCustomSlots(row.customSlots));
     case 'AUTO_ARRANGE': return typeof row.enabled === 'boolean';
     case 'SET_TV_AREA': return validRect(row.workArea) && validRect(row.area) && contains(row.workArea, row.area) && (row.displayId === undefined || id(row.displayId)) && (row.layout === undefined || isLayoutMode(row.layout)) && (row.plannedCount === undefined || isManagedFeedCount(row.plannedCount)) && (row.customSlots === undefined || validCustomSlots(row.customSlots, row.plannedCount as number | undefined));
-    case 'GET_SNAPSHOT': case 'PREVIOUS': case 'MUTE': case 'REFRESH':
+    case 'REFRESH_CHANNELS': case 'GET_SNAPSHOT': case 'PREVIOUS': case 'MUTE': case 'REFRESH':
     case 'RESTORE_LAYOUT': case 'OPEN_NATIVE_GUIDE': case 'FOCUS_MAIN': case 'GET_DRAWER_STATE':
     case 'GET_OBSERVATION': return row.connectionNonce === undefined || id(row.connectionNonce);
     case 'STATE_CHANGED': case 'TOGGLE_DESKTOP': case 'HIDE_DESKTOP': return true;

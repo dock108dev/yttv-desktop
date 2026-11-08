@@ -140,3 +140,16 @@ test('packaged drawing HTML loads its exported JavaScript as a module and has vi
   assert.match(source.outputFiles[0].text, /export\s*\{/);
   await window.happyDOM.abort();
 });
+
+test('saved per-count setups retain bounded geometry and modes while stripping unrelated fields', async () => {
+  const { areaIntent } = await import('../packages/quadbox/src/geometry');
+  const intent = areaIntent(work, work, false, 'monitor')!;
+  const saved = sanitizeWorkspaceLayout({ version: 1, mode: 'auto', savedLayouts: {
+    1: { mode: 'grid', intent: { ...intent, url: 'ignore', workArea: { ...work, audio: true } }, player: 'ignore' },
+    2: { mode: 'invalid', intent }, 3: { mode: 'grid', intent: { ...intent, normalized: { left: 0, top: 0, width: 5, height: 1 } } },
+    4: { mode: 'custom', intent }, 5: { mode: 'grid', intent },
+  } });
+  assert.deepEqual(saved.savedLayouts, { 1: { mode: 'grid', intent } });
+  assert.deepEqual(sanitizeWorkspaceLayout(JSON.parse(JSON.stringify(saved))), saved);
+  assert.deepEqual(sanitizeWorkspaceLayout({ version: 1, mode: 'top-bottom' }), { version: 1, mode: 'top-bottom' }, 'legacy layouts remain readable');
+});

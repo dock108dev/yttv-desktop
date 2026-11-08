@@ -30,9 +30,9 @@ export function createGuideSync(api: typeof chrome, changed: () => Promise<void>
     catch { blocked = true; status = 'unavailable'; }
     finally { if (owned === record) owned = undefined; await changed(); }
   }
-  async function request(windowId: number) {
+  async function request(windowId: number, explicit = false) {
     await ready;
-    if (blocked || starting || owned || now() - lastAttempt < 60_000) return;
+    if (blocked || starting || owned || !explicit && now() - lastAttempt < 60_000) return;
     starting = true; lastAttempt = now(); status = 'loading'; signature = '';
     let blank: chrome.tabs.Tab | undefined;
     try {

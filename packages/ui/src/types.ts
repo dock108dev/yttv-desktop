@@ -44,7 +44,7 @@ export interface DesktopSnapshot {
   guideSyncStatus?: 'idle' | 'loading' | 'ready' | 'unavailable';
   originalMissing?: boolean;
   originalCandidates?: { tabId: number; label: string }[];
-  workspace?: { customLayouts?: Record<string, import('../../quadbox/src/geometry').Rect[]>; layout?: import('../../quadbox/src/geometry').LayoutMode; available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
+  workspace?: { savedLayouts?: import('../../storage/src/index').WorkspaceLayoutPreference['savedLayouts']; customLayouts?: Record<string, import('../../quadbox/src/geometry').Rect[]>; layout?: import('../../quadbox/src/geometry').LayoutMode; available?: boolean; intent: import('../../quadbox/src/geometry').AreaIntent | null; enrolled: boolean; notice: string; actual: { id: string; bounds: import('../../quadbox/src/geometry').Rect }[]; expanded: boolean };
   feedLimit?: number;
   pendingFeedCreations?: number;
   mode: 'extension' | 'demo';
@@ -103,6 +103,7 @@ export interface ClientBridge {
   removePane?(paneId: string): Promise<ActionResult>;
   recoverGuide?(): Promise<ActionResult>;
   refresh?(): Promise<ActionResult>;
+  refreshChannels?(): Promise<ActionResult>;
 }
 
 export interface DesktopOptions {

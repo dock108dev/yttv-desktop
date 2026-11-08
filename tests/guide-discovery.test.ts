@@ -59,3 +59,34 @@ test('first owned playback triggers discovery; repeated observations and nearby 
   assert.equal(h.log.filter(row => row.type === 'discovery').length, 1);
   assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).panes.length, 2);
 });
+
+test('channel loading and replacement work on surviving players after the original closes', async () => {
+  const h = await harness(); await h.observe();
+  await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' }); await h.observe(2);
+  await h.remove(1);
+  let state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.equal(state.panes.length, 1); assert.notEqual(state.panes[0].id, 'main');
+  h.controls.guideSync = true;
+  const player = structuredClone(h.tabs.get(2));
+  assert.equal((await h.send({ type: 'REFRESH_CHANNELS' })).ok, true);
+  const helper = h.log.find(row => row.type === 'discovery').id;
+  assert.equal(h.tabs.get(helper).windowId, player.windowId);
+  assert.deepEqual(h.tabs.get(2), player, 'loading does not navigate or change audio on the survivor');
+  const raw = h.observation(helper);
+  const missing = { ...raw, guide: raw.guide.map(entry => ({ ...entry, available: false, target: null })) };
+  await h.observe(helper, missing as any);
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  assert.equal((await h.send({ type: 'GET_SNAPSHOT' })).guideSyncStatus, 'loading', 'metadata alone is not a loaded channel list');
+  raw.guide[0].channel = { id: 'yttv:espn', name: 'ESPN' }; raw.guide[0].target.channelId = 'yttv:espn'; raw.guide[0].target.url = 'https://tv.youtube.com/watch?v=espn';
+  await h.observe(helper, raw);
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.equal(state.guideSyncStatus, 'ready'); assert.equal(h.tabs.has(helper), false);
+  const area = { left: 0, top: 0, width: 1920, height: 1080 };
+  assert.equal((await h.send({ type: 'SET_TV_AREA', workArea: area, area, layout: 'auto', plannedCount: 1 })).ok, true);
+  const arrangedAt = h.log.length;
+  assert.equal((await h.send({ type: 'APPLY_LAYOUT' })).ok, true);
+  assert(h.log.slice(arrangedAt).every(row => row.type === 'bounds'), 'Arrange does not enroll, navigate or change sound without an original');
+  assert.equal((await h.send({ type: 'REPLACE_PANE', paneId: state.panes[0].id, channelId: 'yttv:espn' })).ok, true);
+  assert.equal(h.tabs.get(2).url, 'https://tv.youtube.com/watch?v=espn');
+});

@@ -178,7 +178,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal(log.slice(replacedAt).filter(x => x[2]?.type === 'PLAYER_PLAYBACK').length, 0, 'replacement cancels delayed Add');
     assert.match((await snapshot()).panes[3].error, /Player changed/);
     assert.equal(s.panes.length, 4); assert.equal(s.workspace.actual.length, 4);
-    assert.match(window.document.body.textContent!, /4 \/ 4 connected/);
+    assert.match(window.document.body.textContent!, /4 connected/);
     assert.equal((window.document.querySelector('button.primary') as any).disabled, true); assert.equal(window.document.querySelectorAll('.window-cards article').length, 4);
     const created = log.filter(x => x[0] === 'create').length;
     assert.equal((await send({ type: 'CREATE_PANE', channelId: 'yttv:1' })).code, 'SESSION_BOUND'); assert.equal(log.filter(x => x[0] === 'create').length, created);
@@ -198,7 +198,7 @@ test('real remote → bridge → worker journey targets four feeds, reflows, pre
     assert.equal(s.panes[2].feedNumber, 4, 'surviving feed retains number after another closes');
     // Native close publishes count and reflow to the open remote.
     await uiApi.act(async () => api.tabs.remove(s.panes[1].tabId)); await sync(); s = await snapshot(); assert.equal(s.panes.length, 2); assert.equal(s.workspace.actual.length, 2);
-    await uiApi.act(async () => dispose()); await mount(); assert.match(window.document.body.textContent!, /2 \/ 4 connected/);
+    await uiApi.act(async () => dispose()); await mount(); assert.match(window.document.body.textContent!, /2 connected/);
     await click('Arrange now'); failPlacement = true; await click('Arrange now'); assert.match(window.document.body.textContent!, /Previous bounds restored/);
     // The full-size picker saves real screen coordinates through the worker, not the small preview.
     const customBoxes = [{ left: 50, top: 100, width: 850, height: 450 }, { left: 1000, top: 600, width: 850, height: 400 }];

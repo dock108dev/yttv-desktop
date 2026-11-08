@@ -63,7 +63,7 @@ Session records and durable local backups recover known ownership and geometry. 
 
 ## Layout and drawing
 
-Geometry, storage, command counts and UI share quadbox's supported one-to-four-show counts. Layouts include Best fit, stacked, side by side, grid, larger-main and custom positions. Custom rectangles are normalized to a selected monitor work area and saved separately per show count. Missing custom positions use a labeled Best fit fallback. Fixed layouts require the selected monitor and matching work area.
+Geometry, storage, command counts and UI share quadbox's supported one-to-four-show counts. Layouts include Best fit, stacked, side by side, grid, larger-main and custom positions. Custom rectangles are normalized to a selected monitor work area. The additive workspace layout record saves the last monitor, area, mode and custom rectangles separately per show count. Explicit Arrange selects the current count’s setup; legacy global settings remain a fallback. Surviving owned windows can be arranged and their channels changed without designating a new original. Missing custom positions use a labeled Best fit fallback. Fixed layouts require the selected monitor and matching work area.
 
 The monitor drawing page is a temporary extension window, not a screen capture or transparent desktop overlay. Its commands bind the exact owned page/tab/window. Cancel leaves saved intent unchanged; save uses workspace placement with readback and rollback. A valid layout can be saved with no players or a different current count without moving windows. Explicit Arrange applies it later.
 

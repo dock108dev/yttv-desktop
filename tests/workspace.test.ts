@@ -354,3 +354,69 @@ test('save positions refuses shared, minimized, moving, navigating or off-monito
     if (scenario !== 'write-failure') assert.deepEqual(h.local, before, scenario);
   }
 });
+
+test('Arrange restores the last area and mode for each count after restart, including without the original', async () => {
+  const h = harness(); h.permission(true); h.add(30); h.add(31); h.add(32);
+  let rows = [...h.extra];
+  const make = () => createWorkspace(h.api, async () => rows);
+  const w = make();
+  const threeArea = { ...area, width: 1700 };
+  assert.equal((await w.setArea(area, threeArea, 'monitor', 'top-bottom', undefined, 3)).ok, true);
+  assert.equal((await w.validatePlayers()).ok, true);
+  assert.equal((await w.arrange()).ok, true);
+  const threeBounds = w.snapshot().actual.map(p => p.bounds);
+  rows = rows.slice(0, 2);
+  const twoArea = { ...area, left: -1800, width: 1600, height: 700 };
+  assert.equal((await w.setArea(area, twoArea, 'monitor', 'side-by-side', undefined, 2)).ok, true);
+  assert.equal((await w.arrange()).ok, true);
+  const twoBounds = w.snapshot().actual.map(p => p.bounds);
+  const persisted = structuredClone(h.local);
+  rows = [...h.extra];
+  const restarted = make(); await restarted.ready;
+  const before = h.log.length;
+  assert.equal((await restarted.validatePlayers()).ok, true);
+  assert.equal((await restarted.arrange()).ok, true);
+  assert.deepEqual(restarted.snapshot().actual.map(p => p.bounds), threeBounds);
+  assert.equal(restarted.snapshot().layout, 'top-bottom');
+  rows = rows.slice(0, 2);
+  assert.equal((await restarted.arrange()).ok, true);
+  assert.deepEqual(restarted.snapshot().actual.map(p => p.bounds), twoBounds);
+  assert.deepEqual(h.local, persisted, 'Arrange never overwrites the other counts or saves new intent');
+  assert(h.log.slice(before).every(row => row[0] === 'window'), 'no enrollment, navigation or audio mutation');
+  rows = [...h.extra]; h.displays([]);
+  const failedAt = h.log.length;
+  assert.equal((await restarted.arrange()).ok, false);
+  assert.equal(h.log.length, failedAt, 'missing saved monitor leaves windows unchanged');
+});
+
+test('saving positions without an original persists the custom layout for that count', async () => {
+  const h = harness(); h.permission(true); h.add(30); h.add(31);
+  const plan = planLayout(area, 2); assert(plan.ok);
+  for (let i = 0; i < 2; i++) Object.assign(h.windows.get(30 + i), plan.bounds[i]);
+  const w = createWorkspace(h.api, async () => [...h.extra]);
+  assert.equal((await w.saveCurrentPositions()).ok, true);
+  assert.equal(w.snapshot().savedLayouts?.[2].mode, 'custom');
+  assert.equal(w.snapshot().enrolled, false, 'saving does not manufacture an original identity');
+  Object.assign(h.windows.get(30), { left: 0, top: 0 });
+  const restarted = createWorkspace(h.api, async () => [...h.extra]);
+  assert.equal((await restarted.arrange()).ok, true);
+  assert.deepEqual(restarted.snapshot().actual.map(p => p.bounds), plan.bounds);
+});
+
+test('using a saved count does not overwrite the last setup used as fallback for unsaved counts', async () => {
+  const h = harness(); h.permission(true); h.add(30); h.add(31);
+  let rows = [...h.extra];
+  const make = () => createWorkspace(h.api, async () => rows);
+  const w = make(), small = { ...area, height: 700 };
+  assert.equal((await w.setArea(area, small, 'monitor', 'top-bottom', undefined, 2)).ok, true);
+  assert.equal((await w.setArea(area, small, 'monitor', 'grid', undefined, 4)).code, 'LAYOUT_SAVED');
+  assert.equal((await w.arrange()).ok, true); assert.equal(w.snapshot().layout, 'top-bottom');
+  assert.equal((await w.validateLayout(3)).ok, true, 'three uses the latest grid fallback, not the active two-show stack');
+  await w.setAuto(false);
+  h.add(32); rows = [...h.extra];
+  const restarted = make(); await restarted.ready;
+  assert.equal(restarted.snapshot(3).layout, 'grid');
+  assert.equal(restarted.snapshot(2).intent!.autoArrange, false, 'count restoration preserves manual placement preference');
+  assert.equal((await restarted.arrange()).ok, true);
+  assert.equal(restarted.snapshot().layout, 'grid');
+});

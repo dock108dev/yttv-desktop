@@ -69,3 +69,14 @@ test('failed cleanup retains recovery ownership and blocks more discovery tabs',
   assert.equal(h.sync.status, 'unavailable'); assert(h.session[GUIDE_SYNC_KEY]);
   h.advance(); await h.sync.request(10); assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
 });
+
+test('an explicit channel reload retries within automatic cooldown and still coalesces concurrent requests', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const h = fixture(); await h.sync.request(10); await tick(t, 25);
+  assert.equal(h.sync.status, 'unavailable');
+  await h.sync.request(10); assert.equal(h.log.filter(row => row[0] === 'create').length, 1);
+  await Promise.all([h.sync.request(10, true), h.sync.request(10, true)]);
+  assert.equal(h.log.filter(row => row[0] === 'create').length, 2);
+  h.sync.observed(2, 'fresh targets'); await tick(t, 5);
+  assert.equal(h.sync.status, 'ready');
+});

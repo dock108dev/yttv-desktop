@@ -101,10 +101,12 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
   const command = (c: Command) => chrome.runtime.sendMessage(envelope(c)) as Promise<ActionResult>;
   async function openArea(setupLayout = false, mode?: LayoutMode, trigger?: HTMLButtonElement | null) {
     setLayoutSetup(setupLayout);
-    setLayoutMode(mode ?? state?.workspace?.layout ?? 'auto');
-    setLayoutCount(Math.min(CURRENT_MANAGED_FEED_LIMIT, Math.max(1, state?.panes.length ?? 0, state?.openPlayerWindowCount ?? 0)));
+    const count = Math.min(CURRENT_MANAGED_FEED_LIMIT, Math.max(1, state?.panes.length ?? 0, state?.openPlayerWindowCount ?? 0));
+    const savedLayout = state?.workspace?.savedLayouts?.[count];
+    setLayoutMode(mode ?? savedLayout?.mode ?? state?.workspace?.layout ?? 'auto');
+    setLayoutCount(count);
     areaTrigger.current = trigger ?? (setupLayout ? layoutButtonRef.current : areaButtonRef.current);
-    const fallback = thisScreen(window.screen), saved = state?.workspace?.intent;
+    const fallback = thisScreen(window.screen), saved = savedLayout?.intent ?? state?.workspace?.intent;
     const available = saved?.displayId ? await grantedMonitors(chrome) : [];
     const index = available.findIndex(m => m.id === saved?.displayId);
     if (index >= 0) {
@@ -121,7 +123,7 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
   async function monitorsClick() {
     // Permission request occurs before any asynchronous work in this direct gesture handler.
     const result = await chooseMonitors(chrome, thisScreen(window.screen));
-    const saved = state?.workspace?.intent;
+    const saved = state?.workspace?.savedLayouts?.[layoutCount]?.intent ?? state?.workspace?.intent;
     const found = result.monitors.findIndex(m => m.id && m.id === saved?.displayId), index = Math.max(0, found);
     setMonitors(result.monitors); setMonitorIndex(index);
     setArea(found >= 0 ? resolveArea(saved!, result.monitors[index].workArea) : layoutSetup ? { ...result.monitors[index].workArea, width: 0, height: 0 } : result.monitors[index].workArea);
@@ -144,13 +146,16 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
     return start ? command({ type: 'START_WORKSPACE' }) : result;
   }
   const slotLabel = (id: string) => state?.workspace?.layout === 'top-bottom' && state.panes.length <= 2 ? (id === 'main' ? 'Top · ' : 'Bottom · ') : '';
-  const feedPosition = (p: NonNullable<DesktopSnapshot['panes'][number]>) => `${slotLabel(p.id)}${p.isMain || p.id === 'main' ? 'Original' : `Window ${p.feedNumber ?? (state?.panes.filter(x => !x.isMain && x.id !== 'main').findIndex(x => x.id === p.id) ?? 0) + 2}`}`;
+  const feedPosition = (p: NonNullable<DesktopSnapshot['panes'][number]>) => `${slotLabel(p.id)}${p.isMain || p.id === 'main' ? 'Original' : `Window ${(state?.panes.findIndex(x => x.id === p.id) ?? 0) + 1}`}`;
   const feedLabel = (p: NonNullable<DesktopSnapshot['panes'][number]>) => `${feedPosition(p)} · ${p.channelName}`;
   async function openPicker(target: string, trigger: HTMLButtonElement) {
     pickerTrigger.current = trigger; setQuery(''); setPicker(target);
     // Reobserve existing owned pages without opening Live or disturbing playback.
     if (busy) return; setBusy(true);
-    try { await bridge.refresh?.(); } catch { setMessage('Channels unavailable. Add current content or use native controls.'); setMessageError(true); }
+    try {
+      const result = bridge.refreshChannels && !state?.guide.some(e => freshLiveTarget(e)) ? await bridge.refreshChannels() : await bridge.refresh?.();
+      if (result && !result.ok) { setMessage(result.reason ?? 'Channels unavailable. Retry loading or use native controls.'); setMessageError(true); }
+    } catch { setMessage('Channels unavailable. Retry loading or use native controls.'); setMessageError(true); }
     finally { setBusy(false); }
   }
   const hasMain = state?.panes.some(p => p.id === 'main');
@@ -187,13 +192,15 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
   const editorCount = layoutSetup ? layoutCount : Math.max(1, state?.panes.length ?? 0);
   const customSlots = state?.workspace?.customLayouts?.[editorCount];
   const preview = area ? planLayout(area, editorCount, 8, editorMode, customSlots) : null;
-  const savedArea = state?.workspace?.intent ? resolveArea(state.workspace.intent) : null;
   const currentCount = Math.max(1, state?.panes.length ?? 1);
-  const currentMode = state?.workspace?.layout ?? 'auto';
+  const countLayout = state?.workspace?.savedLayouts?.[currentCount];
+  const savedIntent = countLayout?.intent ?? state?.workspace?.intent;
+  const savedArea = savedIntent ? resolveArea(savedIntent) : null;
+  const currentMode = countLayout?.mode ?? state?.workspace?.layout ?? 'auto';
   const layoutLabel = LAYOUT_OPTIONS.find(option => option.value === currentMode)?.label ?? 'Best fit';
   async function arrangeShows() {
     if (state?.pendingFeedCreations) { await run(() => Promise.resolve({ ok: false, reason: 'Wait for the new show to finish opening, then try again.' })); return; }
-    if (!hasMain || !state?.workspace?.intent) { await openArea(true, undefined, arrangeButtonRef.current); return; }
+    if (!state?.panes.length || !savedIntent) { await openArea(true, undefined, arrangeButtonRef.current); return; }
     await run(async () => { const result = await command({ type: 'APPLY_LAYOUT' }); return result.ok ? { ok: true, message: 'Shows arranged.' } : result; });
   }
   async function drawOnMonitor() {
@@ -207,9 +214,9 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
   const unavailableReasons = [...new Set((sports ? sportsRows.map(r => r.entry) : rows).map(targetReason))];
   const sharedTargetReason = unavailableReasons.length === 1 && unavailableReasons[0] ? unavailableReasons[0] : '';
   return <main aria-busy={busy}>
-    <header className="remote-header"><h1>TV remote</h1><span className="window-count">{(state?.panes.length ?? 0)} / {state?.feedLimit ?? CURRENT_MANAGED_FEED_LIMIT} connected{existingPlayers.length > 0 && <span className="found-count"> · {existingPlayers.length} found</span>}{hasMain && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) && <span className="full-label"> · Full</span>}</span><div className="actions"><button className="primary" disabled={busy || originalBlocked || !state || state.openingDefaultShow || !canAddManagedFeed((state.panes.length) + (state.pendingFeedCreations ?? 0))} onClick={() => void run(() => command({ type: 'NEW_SHOW' }))}>{state?.openingDefaultShow ? 'Opening…' : 'New show'}</button><button ref={arrangeButtonRef} disabled={busy || !state || state.openingDefaultShow} onClick={() => void arrangeShows()}>Arrange shows</button>{hasMain && <button ref={addButtonRef} className="quiet" aria-expanded={picker === 'add'} aria-controls="content-picker" title={!canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) ? 'Four-window limit reached. Remove a window to add another.' : undefined} disabled={busy || state?.openingDefaultShow || !hasMain || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={e => void openPicker('add', e.currentTarget)}>Pick a channel</button>}</div></header>
-    <section className="layout-access" aria-label="Layout controls"><div className="actions"><button className="layout-edit" ref={layoutButtonRef} disabled={busy} onClick={() => void openArea(true)}>Set TV area</button><button disabled={busy || !hasMain || Boolean(state?.pendingFeedCreations) || state?.openingDefaultShow} onClick={savePositions}>Save current positions</button></div>
-      <small>{!hasMain ? 'Connect your players below, then save where you placed them — or draw a TV area.' : savedArea ? `${currentCount} shows · ${layoutLabel}. Save positions updates this layout.` : 'Save where your players are, or draw a new TV area.'}</small>
+    <header className="remote-header"><h1>TV remote</h1><span className="window-count" title={`Up to ${state?.feedLimit ?? CURRENT_MANAGED_FEED_LIMIT} players`}>{state?.panes.length ?? 0} connected{existingPlayers.length > 0 && <span className="found-count"> · {existingPlayers.length} found</span>}{hasMain && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) && <span className="full-label"> · Full</span>}</span><div className="actions"><button className="primary" disabled={busy || originalBlocked || !state || state.openingDefaultShow || !canAddManagedFeed((state.panes.length) + (state.pendingFeedCreations ?? 0))} onClick={() => void run(() => command({ type: 'NEW_SHOW' }))}>{state?.openingDefaultShow ? 'Opening…' : 'New show'}</button><button ref={arrangeButtonRef} disabled={busy || !state || state.openingDefaultShow} onClick={() => void arrangeShows()}>Arrange shows</button>{hasMain && <button ref={addButtonRef} className="quiet" aria-expanded={picker === 'add'} aria-controls="content-picker" title={!canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)) ? 'Four-window limit reached. Remove a window to add another.' : undefined} disabled={busy || state?.openingDefaultShow || !hasMain || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={e => void openPicker('add', e.currentTarget)}>Pick a channel</button>}</div></header>
+    <section className="layout-access" aria-label="Layout controls"><div className="actions"><button className="layout-edit" ref={layoutButtonRef} disabled={busy} onClick={() => void openArea(true)}>Set TV area</button><button disabled={busy || !state?.panes.length || Boolean(state?.pendingFeedCreations) || state?.openingDefaultShow} onClick={savePositions}>Save current positions</button></div>
+      <small>{!state?.panes.length ? 'Connect your players below, then save where you placed them — or draw a TV area.' : savedArea ? `${currentCount} shows · ${layoutLabel}. Save positions updates this layout.` : 'Save where your players are, or draw a new TV area.'}</small>
     </section>
     {autoWorking && <p role="status">Connecting existing players…</p>}
     {autoError && <section className="launch-recovery" role="alert"><p>{autoError}</p><button disabled={autoWorking || busy} onClick={() => {
@@ -224,15 +231,16 @@ function Remote({ bridge }: { bridge: ClientBridge }) {
       <small>{hasMain ? 'Add these players to the remote.' : 'Automatic connection could not include these players. Choose individually below, or retry detection.'} Connecting keeps their positions and sound.</small>
       {existingPlayers.map((p, i) => <div className="existing-player" key={p.tabId}><span><strong>Player {i + 1}</strong><small>{p.label.replace(/^Player \d+ · /, '')}</small></span><button aria-label={`Connect player ${i + 1}`} disabled={busy || originalBlocked || !canAddManagedFeed(state?.panes.length ?? 0)} onClick={() => connectExisting([p.tabId])}>Connect</button></div>)}
     </section>}
-    {state && !hasMain && !existingPlayers.length && <section className="first-use"><h2>Start watching</h2><p>Press New show. We’ll open YouTube TV and start your last channel, or the first available live channel.</p></section>}
+    {state && !state.panes.length && !existingPlayers.length && <section className="first-use"><h2>Start watching</h2><p>Press New show. We’ll open YouTube TV and start your last channel, or the first available live channel.</p></section>}
     {picker && <section id="content-picker" aria-label="Content picker" className="content-picker"><div className="picker-heading"><h2>{picker === 'add' ? 'Pick a channel' : `Change ${state?.panes.find(p => p.id === picker)?.channelName ?? 'window'}`}</h2><button className="quiet" onClick={() => setPicker(null)}>Cancel picker</button></div>
       {picker === 'add' && <div className="current-content"><small>Add the same content in a muted window. Its position may differ.</small>{state?.panes.map(p => <button key={p.id} disabled={busy || !bridge.duplicatePane || !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0))} onClick={() => void run(async () => { const result = await bridge.duplicatePane!(p.id); if (result.ok) setPicker(null); return result; })}>Add current {feedLabel(p)}</button>)}</div>}
       <label>Search channels or programs<input ref={searchRef} type="search" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <label><input type="checkbox" checked={sports} onChange={e => setSports(e.target.checked)} /> Sports listings</label>
       <p className="guide-status" role="status">{state?.guideSyncStatus === 'loading' ? 'Loading channels automatically…' : state?.guideSyncStatus === 'unavailable' ? 'Channels unavailable. Add current content or open the native guide.' : state?.guideSyncStatus === 'ready' ? 'Channels updated.' : 'Channels will appear when available.'}</p>
-      {state?.guideSyncStatus === 'unavailable' && !state?.guide.some(e => freshLiveTarget(e)) && <><button disabled={busy} onClick={() => void run(bridge.recoverGuide!)}>Open native guide for other channels</button><small>Opening Live changes the original view.</small></>}
+      {bridge.refreshChannels && <button disabled={busy || state?.guideSyncStatus === 'loading'} onClick={() => void run(bridge.refreshChannels!)}>Reload channels</button>}
+      {hasMain && state?.guideSyncStatus === 'unavailable' && !state?.guide.some(e => freshLiveTarget(e)) && <><button disabled={busy} onClick={() => void run(bridge.recoverGuide!)}>Open native guide for other channels</button><small>Opening Live changes the original view.</small></>}
       {sharedTargetReason && <small className="guide-status">{sharedTargetReason.replace('This listing', 'These listings').replace('Saved listing.', 'Saved listings.').replace('Upcoming program.', 'Upcoming programs.').replace('Listing out of date.', 'Listings out of date.')}</small>}
-      <div className="results">{(sports ? sportsRows.map(r => ({ entry: r.entry, title: r.program.title, playable: listingPlayable(r) })) : rows.map(entry => ({ entry, title: entry.programTitle, playable: freshLiveTarget(entry) }))).map((r, i) => <article key={`${r.entry.channel.id}-${i}`}><strong>{r.entry.channel.name}</strong><small>{r.title}</small>{!r.playable && !sharedTargetReason && <small>{targetReason(r.entry) || 'Program unavailable.'}</small>}<button disabled={busy || !hasMain || !r.playable || (picker === 'add' && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)))} onClick={() => void run(async () => {
+      <div className="results">{(sports ? sportsRows.map(r => ({ entry: r.entry, title: r.program.title, playable: listingPlayable(r) })) : rows.map(entry => ({ entry, title: entry.programTitle, playable: freshLiveTarget(entry) }))).map((r, i) => <article key={`${r.entry.channel.id}-${i}`}><strong>{r.entry.channel.name}</strong><small>{r.title}</small>{!r.playable && !sharedTargetReason && <small>{targetReason(r.entry) || 'Program unavailable.'}</small>}<button disabled={busy || (picker === 'add' && !hasMain) || !r.playable || (picker === 'add' && !canAddManagedFeed((state?.panes.length ?? 0) + (state?.pendingFeedCreations ?? 0)))} onClick={() => void run(async () => {
         const result = sports ? await (picker === 'add' ? bridge.addProgram!(r.entry.channel.id, r.title!, r.entry.observedAt) : command({ type: 'REPLACE_PROGRAM', paneId: picker, channelId: r.entry.channel.id, title: r.title!, observedAt: r.entry.observedAt })) : await (picker === 'add' ? bridge.createPane(r.entry.channel.id) : bridge.replacePane(picker, r.entry.channel.id));
         if (result.ok) setPicker(null); return result;
       })}>Choose {r.entry.channel.name}</button></article>)}{!(sports ? sportsRows.length : rows.length) && <p>No available matches yet. Try another search or wait for channels to update.</p>}</div>

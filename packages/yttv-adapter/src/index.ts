@@ -7,6 +7,7 @@ export const SELECTORS = {
   program: 'main h1, main [role="heading"], [role="main"] h1, [role="main"] [role="heading"]',
   playbackControl: 'ytu-player-controls button[aria-label], ytu-player-controls [role="button"][aria-label], ytu-play-pause-button[aria-label], ytu-play-pause-button [aria-label], button.ytp-play-button',
   volumeSlider: 'ytu-player-controls ytu-volume-slider tp-yt-paper-slider[role="slider"]',
+  channelControl: 'ytu-player-controls [role="button"], ytu-player-controls button',
 } as const;
 export const TARGET_MAX_AGE_MS = 30 * 60_000;
 /** Observation age policy shared by presentation and navigation eligibility. */
@@ -42,6 +43,14 @@ function text(node: Element | null): string { return node?.textContent?.trim().r
 function visible(node: Element): boolean {
   const rect = node.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0 && getComputedStyle(node).visibility !== 'hidden';
+}
+// Navigation context parameters do not identify the watched content.
+function watchIdentity(value: string): string | undefined {
+  const safe = navigationUrl(value);
+  if (!safe) return undefined;
+  const url = new URL(safe);
+  url.searchParams.delete('vp'); url.searchParams.delete('vpp'); url.searchParams.sort();
+  return url.href;
 }
 export function parseGuide(document: Document, now = new Date().toISOString()): GuideEntry[] {
   const entries: GuideEntry[] = []; const seen = new Set<string>();
@@ -106,14 +115,16 @@ export function createDOMAdapter(document: Document, options: { ignoreElement?: 
     const player = activeVideo(document);
     let currentChannelId: string | undefined;
     if (route === 'watch') {
-      const labels = [...document.querySelectorAll('[role="button"], button')].filter(visible).map(node =>
+      const labels = [...document.querySelectorAll(SELECTORS.channelControl)].filter(visible).map(node =>
         [node.getAttribute('aria-label')?.trim(), text(node)].filter(Boolean));
       const matched = guide.filter(entry => labels.some(values => values.some(value => normalizeText(value!) === normalizeText(entry.channel.name))));
-      if (matched.length === 1) currentChannelId = matched[0].channel.id;
-      else if (matched.length > 1) {
-        const exact = matched.filter(entry => entry.target?.url === navigationUrl(document.location.href));
-        if (exact.length === 1) currentChannelId = exact[0].channel.id;
-      }
+      const identity = watchIdentity(document.location.href);
+      const exact = guide.filter(entry => freshLiveTarget(entry) && identity && watchIdentity(entry.target!.url) === identity);
+      // A guide/recommendation button elsewhere on the page is not now-playing
+      // evidence. Prefer agreeing player controls and a fresh ordinary watch URL;
+      // conflicting or ambiguous observations remain unknown.
+      if (exact.length === 1 && (!matched.length || matched.some(entry => entry.channel.id === exact[0].channel.id))) currentChannelId = exact[0].channel.id;
+      else if (!exact.length && matched.length === 1 && !freshLiveTarget(matched[0])) currentChannelId = matched[0].channel.id;
     }
     const program = [...document.querySelectorAll(SELECTORS.program)].filter(visible).map(text).find(Boolean);
     return { mainPlayerUnique: [...document.querySelectorAll('video')].filter(visible).length === 1, guide: guide.map(entry => ({ ...entry })), guideObservedAt, currentChannelId, currentProgram: program,

@@ -97,11 +97,12 @@ const guideSync = createGuideSync(chrome, () => notify());
 let remoteGuideRequested = false;
 let expirySyncGeneration: string | undefined;
 const playingSeen = new Set<number>();
-async function syncGuide() {
+async function syncGuide(explicit = false) {
   await init;
-  if (!mainTabId) return;
-  const tab = await chrome.tabs.get(mainTabId).catch(() => undefined);
-  if (tab && (isYTTV(tab.url) || optionalOwner(mainTabId))) await guideSync.request(tab.windowId);
+  for (const tabId of controlledIds()) {
+    const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+    if (tab && (isYTTV(tab.url) || optionalOwner(tabId))) { await guideSync.request(tab.windowId, explicit); return; }
+  }
 }
 const observations = new Map<number, AdapterObservation>();
 const openDrawers = new Set<number>();
@@ -188,7 +189,7 @@ const mixed = createMixedWorkspace({
   preflight: async (count, newOriginal) => {
     if (!managedSessionReadable) return fail('STORAGE_UNAVAILABLE', 'Managed ownership is unavailable.');
     if (newOriginal) { const released = await workspace.releaseClosedOriginal(); if (!released.ok) return released; }
-    return workspace.snapshot().layout === 'auto' ? ok() : workspace.validateLayout(count);
+    return workspace.snapshot(count).layout === 'auto' ? ok() : workspace.validateLayout(count);
   },
   getTab: id => chrome.tabs.get(id),
   create: async () => { const w = await chrome.windows.create({ url: playerStartUrl(chrome), type: 'popup', focused: false, width: 780, height: 520 }); if (!w) throw Error('UNCERTAIN'); return readyPlayerWindow(chrome, w); },
@@ -513,7 +514,7 @@ async function observe(tabId: number, raw: AdapterObservation, preserveAudio = f
     if (clean.route === 'guide' && isGuideSyncURL(tab?.url) && tab?.mutedInfo?.muted === true) {
       guideCatalog.retain(clean.guide);
       await guideMetadata.retain(clean.guide);
-      guideSync.observed(tabId, clean.guide.length ? JSON.stringify(clean.guide) : '');
+      guideSync.observed(tabId, clean.guide.some(entry => freshLiveTarget(entry)) ? JSON.stringify(clean.guide) : '');
       await notify();
     }
     return;
@@ -593,6 +594,14 @@ function guideFor(tabId?: number): GuideEntry[] {
   if (tabId && !sources.some(([id]) => id === tabId) && observations.has(tabId)) sources.push([tabId, observations.get(tabId)!]);
   return guideCatalog.rows(guideMetadata.rows, sources.map(([, source]) => source));
 }
+function observedChannelName(pane: Pane): string {
+  if (optionalOwner(pane.tabId)) return pane.channelName;
+  const observation = observations.get(pane.tabId);
+  const current = observation?.route === 'watch' && observation.guide.find(entry => entry.channel.id === observation.currentChannelId);
+  // Saved/requested channel identity is useful for recovery, but is not a
+  // now-playing label after native channel changes or a lost observation.
+  return current ? current.channel.name : 'Channel unconfirmed';
+}
 async function snapshot(requestingTabId?: number): Promise<DesktopSnapshot> {
   await workspace.ready;
   const tabId = await chooseTab(requestingTabId);
@@ -620,14 +629,14 @@ async function snapshot(requestingTabId?: number): Promise<DesktopSnapshot> {
   const primeVideoCandidates = primeVideoEnabled ? (await chrome.tabs.query({ url: 'https://www.primevideo.com/*' })).filter(t => primeVideoContent(t.url)).slice(0, 50).map(t => ({ tabId: t.id!, label: (t.title || 'Prime Video').slice(0, 150) })) : [];
   const netflixEnabled = await netflix.permitted();
   const netflixCandidates = netflixEnabled ? (await chrome.tabs.query({ url: 'https://www.netflix.com/*' })).filter(t => netflixContent(t.url)).slice(0, 50).map(t => ({ tabId: t.id!, label: (t.title || 'Netflix').slice(0, 150) })) : [];
-  return { netflixEnabled, netflixCandidates, primeVideoEnabled, primeVideoCandidates, youtubeEnabled, youtubeCandidates, mixed: mixed.snapshot(), openingDefaultShow: Boolean(firstStart), openPlayerWindowCount, unassignedPlayers, guideSyncStatus: guideSync.status, originalMissing, originalCandidates, workspace: { ...workspace.snapshot(), enrolled: workspace.snapshot().enrolled && Boolean(tabId) }, pendingFeedCreations: Math.max(0, mixed.capacity() - controlledIds().length), feedLimit: CURRENT_MANAGED_FEED_LIMIT, mode: 'extension', connection: observation ? 'connected' : 'waiting',
+  return { netflixEnabled, netflixCandidates, primeVideoEnabled, primeVideoCandidates, youtubeEnabled, youtubeCandidates, mixed: mixed.snapshot(), openingDefaultShow: Boolean(firstStart), openPlayerWindowCount, unassignedPlayers, guideSyncStatus: guideSync.status, originalMissing, originalCandidates, workspace: { ...workspace.snapshot((tabId ? 1 : 0) + panes.length), enrolled: workspace.snapshot().enrolled && Boolean(tabId) }, pendingFeedCreations: Math.max(0, mixed.capacity() - controlledIds().length), feedLimit: CURRENT_MANAGED_FEED_LIMIT, mode: 'extension', connection: observation ? 'connected' : 'waiting',
     failureDiagnostics: failures.snapshot(), preferencePersistence, guideCacheDiagnostics: guideMetadata.diagnostics,
     guideObservedAt: guide.length ? new Date(Math.max(...guide.map(row => Date.parse(row.observedAt)))).toISOString() : undefined,
     currentConfirmed: Boolean(tabId && confirmedTabs.has(tabId) && observation?.currentChannelId === preferences.currentChannel),
     statusMessage: guideSync.status === 'loading' ? 'Loading channels automatically; current playback stays unchanged.' : guideSync.status === 'unavailable' ? 'Automatic channel loading unavailable. Add current content or use native Live as fallback.' : guide.length && !guide.some(entry => entry.target) ? 'Awaiting fresh native channel data; saved listings cannot authorize navigation.' : guide.length ? 'Observed guide candidates; playback and entitlement are confirmed only after an advancing player is observed. Audio labels describe player and tab routing; listening is a separate check.' : 'Channels load automatically when the remote opens or an owned player starts. Normal playback remains available.',
     currentChannelId: preferences.currentChannel ?? undefined, currentProgram: observation?.currentChannelId === preferences.currentChannel ? observation.currentProgram : undefined,
     playback: { playing: observation?.playback.playing ?? null, ...audioReadback(tabId) }, guide, preferences,
-    panes: [...(tabId ? [await mainPane()] : []), ...orderedAdded()].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, service: optionalOwner(pane.tabId) ? optionalOwner(pane.tabId)!.service : 'yttv' as const, providerCapabilities: optionalOwner(pane.tabId) ? providerFor(pane.tabId).get(pane.tabId)?.observation?.capabilities ?? null : undefined, ...audioReadback(pane.tabId), playbackState: addStarts.has(pane.tabId) || firstStart?.tabId === pane.tabId ? 'loading' : !observations.get(pane.tabId) || observations.get(pane.tabId)?.route !== 'watch' ? 'unavailable' : (observations.get(pane.tabId)?.playback.readyState ?? 0) < 2 ? 'loading' : observations.get(pane.tabId)?.playback.playing === true ? 'playing' : observations.get(pane.tabId)?.playback.playing === false ? 'paused' : 'unavailable', error: playbackErrors.get(pane.tabId)?.reason ?? pane.error })), activePaneId, expandedPaneId, audioFocusId, audioError: [audioError, ...controlledIds().map(id => observations.get(id)?.route === 'watch' ? volumeAttempts.get(id)?.error : undefined)].filter(Boolean).join(' ') || undefined, audioDiagnostics, volumeDiagnostics,
+    panes: [...(tabId ? [await mainPane()] : []), ...orderedAdded()].filter((pane): pane is Pane => Boolean(pane)).map(({ savedBounds: _bounds, ...pane }) => ({ ...pane, channelName: observedChannelName(pane), service: optionalOwner(pane.tabId) ? optionalOwner(pane.tabId)!.service : 'yttv' as const, providerCapabilities: optionalOwner(pane.tabId) ? providerFor(pane.tabId).get(pane.tabId)?.observation?.capabilities ?? null : undefined, ...audioReadback(pane.tabId), playbackState: addStarts.has(pane.tabId) || firstStart?.tabId === pane.tabId ? 'loading' : !observations.get(pane.tabId) || observations.get(pane.tabId)?.route !== 'watch' ? 'unavailable' : (observations.get(pane.tabId)?.playback.readyState ?? 0) < 2 ? 'loading' : observations.get(pane.tabId)?.playback.playing === true ? 'playing' : observations.get(pane.tabId)?.playback.playing === false ? 'paused' : 'unavailable', error: playbackErrors.get(pane.tabId)?.reason ?? pane.error })), activePaneId, expandedPaneId, audioFocusId, audioError: [audioError, ...controlledIds().map(id => observations.get(id)?.route === 'watch' ? volumeAttempts.get(id)?.error : undefined)].filter(Boolean).join(' ') || undefined, audioDiagnostics, volumeDiagnostics,
     volumeRecovery: { savedVolume: volumeChoices.get(tabId!)?.volume ?? null, playerTracked: playerIdentities.has(tabId!), documentBound: Boolean(playerIdentities.get(tabId!)?.documentId), attempts: volumeAttempts.get(tabId!)?.count ?? 0, failure: volumeAttempts.get(tabId!)?.failure, status: volumeRecoveryStatus.get(tabId!) ?? 'No recovery request in this worker' },
     capabilities: { navigation: guide.some(entry => Boolean(entry.target)), guide: guide.length > 0, managedWindows: managedSessionReadable, audio: managedSessionReadable && observation?.playback.muted !== null && observation?.playback.muted !== undefined }, observedAt: observation?.observedAt };
 }
@@ -832,7 +841,7 @@ async function createPane(channelId: string, currentContent?: GuideEntry, source
   if (!mainTabId) return fail('MAIN_UNAVAILABLE', 'Select the original player explicitly before adding feeds.');
   // runManaged reserves pending creations by serializing the capacity check through completion/cleanup.
   if (!canAddManagedFeed(mixed.capacity())) return fail('SESSION_BOUND', 'Four total managed feeds are the software limit. Close an added feed first; account playback allowance is separate.');
-  if (workspace.snapshot().layout !== 'auto') {
+  if (workspace.snapshot(mixed.capacity() + 1).layout !== 'auto') {
     const placement = await workspace.validateLayout(mixed.capacity() + 1);
     if (!placement.ok) return placement;
   }
@@ -1020,7 +1029,7 @@ async function moveOriginal(returning: boolean, arrangeAfter = true): Promise<Ac
 async function applyWorkspaceLayout(): Promise<ActionResult> {
   if (pendingFeedCreations || firstStart) return fail('PLAYERS_PENDING', 'Wait for the new show to finish opening.');
   const checked = await workspace.validatePlayers(); if (!checked.ok) return checked;
-  if (!workspace.snapshot().enrolled) { const enrolled = await moveOriginal(false, false); if (!enrolled.ok) return enrolled; }
+  if (mainTabId && !workspace.snapshot().enrolled) { const enrolled = await moveOriginal(false, false); if (!enrolled.ok) return enrolled; }
   const result = await workspace.arrange();
   if (result.ok) { expandedPaneId = undefined; await saveControlIdentity(); }
   return result;
@@ -1356,6 +1365,7 @@ async function handle(command: Command, sender: chrome.runtime.MessageSender): P
       }
     }); }
 
+    case 'REFRESH_CHANNELS': await refreshObservations(); await syncGuide(true); await notify(); return guideSync.status === 'unavailable' ? fail('GUIDE_UNAVAILABLE', 'Channels could not be loaded. Retry or use the native guide.') : ok('Loading channels.');
     case 'REFRESH': await refreshObservations(); void syncGuide().catch(() => failures.record('GUIDE_SYNC_FAILED')); await notify(); return ok('Refreshed observable player and guide state.');
     default: return fail('UNSUPPORTED', 'This operation is unavailable.');
   }

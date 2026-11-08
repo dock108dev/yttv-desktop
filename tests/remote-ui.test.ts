@@ -27,6 +27,13 @@ test('New show is available from an empty remote and reflects startup and the fo
     state.openingDefaultShow = true; await api.act(async () => listener()); assert.equal(button('Opening…').disabled, true);
     state.openingDefaultShow = false; state.panes = [{ id: 'main', isMain: true, channelId: 'yttv:cbs', channelName: 'CBS', muted: true }]; await api.act(async () => listener());
     assert.equal(button('New show').disabled, false); assert(button('Pick a channel'));
+    state.panes = [2, 3, 4].map(n => ({ id: `pane-${n}`, isMain: false, feedNumber: n, channelId: 'yttv:cbs', channelName: 'CBS', muted: true }));
+    await api.act(async () => listener());
+    assert.equal(window.document.querySelector('.window-count')!.textContent, '3 connected');
+    assert.equal(window.document.querySelector('.window-count')!.getAttribute('title'), 'Up to 4 players');
+    assert.deepEqual([...window.document.querySelectorAll('.player-state')].map(node => node.textContent!.split(' · ')[0]), ['Window 1', 'Window 2', 'Window 3']);
+    assert.equal(window.document.querySelector('.first-use'), null, 'surviving players must not show empty-remote instructions');
+    assert.equal(button('New show').disabled, false);
     state.panes = Array.from({ length: 4 }, (_, i) => ({ ...state.panes[0], id: i === 0 ? 'main' : `pane-${i}`, isMain: i === 0 }));
     await api.act(async () => listener()); assert.equal(button('New show').disabled, true);
   } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
@@ -49,7 +56,7 @@ test('compact remote reconnects snapshot, separates focus/audio, searches with k
   const click = async (text: string) => { const button = [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!; assert(button); await api.act(async () => button.click()); };
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    assert.match(window.document.body.textContent!, /1 \/ 4 connected/); assert.equal(commands.length, 0);
+    assert.match(window.document.body.textContent!, /1 connected/); assert.equal(commands.length, 0);
     await click('Focus'); assert.deepEqual(calls, ['focus:main']); await click('Pick a channel');
     const search = window.document.querySelector('input[type=search]')!;
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'nonmatching channel');
@@ -316,7 +323,7 @@ test('interrupted opening is recoverable above collapsed extras and does not cou
   const button = (text: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === text)!;
   try {
     await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
-    assert.equal(window.document.querySelector('.window-count')!.textContent, '0 / 4 connected · 2 found');
+    assert.equal(window.document.querySelector('.window-count')!.textContent, '0 connected · 2 found');
     assert.equal((window.document.querySelector('.queue-tools') as any).open, false);
     assert.equal(window.document.querySelector('[aria-label="Existing windows"]'), null, 'no duplicate disabled connection list');
     const recovery = window.document.querySelector('.launch-recovery')!;
@@ -379,4 +386,44 @@ test('remote automatically detects on mount, reports failure without a retry loo
     const retry=[...window.document.querySelectorAll('button')].find(b=>b.textContent==='Retry detection')!;
     await api.act(async()=>retry.click());assert.equal(calls,2);assert.equal(granted,1);assert.doesNotMatch(window.document.body.textContent!,/Five players found/);
   }finally{await api.act(async()=>dispose());await window.happyDOM.abort()}
+});
+
+test('surviving players can load and change channels and Arrange uses the saved setup without reopening the editor', async () => {
+  const window = new Window({ url: 'http://127.0.0.1/', settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true } });
+  Object.defineProperty(window, 'MessageChannel', { value: class { port1 = { onmessage: null as null | (() => void) }; port2 = { postMessage: () => window.setTimeout(() => this.port1.onmessage?.(), 0) }; } });
+  window.console.timeStamp = () => {};
+  window.eval(`${(await bundle).outputFiles[0].text}\nwindow.RemoteUI = RemoteUI;`); window.document.body.innerHTML = '<div id="test-root"></div>';
+  const api = (window as any).RemoteUI, bridge = createDemoBridge(), base = await bridge.getSnapshot();
+  const work = { left: 0, top: 0, width: 1920, height: 1080 };
+  const saved = areaIntent(work, { ...work, width: 1700 }, false, 'monitor')!;
+  let state: typeof base = { ...base, mode: 'extension', guide: [], panes: [2, 3, 4].map(n => ({ id: `pane-${n}`, channelId: 'yttv:espn', channelName: 'ESPN', muted: true })),
+    workspace: { ...base.workspace!, intent: null, enrolled: false, savedLayouts: { 3: { mode: 'top-bottom', intent: saved } } } };
+  let listener = () => {}, dispose = () => {}, loads = 0;
+  const commands: any[] = [], replacements: unknown[] = [];
+  (window as any).chrome = { runtime: { sendMessage: async (command: any) => { commands.push(command); return { ok: true }; } }, permissions: { contains: async () => true }, system: { display: { getInfo: async () => [{ id: 'monitor', name: 'Monitor', workArea: work }] } } };
+  bridge.getSnapshot = () => structuredClone(state); bridge.subscribe = fn => { listener = fn; return () => {}; };
+  bridge.refresh = async () => { listener(); return { ok: true }; };
+  bridge.refreshChannels = async () => { loads++; state.guideSyncStatus = 'loading'; listener(); return { ok: true }; };
+  bridge.replacePane = async (paneId, channelId) => { replacements.push([paneId, channelId]); return { ok: true }; };
+  const button = (name: string) => [...window.document.querySelectorAll('button')].find(b => b.textContent === name)!;
+  try {
+    await api.act(async () => { dispose = api.mountRemote(window.document.getElementById('test-root'), bridge); });
+    await api.act(async () => button('Arrange shows').click());
+    assert.deepEqual(commands.map(c => c.type), ['APPLY_LAYOUT']); assert.equal(window.document.querySelector('[role=dialog]'), null);
+    assert.equal(button('Save current positions').disabled, false);
+    await api.act(async () => button('Set TV area').click());
+    assert.equal((window.document.querySelector('select[aria-label="Show layout"]') as any).value, 'top-bottom');
+    assert.equal((window.document.querySelector('select[aria-label="Number of shows"]') as any).value, '3');
+    await api.act(async () => button('Cancel').click());
+    await api.act(async () => button('Channel').click());
+    assert.equal(loads, 1); assert.equal(button('Reload channels').disabled, true);
+    const now = new Date().toISOString();
+    state.guide = [{ channel: { id: 'yttv:espn', name: 'ESPN' }, evidenceClass: 'LIVE', available: true, observedAt: now,
+      target: { kind: 'navigation', channelId: 'yttv:espn', url: 'https://tv.youtube.com/watch?v=espn', evidenceClass: 'LIVE', verifiedAt: now } }];
+    state.guideSyncStatus = 'ready'; await api.act(async () => listener());
+    assert.equal(button('Choose ESPN').disabled, false);
+    await api.act(async () => button('Choose ESPN').click()); assert.deepEqual(replacements, [['pane-2', 'yttv:espn']]);
+    await api.act(async () => button('Channel').click()); assert.equal(loads, 1, 'opening a fresh list does not force another discovery');
+    await api.act(async () => button('Reload channels').click()); assert.equal(loads, 2);
+  } finally { await api.act(async () => dispose()); await window.happyDOM.abort(); }
 });

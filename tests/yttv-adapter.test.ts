@@ -64,6 +64,36 @@ test('unknown channel dispatch fails explicitly without navigation', async () =>
   assert.equal(window.location.pathname, '/live'); adapter.dispose(); window.happyDOM.abort();
 });
 
+test('now-playing identity ignores unrelated channel buttons and follows the watch target', async () => {
+  const window = fixtureWindow();
+  const native = parseGuide(window.document as unknown as Document)[0];
+  const entries = ['ESPN', 'NBC 4'].map((name, i) => ({ ...native, channel: { id: stableChannelId(name), name },
+    target: { ...native.target!, channelId: stableChannelId(name), url: `https://tv.youtube.com/watch?v=${i ? 'nbc' : 'espn'}&vp=guide` } }));
+  window.location.href = 'https://tv.youtube.com/watch?v=espn&vp=player';
+  window.document.body.innerHTML = '<video></video><button>NBC 4</button><ytu-player-controls></ytu-player-controls>';
+  const controls = window.document.querySelector('ytu-player-controls')!;
+  const showButtons = () => { for (const button of window.document.querySelectorAll('button')) button.getBoundingClientRect = () => new window.DOMRect(0, 0, 100, 30); };
+  showButtons();
+  const adapter = createDOMAdapter(window.document as unknown as Document);
+  try {
+    adapter.seedGuide(entries);
+    assert.equal(adapter.getObservation().currentChannelId, 'yttv:espn', 'unrelated NBC button cannot override the watched ESPN target');
+    window.location.href = 'https://tv.youtube.com/watch?v=unknown';
+    assert.equal(adapter.getObservation().currentChannelId, undefined, 'a lone unrelated channel button cannot identify the player');
+    window.location.href = 'https://tv.youtube.com/watch?v=espn';
+    controls.innerHTML = '<button>NBC 4</button>'; showButtons();
+    assert.equal(adapter.getObservation().currentChannelId, undefined, 'conflicting player label and URL stay unconfirmed');
+    controls.innerHTML = '<button>ESPN</button>'; showButtons();
+    assert.equal(adapter.getObservation().currentChannelId, 'yttv:espn');
+    window.location.href = 'https://tv.youtube.com/watch?v=nbc';
+    controls.innerHTML = '<button>NBC 4</button>'; showButtons();
+    assert.equal(adapter.getObservation().currentChannelId, 'yttv:nbc-4', 'native channel changes replace the label');
+    adapter.seedGuide([{ ...entries[0], channel: { id: 'yttv:espn:alternate', name: 'ESPN' }, target: { ...entries[0].target, channelId: 'yttv:espn:alternate' } }]);
+    window.location.href = 'https://tv.youtube.com/watch?v=espn'; controls.innerHTML = '';
+    assert.equal(adapter.getObservation().currentChannelId, undefined, 'a shared watch target cannot choose a channel');
+  } finally { adapter.dispose(); await window.happyDOM.abort(); }
+});
+
 test('adapter rejects disposed, fixture, malformed and stale targets; no-player mute is unavailable', async () => {
   const window = fixtureWindow(); const adapter = createDOMAdapter(window.document as unknown as Document);
   const entry = parseGuide(window.document as unknown as Document)[0];

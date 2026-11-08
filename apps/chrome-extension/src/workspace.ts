@@ -21,6 +21,7 @@ function bounds(w: chrome.windows.Window): Rect {
 export function createWorkspace(api: typeof chrome, players: () => Promise<Player[]>, report: (code: FailureCode) => void = () => {}) {
   let available = true;
   let layout = sanitizeWorkspaceLayout(null);
+  let fallback: { intent: AreaIntent | null; mode: LayoutMode } = { intent: null, mode: 'auto' };
   let intent: AreaIntent | null = null, origin: Origin | undefined, remoteId: number | undefined;
   let notice = 'Choose This screen or a monitor, then Start TV workspace.';
   let actual: { id: string; bounds: Rect }[] = [];
@@ -30,6 +31,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
   const ready = (async () => {
     intent = readIntent((await api.storage.local.get(AREA_KEY))[AREA_KEY]);
     layout = sanitizeWorkspaceLayout((await api.storage.local.get(WORKSPACE_LAYOUT_KEY))[WORKSPACE_LAYOUT_KEY]);
+    fallback = { intent, mode: layout.mode };
     const session = await recoveredSession(api, [RETURN_KEY, REMOTE_KEY, EXPANDED_KEY, PLACEMENT_KEY]);
     const raw = session[RETURN_KEY] as Origin;
     if (raw && Number.isInteger(raw.tabId) && Number.isInteger(raw.windowId) && Number.isInteger(raw.index) && raw.index >= 0 && typeof raw.pinned === 'boolean' && validRect(raw.bounds) && (raw.dedicatedWindowId === undefined || Number.isInteger(raw.dedicatedWindowId))) {
@@ -52,24 +54,24 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
     if (tabs.length !== 1 || tabs[0].id !== p.tabId) throw new Error(p.id === 'main' ? 'Original player shares an owner window. Use Start TV workspace.' : 'Player shares a window with other tabs. Move it to its own Chrome window before arranging, or use native positioning.');
     if (p.id === 'main' && (origin?.tabId !== p.tabId || origin.dedicatedWindowId !== p.windowId)) throw new Error('Original player is not enrolled. Use Start TV workspace.');
   }
-  async function currentArea(mode = layout.mode): Promise<Rect | null> {
-    if (!intent) { notice = 'Choose a TV area first.'; return null; }
-    if (mode !== 'auto' && !intent.displayId) { notice = 'Choose monitor and confirm your TV rectangle for this layout. Native positioning remains available.'; return null; }
-    if (intent.displayId) {
+  async function currentArea(mode = layout.mode, selectedIntent = intent): Promise<Rect | null> {
+    if (!selectedIntent) { notice = 'Choose a TV area first.'; return null; }
+    if (mode !== 'auto' && !selectedIntent.displayId) { notice = 'Choose monitor and confirm your TV rectangle for this layout. Native positioning remains available.'; return null; }
+    if (selectedIntent.displayId) {
       let displays: chrome.system.display.DisplayUnitInfo[] = [];
       try { if (await api.permissions.contains({ permissions: ['system.display'] })) displays = await api.system.display.getInfo(); } catch { /* fallback below */ }
-      const display = displays.find(d => d.id === intent!.displayId);
+      const display = displays.find(d => d.id === selectedIntent!.displayId);
       if (!display || !validRect(display.workArea)) {
         if (mode !== 'auto') { notice = 'Saved monitor or monitor access unavailable. Choose monitor and reselect the TV area; players remain unchanged. Use native positioning meanwhile.'; return null; }
         const fallback = displays.find(d => validRect(d.workArea));
-        if (fallback) { notice = 'Selected monitor disconnected. Recovered placement on an available monitor; choose and Apply a new TV area.'; return resolveArea(intent, fallback.workArea); }
+        if (fallback) { notice = 'Selected monitor disconnected. Recovered placement on an available monitor; choose and Apply a new TV area.'; return resolveArea(selectedIntent, fallback.workArea); }
         notice = 'Selected monitor is unavailable. Choose This screen to recover placement; players remain unchanged.';
         return null;
       }
-      if (mode !== 'auto' && (['left', 'top', 'width', 'height'] as const).some(k => display.workArea[k] !== intent!.workArea[k])) { notice = 'Saved monitor work area changed. Reselect and confirm the TV area before arranging; players remain unchanged.'; return null; }
-      return resolveArea(intent, display.workArea);
+      if (mode !== 'auto' && (['left', 'top', 'width', 'height'] as const).some(k => display.workArea[k] !== selectedIntent!.workArea[k])) { notice = 'Saved monitor work area changed. Reselect and confirm the TV area before arranging; players remain unchanged.'; return null; }
+      return resolveArea(selectedIntent, display.workArea);
     }
-    return resolveArea(intent);
+    return resolveArea(selectedIntent);
   }
   async function focusRemote() {
     if (!remoteId) return;
@@ -111,10 +113,14 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       if (keepRemote) await focusRemote();
     }
   }
+  function activateSavedLayout(count: number) {
+    const saved = layout.savedLayouts?.[count] ?? fallback;
+    if (saved.intent) { intent = { ...saved.intent, autoArrange: intent?.autoArrange ?? saved.intent.autoArrange }; layout = { ...layout, mode: saved.mode }; }
+  }
   async function arrange() {
     await ready; if (!available) return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.');
+    const rows = await players(); activateSavedLayout(rows.length);
     const area = await currentArea(); if (!area) return failure('AREA_UNAVAILABLE', notice);
-    const rows = await players();
     if (!rows.length) { notice = 'No managed players remain. Choose an existing player in the remote to start a new workspace.'; return failure('PLAYERS_UNAVAILABLE', notice); }
     const plan = planLayout(area, rows.length, 8, layout.mode, layout.customLayouts?.[rows.length]);
     if (!plan.ok) { notice = plan.reason; return failure('AREA_TOO_SMALL', notice); }
@@ -124,13 +130,15 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
   }
   async function validateLayout(count: number) {
     await ready; if (!available) return failure('STORAGE_UNAVAILABLE', notice);
-    const area = await currentArea(); if (!area) return failure('AREA_UNAVAILABLE', notice);
-    const plan = planLayout(area, count, 8, layout.mode, layout.customLayouts?.[count]);
+    const saved = layout.savedLayouts?.[count] ?? fallback, mode = saved.mode;
+    const area = await currentArea(mode, saved.intent); if (!area) return failure('AREA_UNAVAILABLE', notice);
+    const plan = planLayout(area, count, 8, mode, layout.customLayouts?.[count]);
     return plan.ok ? success('Saved area and layout ready.') : failure('AREA_TOO_SMALL', plan.reason);
   }
   async function restore() {
     await ready; if (!available) return failure('STORAGE_UNAVAILABLE', notice);
     if (!expanded) return success('No expanded arrangement to restore.');
+    activateSavedLayout(expanded.players.length);
     if (layout.mode !== 'auto' && !await currentArea()) return failure('AREA_UNAVAILABLE', notice);
     const saved = expanded;
     const live = await players();
@@ -151,7 +159,12 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       const tab = await api.tabs.get(tabId).catch(() => undefined);
       return tab?.windowId === remoteId && tab?.url === api.runtime.getURL('remote.html');
     },
-    snapshot: () => ({ layout: layout.mode, customLayouts: layout.customLayouts, available, intent, enrolled: Boolean(origin), notice, actual, expanded: Boolean(expanded) }),
+    snapshot: (count?: number) => {
+      const selected = count ? layout.savedLayouts?.[count] ?? fallback : { mode: layout.mode, intent };
+      return { savedLayouts: layout.savedLayouts, layout: selected.mode, customLayouts: layout.customLayouts, available,
+        intent: selected.intent ? { ...selected.intent, autoArrange: intent?.autoArrange ?? selected.intent.autoArrange } : null,
+        enrolled: Boolean(origin), notice, actual, expanded: Boolean(expanded) };
+    },
     async releaseClosedOriginal() {
       await ready;
       if (!available) return failure('STORAGE_UNAVAILABLE', notice);
@@ -205,23 +218,25 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       const previewCount = plannedCount ?? customSlots?.length ?? Math.max(1, count);
       const plan = planLayout(resolveArea(next), previewCount, 8, mode, customSlots ?? layout.customLayouts?.[previewCount]);
       if (!plan.ok) return failure('AREA_TOO_SMALL', plan.reason);
-      const prior = intent, priorLayout = layout;
-      const nextLayout = sanitizeWorkspaceLayout({ ...layout, version: 1, mode, ...(customSlots ? { customLayouts: { ...layout.customLayouts, [customSlots.length]: customSlots } } : {}) });
-      await api.storage.local.set({ [AREA_KEY]: next, [WORKSPACE_LAYOUT_KEY]: nextLayout }); intent = next; layout = nextLayout;
+      const prior = intent, priorLayout = layout, priorFallback = fallback;
+      const savedLayouts = { ...layout.savedLayouts };
+      if (intent && isManagedFeedCount(count) && !savedLayouts[count]) savedLayouts[count] = { mode: layout.mode, intent };
+      savedLayouts[previewCount] = { mode, intent: next };
+      const nextLayout = sanitizeWorkspaceLayout({ ...layout, savedLayouts, version: 1, mode, ...(customSlots ? { customLayouts: { ...layout.customLayouts, [customSlots.length]: customSlots } } : {}) });
+      await api.storage.local.set({ [AREA_KEY]: next, [WORKSPACE_LAYOUT_KEY]: nextLayout }); intent = next; layout = nextLayout; fallback = { intent: next, mode };
       notice = 'TV area saved. Only enrolled player windows will move.';
-      const currentPlan = count ? planLayout(resolveArea(next), count, 8, mode, nextLayout.customLayouts?.[count]) : undefined;
-      if (!count || (previewCount !== count && !currentPlan?.ok)) {
-        notice = !count ? `Layout saved for ${previewCount} shows. Use New show or Connect when ready.` : `Layout saved for ${previewCount} shows. The current ${count} shows do not fit; add or remove shows, or choose another layout, then Arrange shows.`;
+      if (!count || previewCount !== count) {
+        notice = !count ? `Layout saved for ${previewCount} shows. Use New show or Connect when ready.` : `Layout saved for ${previewCount} shows. Use Arrange shows when you have ${previewCount} connected.`;
         return { ...success(notice), code: 'LAYOUT_SAVED' };
       }
-      if (origin && intent.autoArrange) { const result = await arrange(); if (!result.ok) { await api.storage.local.set({ [AREA_KEY]: prior, [WORKSPACE_LAYOUT_KEY]: priorLayout }); intent = prior; layout = priorLayout; } return result; } return success(notice);
+      if (origin && intent.autoArrange) { const result = await arrange(); if (!result.ok) { await api.storage.local.set({ [AREA_KEY]: priorFallback.intent, [WORKSPACE_LAYOUT_KEY]: { ...priorLayout, mode: priorFallback.mode } }); intent = prior; layout = priorLayout; fallback = priorFallback; } return result; } return success(notice);
     },
     async saveCurrentPositions() {
       await ready;
       if (!available) return failure('STORAGE_UNAVAILABLE', 'Saved layouts are unavailable; current windows remain unchanged.');
       if (expanded) return failure('EXPANDED', 'Restore the expanded player before saving positions.');
       const rows = await players(), main = rows.find(p => p.id === 'main');
-      if (!main || !isManagedFeedCount(rows.length)) return failure('PLAYERS_UNAVAILABLE', 'Connect your existing players first.');
+      if (!isManagedFeedCount(rows.length)) return failure('PLAYERS_UNAVAILABLE', 'Connect your existing players first.');
       if (!await api.permissions.contains({ permissions: ['system.display'] })) return failure('DISPLAY_PERMISSION', 'Allow monitor access to save current positions.');
       try {
         const capture = async () => {
@@ -244,33 +259,35 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
         const plan = planLayout(display.workArea, rows.length, 8, 'custom', slots);
         if (!plan.ok) return failure('INVALID_AREA', plan.reason);
         const nextIntent = areaIntent(display.workArea, display.workArea, false, display.id)!;
-        const nextLayout = sanitizeWorkspaceLayout({ ...layout, version: 1, mode: 'custom', customLayouts: { ...layout.customLayouts, [rows.length]: slots } });
+        const nextLayout = sanitizeWorkspaceLayout({ ...layout, version: 1, mode: 'custom', savedLayouts: { ...layout.savedLayouts, [rows.length]: { mode: 'custom', intent: nextIntent } }, customLayouts: { ...layout.customLayouts, [rows.length]: slots } });
         const original = captured.find(r => r.player.id === 'main')!;
-        if (origin && origin.tabId !== main.tabId) return failure('MAIN_CHANGED', 'The original player changed. Reconnect it before saving positions.');
-        const nextOrigin: Origin = origin ? { ...origin, dedicatedWindowId: main.windowId } : { tabId: main.tabId, windowId: main.windowId, index: original.tab.index, pinned: original.tab.pinned, bounds: original.rect, dedicatedWindowId: main.windowId };
+        if (main && origin && origin.tabId !== main.tabId) return failure('MAIN_CHANGED', 'The original player changed. Reconnect it before saving positions.');
+        const nextOrigin: Origin | undefined = !main ? origin : origin ? { ...origin, dedicatedWindowId: main.windowId } : { tabId: main.tabId, windowId: main.windowId, index: original.tab.index, pinned: original.tab.pinned, bounds: original.rect, dedicatedWindowId: main.windowId };
         // Recheck identities and bounds before saving; saving never moves or focuses a window.
         if (JSON.stringify(await capture()) !== JSON.stringify(captured)) return failure('PLAYER_MOVED', 'A player moved while saving. Try Save current positions again.');
         const nextPlacement = captured.map(r => ({ player: r.player, rect: r.rect }));
-        const prior = { intent, layout, origin, placement };
+        const prior = { intent, layout, origin, placement, fallback };
         try {
           await api.storage.local.set({ [AREA_KEY]: nextIntent, [WORKSPACE_LAYOUT_KEY]: nextLayout });
-          await saveWorkspaceSession(api, { [RETURN_KEY]: nextOrigin, [PLACEMENT_KEY]: nextPlacement });
+          await saveWorkspaceSession(api, { [RETURN_KEY]: nextOrigin ?? null, [PLACEMENT_KEY]: nextPlacement });
         } catch {
           try {
-            await api.storage.local.set({ [AREA_KEY]: prior.intent, [WORKSPACE_LAYOUT_KEY]: prior.layout });
+            await api.storage.local.set({ [AREA_KEY]: prior.fallback.intent, [WORKSPACE_LAYOUT_KEY]: { ...prior.layout, mode: prior.fallback.mode } });
             await saveWorkspaceSession(api, { [RETURN_KEY]: prior.origin ?? null, [PLACEMENT_KEY]: prior.placement });
           } catch { available = false; }
           return failure('SAVE_FAILED', 'Positions could not be saved. Current windows were not changed.');
         }
-        intent = nextIntent; layout = nextLayout; origin = nextOrigin; placement = nextPlacement;
+        intent = nextIntent; layout = nextLayout; fallback = { intent: nextIntent, mode: 'custom' }; origin = nextOrigin; placement = nextPlacement;
         actual = captured.map(r => ({ id: r.player.id, bounds: r.rect }));
         notice = 'Current positions saved. Arrange shows restores this arrangement; automatic arrangement is off.';
         return success(notice);
       } catch (error) { return failure('PLAYER_UNAVAILABLE', error instanceof Error ? error.message : 'Current positions unavailable.'); }
     },
     async validatePlayers() {
+      await ready;
       const rows = await players();
-      if (!isManagedFeedCount(rows.length) || !rows.some(p => p.id === 'main')) return failure('PLAYERS_UNAVAILABLE', 'Connect one to four shows first.');
+      if (!isManagedFeedCount(rows.length)) return failure('PLAYERS_UNAVAILABLE', 'Connect one to four shows first.');
+      activateSavedLayout(rows.length);
       const checked = await validateLayout(rows.length); if (!checked.ok) return checked;
       try { for (const p of rows) if (p.id !== 'main' || origin) await dedicated(p); }
       catch (error) { return failure('PLAYER_MOVED', error instanceof Error ? error.message : 'Use native positioning.'); }
@@ -279,7 +296,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
     async setAuto(enabled: boolean) {
       await ready; if (!available) return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.'); if (!intent) return failure('AREA_UNAVAILABLE', 'Choose a TV area first.');
       if (enabled && origin && layout.mode !== 'auto') { const checked = await validateLayout((await players()).length); if (!checked.ok) return checked; }
-      const next = { ...intent, autoArrange: enabled }; await api.storage.local.set({ [AREA_KEY]: next }); intent = next;
+      const next = { ...intent, autoArrange: enabled }, nextFallback = { ...fallback.intent!, autoArrange: enabled }; await api.storage.local.set({ [AREA_KEY]: nextFallback }); intent = next; fallback = { ...fallback, intent: nextFallback };
       return enabled && origin ? arrange() : success('Manual positioning enabled. Arrange now still works.');
     },
     async enroll(arrangeAfter = true) {
@@ -329,7 +346,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
         if (!prior) continue;
         const live = bounds(await api.windows.get(row.windowId));
         if (!contains(prior.rect, live, 2) || !contains(live, prior.rect, 2)) {
-          const next = { ...intent, autoArrange: false }; await api.storage.local.set({ [AREA_KEY]: next }); intent = next;
+          const next = { ...intent, autoArrange: false }, nextFallback = { ...fallback.intent!, autoArrange: false }; await api.storage.local.set({ [AREA_KEY]: nextFallback }); intent = next; fallback = { ...fallback, intent: nextFallback };
           notice = 'Manual window positions preserved. Auto arrange is off; use Arrange now or enable Auto arrange to reflow.';
           return success(notice);
         }
@@ -337,7 +354,7 @@ export function createWorkspace(api: typeof chrome, players: () => Promise<Playe
       return arrange();
     } return success('Manual positions preserved.'); },
     async expand(id: string) {
-      await ready; if (!available) return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.'); const area = await currentArea(); if (!area) return failure('AREA_UNAVAILABLE', notice);
+      await ready; if (!available) return failure('STORAGE_UNAVAILABLE', 'Workspace records unavailable; preserved for recovery. Use native controls.'); activateSavedLayout((await players()).length); const area = await currentArea(); if (!area) return failure('AREA_UNAVAILABLE', notice);
       if (expanded) { const result = await restore(); if (!result.ok) return result; }
       const rows = await players(), p = rows.find(p => p.id === id); if (!p) return failure('PANE_UNAVAILABLE', 'Player unavailable.');
       const saved: Rect[] = []; for (const row of rows) { await dedicated(row); saved.push(bounds(await api.windows.get(row.windowId))); }

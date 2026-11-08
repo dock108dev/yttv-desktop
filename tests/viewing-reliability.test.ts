@@ -2,6 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './helpers/viewing-worker';
 
+test('remote labels follow each observed channel and never retain a requested channel as now playing', async () => {
+  const h = await harness(); await h.observe(); await h.observe();
+  await h.send({ type: 'CREATE_PANE', channelId: 'yttv:cbs' }); await h.observe(2);
+  const before = h.log.length;
+  for (const tabId of [1, 2]) {
+    const raw = h.observation(tabId);
+    raw.currentChannelId = undefined as any;
+    await h.observe(tabId, raw);
+  }
+  let state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.deepEqual(Array.from(state.panes, (p: any) => p.channelName), ['Channel unconfirmed', 'Channel unconfirmed']);
+  assert.equal(state.panes.length, 2, 'unknown channel identity does not lose ownership or free capacity');
+  for (const tabId of [1, 2]) {
+    const raw = h.observation(tabId);
+    raw.currentChannelId = 'yttv:espn';
+    raw.guide.push({ ...raw.guide[0], channel: { id: 'yttv:espn', name: 'ESPN' }, target: { ...raw.guide[0].target, channelId: 'yttv:espn', url: 'https://tv.youtube.com/watch?v=espn' } });
+    await h.observe(tabId, raw);
+  }
+  state = await h.send({ type: 'GET_SNAPSHOT' });
+  assert.deepEqual(Array.from(state.panes, (p: any) => p.channelName), ['ESPN', 'ESPN']);
+  assert.equal(h.log.slice(before).some(row => row.type === 'player' || row.type === 'tab' || row.type === 'playback'), false, 'label reconciliation leaves audio and navigation untouched');
+});
+
 test('explicit volume survives a ready replacement without enabling a deliberately muted tab', async () => {
   const h = await harness(); await h.observe(); await h.send({ type: 'AUDIO', volume: .37 }); await h.send({ type: 'MUTE' });
   h.replacement(); h.players.get(1).readyState = 0; const before = h.log.length; await h.observe();

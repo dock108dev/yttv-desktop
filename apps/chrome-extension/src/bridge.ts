@@ -66,6 +66,7 @@ export function createClientBridge(lifecycle: ExtensionLifecycle = createExtensi
     duplicatePane: paneId => request({ type: 'DUPLICATE_PANE', paneId }),
     setPlayback: (paneId, playing) => request({ type: 'PLAYBACK', paneId, playing }),
     mute: () => request({ type: 'MUTE' }),
+    refreshChannels: async () => { const result = await request({ type: 'REFRESH_CHANNELS' }); await refresh(); return result; },
     refresh: async () => { const result = await request({ type: 'REFRESH' }); await refresh(); return result; },
   };
 }
