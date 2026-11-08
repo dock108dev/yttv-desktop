@@ -57,6 +57,24 @@ test('fresh guide uses only its first current-program link when thumbnails have 
     assert.equal(parseGuide(window.document as unknown as Document)[0].target, null);
   } finally { window.happyDOM.abort(); }
 });
+test('guide links for the same program accept different navigation context but reject different content', () => {
+  const window = fixtureWindow();
+  try {
+    const thumbnail = window.document.querySelector('ytu-endpoint.tenx-thumb a')!;
+    const current = window.document.querySelector('.airings a')!;
+    for (const path of ['/watch?v=cbs', '/watch/cbs']) {
+      thumbnail.setAttribute('href', `${path}${path.includes('?') ? '&' : '?'}vp=thumbnail&vpp=guide`);
+      current.setAttribute('href', `${path}${path.includes('?') ? '&' : '?'}vpp=airing&vp=program`);
+      const entry = parseGuide(window.document as unknown as Document)[0];
+      assert.equal(entry.available, true);
+      assert.equal(entry.target?.url, new URL(thumbnail.getAttribute('href')!, window.location.href).href, 'retain the exact observed navigation link');
+      current.setAttribute('href', '/watch?v=different');
+      assert.equal(parseGuide(window.document as unknown as Document)[0].target, null);
+      current.setAttribute('href', '/browse/upcoming');
+      assert.equal(parseGuide(window.document as unknown as Document)[0].target, null);
+    }
+  } finally { window.happyDOM.abort(); }
+});
 test('unknown channel dispatch fails explicitly without navigation', async () => {
   const window = fixtureWindow(); const adapter = createDOMAdapter(window.document as unknown as Document);
   adapter.getObservation(); const result = await adapter.navigateToChannel('yttv:unknown');

@@ -79,7 +79,7 @@ export function parseGuide(document: Document, now = new Date().toISOString()): 
     const currentHref = row.querySelector(`${SELECTORS.airings} a`)?.getAttribute('href');
     const currentUrl = currentHref ? navigationUrl(currentHref, document.location?.href) : null;
     const thumbUrl = href ? navigationUrl(href, document.location?.href) : null;
-    const ambiguous = Boolean(currentHref && (!currentUrl || (thumbUrl && thumbUrl !== currentUrl)));
+    const ambiguous = Boolean(currentHref && (!currentUrl || (thumbUrl && watchIdentity(thumbUrl) !== watchIdentity(currentUrl))));
     const url = programs[0]?.context === 'UPCOMING' || ambiguous ? null : (href ? navigationUrl(href, document.location?.href) : null) ??
       (currentHref ? navigationUrl(currentHref, document.location?.href) : null);
     const target: PlaybackTarget | null = url ? { kind: 'navigation', channelId, url, verifiedAt: now, evidenceClass: 'LIVE' } : null;
